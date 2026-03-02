@@ -1,3 +1,6 @@
+const dns = require('node:dns');
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -5,23 +8,23 @@ const helmet = require('helmet');
 const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
 connectDB();
 
-const adminRoutes = require('./routes/adminRoutes');
-app.use('/api/admin', adminRoutes);
 
 app.use(express.json());
-
 app.use(cors());
 app.use(helmet());
 
+
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
-  res.send("🚀 SBTS Backend Running Successfully");
+  res.send('🚀 SBTS Backend Running Successfully');
 });
 
 const PORT = process.env.PORT || 5000;

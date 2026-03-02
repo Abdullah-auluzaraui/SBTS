@@ -1,12 +1,32 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Student = require('../models/Student');
 const generateToken = require('../utils/generateToken');
 
-// REGISTER (Parent only)
+// REGISTER (Parent only) — BE-S1-5
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, name, phone } = req.body;
+    const { username, email, password, name, phone, studentId } = req.body;
 
+    // 1. Validate studentId exists in the Student collection
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'INVALID_STUDENT_ID',
+        message: 'studentId is required'
+      });
+    }
+
+    const student = await Student.findOne({ studentId });
+    if (!student) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'INVALID_STUDENT_ID',
+        message: `No student found with ID '${studentId}'`
+      });
+    }
+
+    // 2. Check for duplicate email or username
     const exists = await User.findOne({ $or: [{ email }, { username }] });
     if (exists) {
       return res.status(400).json({
@@ -16,8 +36,8 @@ exports.register = async (req, res) => {
       });
     }
 
+    // 3. Create the parent account
     const hash = await bcrypt.hash(password, 10);
-
     const user = await User.create({
       username,
       email,
@@ -25,6 +45,11 @@ exports.register = async (req, res) => {
       name,
       phone,
       role: 'parent'
+    });
+
+    // 4. Link parent to the student's parents[] array
+    await Student.findByIdAndUpdate(student._id, {
+      $addToSet: { parents: user._id }
     });
 
     const token = generateToken(user);
