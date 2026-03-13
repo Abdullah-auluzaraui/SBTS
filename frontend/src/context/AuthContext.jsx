@@ -55,8 +55,8 @@ export const AuthProvider = ({ children }) => {
 
             persistSession(data.token, data.user);
 
-            // Task FE-S1-8: Role-based redirect
-            const roleRoutes = { admin: '/admin', driver: '/driver', parent: '/parent' };
+            // Task FE-S1-8: Role-based redirect (v2.0: 4 roles)
+            const roleRoutes = { superadmin: '/super', schooladmin: '/admin', driver: '/driver', parent: '/parent' };
             navigate(roleRoutes[data.user.role] || '/login');
 
             return data;
@@ -75,10 +75,10 @@ export const AuthProvider = ({ children }) => {
 
     // ─── Task FE-S1-5: register() — POST /api/auth/register ─────────────────
     // username is entered by the user in the registration form
-    const register = async (name, username, email, password, studentId) => {
+    const register = async (name, username, email, password, studentId, parentAccessCode) => {
         setLoading(true);
         try {
-            const { data } = await api.post('/auth/register', { name, username, email, password, studentId });
+            const { data } = await api.post('/auth/register', { name, username, email, password, studentId, parentAccessCode });
 
             persistSession(data.token, data.user);
             navigate('/parent');

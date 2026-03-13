@@ -22,7 +22,11 @@ const ProtectedRoute = ({ allowedRoles }) => {
     if (allowedRoles && !allowedRoles.includes(user?.role)) {
         // Redirect them to their specific dashboard based on their role
         switch (user?.role) {
-            case 'admin':
+            case 'superadmin':
+                return <Navigate to="/super" replace />;
+            case 'schooladmin':
+                return <Navigate to="/admin" replace />;
+            case 'admin':  // backward compat fallback
                 return <Navigate to="/admin" replace />;
             case 'driver':
                 return <Navigate to="/driver" replace />;

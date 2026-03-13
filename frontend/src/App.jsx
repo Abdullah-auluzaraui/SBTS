@@ -9,6 +9,7 @@ import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
 import DriverDashboard from './pages/DriverDashboard';
 import ParentDashboard from './pages/ParentDashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 
 function App() {
     useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
@@ -20,10 +21,15 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Task FE-S1-8: Role-based redirect routing structure */}
+            {/* Task FE-S1-8: Role-based redirect routing structure (v2.0: 4 roles) */}
 
-            {/* /admin → requires role: 'admin' */}
-            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            {/* /super → requires role: 'superadmin' */}
+            <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+                <Route path="/super" element={<SuperAdminDashboard />} />
+            </Route>
+
+            {/* /admin → requires role: 'schooladmin' */}
+            <Route element={<ProtectedRoute allowedRoles={['schooladmin']} />}>
                 <Route path="/admin" element={<AdminDashboard />} />
             </Route>
 

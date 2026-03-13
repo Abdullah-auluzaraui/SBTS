@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get('/dashboard',
   authMiddleware,
-  roleMiddleware('admin'),
+  roleMiddleware(['schooladmin']),
   (req, res) => {
     res.json({
       success: true,

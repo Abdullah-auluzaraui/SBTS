@@ -9,7 +9,8 @@ const MainLayout = ({ children }) => {
 
     // Translate roles for display
     const roleDisplay = {
-        admin: 'مدير',
+        superadmin: 'مدير النظام العام',
+        schooladmin: 'مدير مدرسة',
         driver: 'سائق',
         parent: 'ولي أمر'
     };

@@ -3,30 +3,40 @@ const User = require('../models/User');
 const Student = require('../models/Student');
 const generateToken = require('../utils/generateToken');
 
-// REGISTER (Parent only) — BE-S1-5
+// REGISTER (Parent only) — BE-S1-4 (v2.0: parentAccessCode required)
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, name, phone, studentId } = req.body;
+    const { username, email, password, name, phone, studentId, parentAccessCode } = req.body;
 
-    // 1. Validate studentId exists in the Student collection
-    if (!studentId) {
+    // 1. Validate required fields
+    if (!studentId || !parentAccessCode) {
       return res.status(400).json({
         success: false,
-        errorCode: 'INVALID_STUDENT_ID',
-        message: 'studentId is required'
+        errorCode: 'INVALID_CREDENTIALS',
+        message: 'Student ID and Access Code are both required'
       });
     }
 
+    // 2. Find student and validate Access Code
     const student = await Student.findOne({ studentId });
-    if (!student) {
+    if (!student || student.parentAccessCode !== parentAccessCode) {
       return res.status(400).json({
         success: false,
-        errorCode: 'INVALID_STUDENT_ID',
-        message: `No student found with ID '${studentId}'`
+        errorCode: 'INVALID_CREDENTIALS',
+        message: 'Invalid Student ID or Access Code'
       });
     }
 
-    // 2. Check for duplicate email or username
+    // 3. Check if this student is already linked to a parent
+    if (student.parentId) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'STUDENT_ALREADY_LINKED',
+        message: 'This student is already linked to a parent account. Contact school administration.'
+      });
+    }
+
+    // 4. Check for duplicate email or username
     const exists = await User.findOne({ $or: [{ email }, { username }] });
     if (exists) {
       return res.status(400).json({
@@ -36,7 +46,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    // 3. Create the parent account
+    // 5. Create the parent account (linked to the student's school)
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
       username,
@@ -44,27 +54,27 @@ exports.register = async (req, res) => {
       password: hash,
       name,
       phone,
-      role: 'parent'
+      role: 'parent',
+      school: student.school  // inherit school from the student
     });
 
-    // 4. Link parent to the student's parents[] array
-    await Student.findByIdAndUpdate(student._id, {
-      $addToSet: { parents: user._id }
-    });
+    // 6. Link parent to the student (1-to-many: parentId, not parents[])
+    student.parentId = user._id;
+    await student.save();
 
     const token = generateToken(user);
 
     res.status(201).json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, role: user.role }
+      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// LOGIN (All roles)
+// LOGIN (All roles) — BE-S1-3
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -100,7 +110,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, role: user.role }
+      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school || null }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

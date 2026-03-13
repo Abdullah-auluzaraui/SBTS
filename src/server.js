@@ -9,6 +9,8 @@ const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const parentRoutes = require('./routes/parentRoutes');
 
 const app = express();
 
@@ -22,6 +24,8 @@ app.use(helmet());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/super', superAdminRoutes);
+app.use('/api/parents', parentRoutes);
 
 app.get('/', (req, res) => {
   res.send('🚀 SBTS Backend Running Successfully');
