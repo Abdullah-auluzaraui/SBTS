@@ -19,7 +19,7 @@ const AdminDashboard = () => {
                         <h2 className="text-3xl font-bold text-gray-800">
                             أهلاً بك، <span className="bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent">{user?.name}</span>
                         </h2>
-                        <p className="text-gray-500 mt-1">مدير النظام</p>
+                        <p className="text-gray-500 mt-1">مدير المدرسة</p>
                     </div>
                 </div>
 

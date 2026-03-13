@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
-import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X } from 'lucide-react';
+import api from '../services/apiService';
+import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const ParentDashboard = () => {
     const { user } = useAuth();
     const [showToast, setShowToast] = useState(false);
+
+    // ─── FE-S1-9: Add Another Child Modal State ────────────────────────
+    const [showAddChildModal, setShowAddChildModal] = useState(false);
+    const [childForm, setChildForm] = useState({ studentId: '', parentAccessCode: '' });
+    const [childLoading, setChildLoading] = useState(false);
+    const [childError, setChildError] = useState('');
+    const [childSuccess, setChildSuccess] = useState('');
 
     // Simulate an approaching notification toast after 2 seconds
     useEffect(() => {
@@ -23,6 +31,39 @@ const ParentDashboard = () => {
             clearTimeout(hideTimer);
         };
     }, []);
+
+    // ─── FE-S1-9: Handle linking another child ─────────────────────────
+    const handleAddChild = async (e) => {
+        e.preventDefault();
+        setChildError('');
+        setChildSuccess('');
+        setChildLoading(true);
+
+        try {
+            const { data } = await api.post('/parents/students', {
+                studentId: childForm.studentId,
+                parentAccessCode: childForm.parentAccessCode
+            });
+            setChildSuccess(`تم ربط الطالب "${data.student.name}" بنجاح!`);
+            setChildForm({ studentId: '', parentAccessCode: '' });
+
+            // Auto-close modal after 2 seconds
+            setTimeout(() => {
+                setShowAddChildModal(false);
+                setChildSuccess('');
+            }, 2000);
+        } catch (err) {
+            const payload = err.response?.data || {};
+            const errorMessages = {
+                INVALID_CREDENTIALS: 'رقم الطالب أو رمز الوصول غير صحيح.',
+                STUDENT_ALREADY_LINKED: 'هذا الطالب مرتبط بالفعل بحساب ولي أمر.',
+                SCHOOL_MISMATCH: 'هذا الطالب لا ينتمي لنفس مدرستك.',
+            };
+            setChildError(errorMessages[payload.errorCode] || payload.message || 'حدث خطأ. يرجى المحاولة مجدداً.');
+        } finally {
+            setChildLoading(false);
+        }
+    };
 
     return (
         <MainLayout>
@@ -173,16 +214,101 @@ const ParentDashboard = () => {
                                 </div>
                             </div>
 
-                            {/* Empty state for demonstration of multiple kids */}
-                            <button className="flex items-center justify-center gap-2 text-primary-600 bg-primary-50/50 hover:bg-primary-50 border border-primary-100 border-dashed rounded-2xl p-4 font-bold transition-colors w-full">
-                                <span className="text-xl">+</span>
-                                تتبع طالب آخر
+                            {/* FE-S1-9: Add Another Child Button */}
+                            <button
+                                onClick={() => { setShowAddChildModal(true); setChildError(''); setChildSuccess(''); }}
+                                className="flex items-center justify-center gap-2 text-primary-600 bg-primary-50/50 hover:bg-primary-50 border border-primary-100 border-dashed rounded-2xl p-4 font-bold transition-colors w-full"
+                            >
+                                <UserPlus size={18} strokeWidth={2} />
+                                إضافة طفل آخر
                             </button>
                         </div>
                     </div>
                 </div>
 
             </div>
+
+            {/* ─── FE-S1-9: Add Another Child Modal ─────────────────────────── */}
+            {showAddChildModal && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddChildModal(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setShowAddChildModal(false)}
+                            className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <div className="text-center mb-6">
+                            <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                                <UserPlus size={28} strokeWidth={1.75} className="text-primary-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800">إضافة طالب آخر</h3>
+                            <p className="text-gray-500 text-sm mt-1">أدخل رقم الطالب ورمز الوصول المقدم من المدرسة</p>
+                        </div>
+
+                        <form onSubmit={handleAddChild} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="block text-gray-700 font-bold text-sm px-1">رقم الطالب</label>
+                                <input
+                                    type="text"
+                                    placeholder="مثال: STU-2024-002"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
+                                    dir="ltr"
+                                    value={childForm.studentId}
+                                    onChange={(e) => setChildForm({ ...childForm, studentId: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="block text-gray-700 font-bold text-sm px-1">رمز الوصول (Access Code)</label>
+                                <input
+                                    type="text"
+                                    placeholder="مثال: B3Y-41M"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
+                                    dir="ltr"
+                                    value={childForm.parentAccessCode}
+                                    onChange={(e) => setChildForm({ ...childForm, parentAccessCode: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={childLoading}
+                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 mt-2 ${childLoading
+                                    ? 'opacity-70 cursor-not-allowed shadow-none'
+                                    : 'hover:bg-primary-600 shadow-primary-500/30 transform hover:-translate-y-0.5'
+                                    }`}
+                            >
+                                {childLoading && <Loader2 size={20} className="animate-spin" />}
+                                <span>{childLoading ? 'جاري الربط...' : 'ربط الطالب'}</span>
+                            </button>
+                        </form>
+
+                        {/* Error */}
+                        {childError && (
+                            <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl">
+                                <p className="text-sm text-red-700 flex items-start gap-2">
+                                    <AlertCircle size={16} strokeWidth={2} className="text-red-500 mt-0.5 shrink-0" />
+                                    <span className="font-semibold">{childError}</span>
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Success */}
+                        {childSuccess && (
+                            <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-xl">
+                                <p className="text-sm text-green-700 flex items-start gap-2">
+                                    <CheckCircle2 size={16} strokeWidth={2} className="text-green-500 mt-0.5 shrink-0" />
+                                    <span className="font-semibold">{childSuccess}</span>
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </MainLayout>
     );
 };

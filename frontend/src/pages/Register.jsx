@@ -5,7 +5,7 @@ import { Users, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 // Task FE-S1-3: RegisterForm (Parent only)
 const Register = () => {
-    const [formData, setFormData] = useState({ name: '', username: '', email: '', password: '', studentId: '' });
+    const [formData, setFormData] = useState({ name: '', username: '', email: '', password: '', studentId: '', parentAccessCode: '' });
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const { register, loading } = useAuth();
@@ -28,13 +28,15 @@ const Register = () => {
         }
 
         try {
-            await register(formData.name, formData.username, formData.email, formData.password, formData.studentId);
+            await register(formData.name, formData.username, formData.email, formData.password, formData.studentId, formData.parentAccessCode);
         } catch (err) {
             // Map backend errorCodes to Arabic messages
             const errorMessages = {
                 USER_EXISTS: 'المستخدم موجود بالفعل. يرجى استخدام بريد إلكتروني مختلف أو تسجيل الدخول.',
                 EMAIL_IN_USE: 'البريد الإلكتروني مستخدم بالفعل. يرجى تسجيل الدخول أو استخدام بريد آخر.',
+                INVALID_CREDENTIALS: 'رقم الطالب أو رمز الوصول غير صحيح. يرجى التحقق من البيانات.',
                 INVALID_STUDENT_ID: `لم يتم العثور على طالب برقم '${formData.studentId}'. يرجى التحقق من الرقم.`,
+                STUDENT_ALREADY_LINKED: 'هذا الطالب مرتبط بالفعل بحساب ولي أمر. يرجى التواصل مع إدارة المدرسة.',
                 VALIDATION_ERROR: err.message || 'يرجى التحقق من البيانات المدخلة.',
                 NETWORK_ERROR: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
             };
@@ -127,6 +129,19 @@ const Register = () => {
                             dir="ltr"
                             value={formData.studentId}
                             onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                            required
+                        />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="block text-gray-700 font-bold text-sm px-1">رمز الوصول (Access Code)</label>
+                        <input
+                            type="text"
+                            placeholder="مثال: A7X-92K"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
+                            dir="ltr"
+                            value={formData.parentAccessCode}
+                            onChange={(e) => setFormData({ ...formData, parentAccessCode: e.target.value })}
                             required
                         />
                     </div>
