@@ -22,6 +22,12 @@ const Register = () => {
             return;
         }
 
+        const usernameRegex = /^[a-zA-Z0-9_]+$/;
+        if (!usernameRegex.test(formData.username)) {
+            setError('اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام فقط.');
+            return;
+        }
+
         if (formData.password.length < 6) {
             setError('كلمة المرور يجب أن تتكون من 6 أحرف على الأقل.');
             return;

@@ -1,7 +1,12 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
-const { createSchool } = require('../controllers/superAdminController');
+const {
+  createInvitation,
+  resendInvitation,
+  listSchools,
+  toggleSchoolStatus
+} = require('../controllers/superAdminController');
 
 const router = express.Router();
 
@@ -9,7 +14,16 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(roleMiddleware(['superadmin']));
 
-// POST /api/super/schools — Stub for Sprint 2
-router.post('/schools', createSchool);
+// GET  /api/super/schools                              → List all schools with stats + invitation status
+router.get('/schools', listSchools);
+
+// POST /api/super/invitations                          → Create school + send invitation
+router.post('/invitations', createInvitation);
+
+// POST /api/super/invitations/:schoolId/resend         → Resend invitation (new token)
+router.post('/invitations/:schoolId/resend', resendInvitation);
+
+// PATCH /api/super/schools/:id/status                  → Toggle active/inactive
+router.patch('/schools/:id/status', toggleSchoolStatus);
 
 module.exports = router;

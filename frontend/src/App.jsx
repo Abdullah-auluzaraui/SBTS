@@ -6,10 +6,18 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
-import AdminDashboard from './pages/AdminDashboard';
+import Onboarding from './pages/Onboarding';
 import DriverDashboard from './pages/DriverDashboard';
 import ParentDashboard from './pages/ParentDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+
+// Admin pages (Sprint 2)
+import AdminLayout from './components/AdminLayout';
+import AdminDashboard from './pages/AdminDashboard';
+import BusManagement from './pages/admin/BusManagement';
+import RouteManagement from './pages/admin/RouteManagement';
+import StudentManagement from './pages/admin/StudentManagement';
+import AttendanceRecords from './pages/admin/AttendanceRecords';
 
 function App() {
     useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
@@ -20,17 +28,22 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-
-            {/* Task FE-S1-8: Role-based redirect routing structure (v2.0: 4 roles) */}
+            <Route path="/onboarding" element={<Onboarding />} />
 
             {/* /super → requires role: 'superadmin' */}
             <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
                 <Route path="/super" element={<SuperAdminDashboard />} />
             </Route>
 
-            {/* /admin → requires role: 'schooladmin' */}
+            {/* /admin → requires role: 'schooladmin' — nested sub-routes */}
             <Route element={<ProtectedRoute allowedRoles={['schooladmin']} />}>
-                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="buses" element={<BusManagement />} />
+                    <Route path="routes" element={<RouteManagement />} />
+                    <Route path="students" element={<StudentManagement />} />
+                    <Route path="attendance" element={<AttendanceRecords />} />
+                </Route>
             </Route>
 
             {/* /driver → requires role: 'driver' */}
