@@ -11,6 +11,10 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
 const parentRoutes = require('./routes/parentRoutes');
+const busRoutes = require('./routes/busRoutes');
+const routeRoutes = require('./routes/routeRoutes');
+const studentRoutes = require('./routes/studentRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
 
 const app = express();
 
@@ -26,6 +30,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/super', superAdminRoutes);
 app.use('/api/parents', parentRoutes);
+app.use('/api/buses', busRoutes);
+app.use('/api/routes', routeRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.get('/', (req, res) => {
   res.send('🚀 SBTS Backend Running Successfully');
