@@ -9,6 +9,10 @@ const routeSchema = new mongoose.Schema({
     lng:   { type: Number, required: true },
     label: { type: String }
   }],
+  // Array of students picked up on this route (useful for joining data easily)
+  students:          [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+  // Encoded street path returned by OSRM API to draw the route perfectly on the map
+  polyline:          { type: String, default: '' },
   driver:            { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   estimatedDuration: { type: Number }, // minutes
   isActive:          { type: Boolean, default: true }

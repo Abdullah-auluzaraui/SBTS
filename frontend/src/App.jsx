@@ -18,6 +18,7 @@ import BusManagement from './pages/admin/BusManagement';
 import RouteManagement from './pages/admin/RouteManagement';
 import StudentManagement from './pages/admin/StudentManagement';
 import AttendanceRecords from './pages/admin/AttendanceRecords';
+import DriverManagement from './pages/admin/DriverManagement';
 
 function App() {
     useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
@@ -43,6 +44,7 @@ function App() {
                     <Route path="routes" element={<RouteManagement />} />
                     <Route path="students" element={<StudentManagement />} />
                     <Route path="attendance" element={<AttendanceRecords />} />
+                    <Route path="drivers" element={<DriverManagement />} />
                 </Route>
             </Route>
 

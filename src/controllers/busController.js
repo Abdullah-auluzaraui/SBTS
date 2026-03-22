@@ -1,4 +1,6 @@
 const Bus = require('../models/Bus');
+const User = require('../models/User');
+const Student = require('../models/Student');
 
 // BE-S2-5: Bus CRUD — All operations scoped by req.schoolId (from tenantMiddleware)
 
@@ -33,7 +35,10 @@ exports.create = async (req, res) => {
 // GET /api/buses — List buses (scoped)
 exports.list = async (req, res) => {
   try {
-    const buses = await Bus.find({ school: req.schoolId, isActive: true })
+    const filter = { school: req.schoolId };
+    if (req.query.all !== 'true') filter.isActive = true;
+
+    const buses = await Bus.find(filter)
       .populate('route', 'name')
       .populate('driver', 'name username')
       .sort({ createdAt: -1 });
@@ -75,6 +80,61 @@ exports.remove = async (req, res) => {
     bus.isActive = false;
     await bus.save();
     res.json({ success: true, message: 'Bus deactivated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /api/buses/:id/status — Toggle isActive
+exports.toggleStatus = async (req, res) => {
+  try {
+    const bus = await Bus.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!bus) {
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'Bus not found' });
+    }
+
+    bus.isActive = !bus.isActive;
+    await bus.save();
+    res.json({ success: true, message: bus.isActive ? 'Bus activated' : 'Bus deactivated', isActive: bus.isActive });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/buses/drivers — List active drivers for this school (for dropdown)
+exports.listDrivers = async (req, res) => {
+  try {
+    const drivers = await User.find({ school: req.schoolId, role: 'driver', isActive: true })
+      .select('_id name username')
+      .sort({ name: 1 });
+    res.json({ success: true, drivers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PUT /api/buses/:id/assign-students — Bulk-assign students to a bus
+exports.assignStudents = async (req, res) => {
+  try {
+    const bus = await Bus.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'Bus not found' });
+    }
+
+    const { studentIds } = req.body; // Array of student _ids
+
+    // Remove this bus from all students currently assigned to it
+    await Student.updateMany({ assignedBus: bus._id, school: req.schoolId }, { $set: { assignedBus: null } });
+
+    // Assign the new list
+    if (studentIds && studentIds.length > 0) {
+      await Student.updateMany(
+        { _id: { $in: studentIds }, school: req.schoolId },
+        { $set: { assignedBus: bus._id } }
+      );
+    }
+
+    res.json({ success: true, message: `تم تعيين ${studentIds?.length || 0} طلاب للحافلة بنجاح` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

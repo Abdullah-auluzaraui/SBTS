@@ -2,7 +2,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { create, list, update, remove } = require('../controllers/busController');
+const { create, list, update, remove, toggleStatus, listDrivers, assignStudents } = require('../controllers/busController');
 
 const router = express.Router();
 
@@ -11,7 +11,10 @@ router.use(authMiddleware, roleMiddleware(['schooladmin']), tenantMiddleware);
 
 router.post('/', create);
 router.get('/', list);
+router.get('/drivers', listDrivers);
 router.put('/:id', update);
+router.put('/:id/assign-students', assignStudents);
+router.patch('/:id/status', toggleStatus);
 router.delete('/:id', remove);
 
 module.exports = router;

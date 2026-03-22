@@ -83,7 +83,7 @@ const Register = () => {
                         <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
                         <input
                             type="text"
-                            placeholder="مثال: sara_2024"
+                            placeholder="user_name"
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400 text-left"
                             dir="ltr"
                             value={formData.username}
@@ -109,7 +109,6 @@ const Register = () => {
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
-                                placeholder="(6 أحرف كحد أدنى)"
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400 text-left pl-12"
                                 dir="ltr"
                                 value={formData.password}
@@ -130,7 +129,6 @@ const Register = () => {
                         <label className="block text-gray-700 font-bold text-sm px-1">رقم الطالب الأكاديمي</label>
                         <input
                             type="text"
-                            placeholder="مثال: STU-2024-001"
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
                             dir="ltr"
                             value={formData.studentId}
@@ -143,7 +141,6 @@ const Register = () => {
                         <label className="block text-gray-700 font-bold text-sm px-1">رمز الوصول (Access Code)</label>
                         <input
                             type="text"
-                            placeholder="مثال: A7X-92K"
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
                             dir="ltr"
                             value={formData.parentAccessCode}
