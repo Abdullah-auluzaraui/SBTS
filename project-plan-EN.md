@@ -40,7 +40,7 @@ The system is designed for **Super Admins (Ministry/District)**, **School Admini
 |-------|------------|---------|
 | **Frontend** | React.js (Vite) | Super Admin, Admin, Driver, and Parent dashboards |
 | **Styling** | CSS / Tailwind | Responsive UI |
-| **Maps** | Google Maps JS API | Live bus tracking, route display, ETA |
+| **Maps** | OpenStreetMap + Leaflet + OSRM | Live bus tracking, TSP Auto-Routing, ETA |
 | **Backend** | Node.js + Express.js | REST API + Socket.IO server |
 | **Database** | MongoDB + Mongoose | Data persistence |
 | **Real-Time** | Socket.IO | Bidirectional WebSocket communication (Multi-Tenant Rooms) |
@@ -221,10 +221,10 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 
 | Task ID | Description | UC |
 |---------|-------------|-----|
-| FE-S2-1 | `SuperAdminDashboard` — Form to register a new School, generate unique `schoolId`, and create its initial School Admin account. | All |
-| FE-S2-2 | Install `@react-google-maps/api`; configure API key via `.env` | UC-6 |
-| FE-S2-3 | `RouteMapEditor` — draw/edit polyline; scoped to Admin's `schoolId` | UC-6 |
-| FE-S2-4 | `RouteForm` and `RouteList` — create, edit, logic bounds. Scoped. | UC-6 |
+| FE-S2-1 | `SuperAdminDashboard` — Form to register a new School, generate unique `schoolId`, and send a secure Token-based Invitation. | All |
+| FE-S2-2 | Install `react-leaflet` and `leaflet` for 100% free open-source interactive mapping. | UC-6 |
+| FE-S2-3 | `RouteManagement` — Split-screen map; dynamic student selection and OSRM Auto-Routing (TSP). | UC-6 |
+| FE-S2-4 | `RouteForm` and `RouteList` — create, edit routes using smart OSRM polylines. Scoped. | UC-6 |
 | FE-S2-5 | `BusForm` and `BusList` — Manage fleets. Scoped to Admin's `schoolId`. | UC-7 |
 | FE-S2-6 | `StudentForm` (Manual) — Add single student, bus dropdown, auto-generate `parentAccessCode`. | UC-8 |
 | FE-S2-7 | `CSVBulkUpload` — UI component for School Admins to drag-and-drop a CSV file to register 50+ students at once. | UC-8 |
@@ -238,7 +238,7 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 
 | Task ID | Description | UC |
 |---------|-------------|-----|
-| BE-S2-1 | `POST /api/super/schools` — Create school, generate unique `schoolId`, create School Admin user. | All |
+| BE-S2-1 | `POST /api/super/schools` — Create school, generate unique `schoolId`, dispatch Invitation token. | All |
 | BE-S2-1b| `PATCH /api/super/schools/:id/status` & `POST /api/super/schools/:id/reset-admin-password` — Handle school status and admin password recovery. | All |
 | BE-S2-2 | `POST /api/students/bulk` — Parse CSV directly from memory buffer (`multer` memoryStorage) to avoid ephemeral storage loss. Auto-generate `parentAccessCode`s and save. | UC-8 |
 | BE-S2-3 | Data Segregation Verification — Ensure `GET /api/buses`, `GET /api/students`, etc., strictly filter using `req.user.schoolId` injected by Tenant Middleware. | All |
@@ -484,19 +484,12 @@ Raspberry Pi (Python)
 
 ### 5.5 ETA Calculation
 
-**Method:** Google Maps Distance Matrix API (traffic-aware)
+**Method:** OSRM Trip API (Open Source Routing Machine)
 
 ```javascript
 // services/etaService.js
-const { data } = await axios.get('https://maps.googleapis.com/maps/api/distancematrix/json', {
-  params: {
-    origins: `${bus.lat},${bus.lng}`,
-    destinations: stops.map(s => `${s.lat},${s.lng}`).join('|'),
-    mode: 'driving',
-    departure_time: 'now',
-    key: process.env.GOOGLE_MAPS_API_KEY
-  }
-});
+const { data } = await axios.get(`http://router.project-osrm.org/trip/v1/driving/${origins};${destinations}?roundtrip=false&source=first&destination=last&geometries=geojson`);
+// Extract ETA and distance directly from OSRM response trips[0].duration
 ```
 
 ---
@@ -808,8 +801,9 @@ def send_nfc_scan(tag):
   name:             { type: String, required: true },
   studentId:        { type: String, required: true, unique: true },
   school:           { type: ObjectId, ref: 'School', required: true },
-  parentAccessCode: { type: String, required: true }, // Auto-generated string (e.g., 'X9K-2M1')
-  parentId:         { type: ObjectId, ref: 'User', index: true, sparse: true, default: null }, // 1-to-Many mapping (Parents can have multiple children)
+  parentAccessCode: { type: String, required: true },
+  parentId:         { type: ObjectId, ref: 'User', index: true, sparse: true, default: null },
+  location:         { type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } }, // GeoJSON Index: 2dsphere
   grade:            { type: String },
   nfcTagId:         { type: String, unique: true, sparse: true },
   assignedBus:      { type: ObjectId, ref: 'Bus', default: null }
@@ -823,7 +817,8 @@ def send_nfc_scan(tag):
 {
   school:            { type: ObjectId, ref: 'School', required: true, index: true },
   name:              { type: String, required: true },
-  waypoints:         [{ lat: Number, lng: Number, label: String }],
+  students:          [{ type: ObjectId, ref: 'Student' }], // Auto-routed by OSRM
+  polyline:          { type: String }, // GeoJSON or Encoded String from OSRM
   driver:            { type: ObjectId, ref: 'User' },
   estimatedDuration: { type: Number },
   isActive:          { type: Boolean, default: true }

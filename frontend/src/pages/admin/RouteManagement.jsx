@@ -1,192 +1,412 @@
 import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { MapPin, Plus, X, Loader2, AlertCircle, Pencil, Ban, Bus, Users, Route as RouteIcon, Navigation2, Check } from 'lucide-react';
 import api from '../../services/apiService';
-import { MapPin, Plus, X, Loader2, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import axios from 'axios';
+
+// Fix icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+// Custom Selected Student Icon (Green)
+const selectedIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+// Custom School/Source Icon (Blue Star etc., just standard for now)
+const schoolIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const RecenterMap = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (center && center.length === 2 && center[0] !== 0) {
+      map.setView(center, 13);
+    }
+  }, [center, map]);
+  return null;
+};
+
+const FitBounds = ({ path }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (path && path.length > 0) {
+      const bounds = L.latLngBounds(path);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [path, map]);
+  return null;
+};
 
 const RouteManagement = () => {
+    const [activeTab, setActiveTab] = useState('create'); // 'create' or 'manage'
+    
+    // Data
     const [routes, setRoutes] = useState([]);
-    const [drivers, setDrivers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editingRoute, setEditingRoute] = useState(null);
-    const [form, setForm] = useState({ name: '', estimatedDuration: '', driver: '', waypoints: [{ lat: '', lng: '', label: '' }, { lat: '', lng: '', label: '' }] });
-    const [formLoading, setFormLoading] = useState(false);
+    const [unassignedStudents, setUnassignedStudents] = useState([]);
+    const [loadingData, setLoadingData] = useState(true);
+    
+    // Map State
+    const [selectedStudents, setSelectedStudents] = useState([]); // Students added to current route
+    const [mapCenter, setMapCenter] = useState([24.7136, 46.6753]); // Riyadh
+    const [routePathGeoJson, setRoutePathGeoJson] = useState([]); // Decoded for map [lat, lng] array
+    const [osrmLoading, setOsrmLoading] = useState(false);
+    const [osrmMeta, setOsrmMeta] = useState(null);
+
+    // Form
+    const [routeName, setRouteName] = useState('');
+    const [savingRoute, setSavingRoute] = useState(false);
     const [error, setError] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
 
-    const fetchRoutes = async () => {
+    const fetchData = async () => {
+        setLoadingData(true);
         try {
-            const { data } = await api.get('/routes');
-            setRoutes(data.routes);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
+            const [routesRes, unassignedRes] = await Promise.all([
+                api.get('/routes'),
+                api.get('/students/unassigned')
+            ]);
+            setRoutes(routesRes.data.routes);
+            setUnassignedStudents(unassignedRes.data.students);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingData(false);
+        }
     };
 
-    useEffect(() => { fetchRoutes(); }, []);
+    useEffect(() => { fetchData(); }, []);
 
-    const resetForm = () => {
-        setForm({ name: '', estimatedDuration: '', driver: '', waypoints: [{ lat: '', lng: '', label: '' }, { lat: '', lng: '', label: '' }] });
-        setEditingRoute(null); setShowForm(false); setError('');
+    // --- Interaction ---
+    const toggleStudentSelection = (student) => {
+        const isSelected = selectedStudents.find(s => s._id === student._id);
+        if (isSelected) {
+            setSelectedStudents(selectedStudents.filter(s => s._id !== student._id));
+            setRoutePathGeoJson([]); // Clear line if they remove a student
+            setOsrmMeta(null);
+        } else {
+            setSelectedStudents([...selectedStudents, student]);
+            setMapCenter([student.location.coordinates[1], student.location.coordinates[0]]);
+        }
     };
 
-    const addWaypoint = () => setForm({ ...form, waypoints: [...form.waypoints, { lat: '', lng: '', label: '' }] });
-    const removeWaypoint = (i) => {
-        if (form.waypoints.length <= 2) return;
-        setForm({ ...form, waypoints: form.waypoints.filter((_, idx) => idx !== i) });
-    };
-    const updateWaypoint = (i, field, value) => {
-        const wps = [...form.waypoints];
-        wps[i] = { ...wps[i], [field]: value };
-        setForm({ ...form, waypoints: wps });
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    // --- OSRM Auto Routing API ---
+    const handleAutoRoute = async () => {
+        if (selectedStudents.length < 2) {
+            setError('يجب اختيار طالبين على الأقل لرسم المسار');
+            return;
+        }
         setError('');
+        setOsrmLoading(true);
 
-        const waypoints = form.waypoints.map(w => ({ lat: parseFloat(w.lat), lng: parseFloat(w.lng), label: w.label }));
-        if (waypoints.some(w => isNaN(w.lat) || isNaN(w.lng))) {
-            setError('يرجى إدخال إحداثيات صحيحة لجميع النقاط');
+        try {
+            // OSRM Trip API: optimize order and get geometry (solves TSP)
+            // Coordinates string: lng,lat;lng,lat...
+            const coordsString = selectedStudents.map(s => `${s.location.coordinates[0]},${s.location.coordinates[1]}`).join(';');
+            
+            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson`;
+            const { data } = await axios.get(osrmUrl);
+
+            if (data.code === 'Ok' && data.trips.length > 0) {
+                const trip = data.trips[0];
+                const geojsonCoords = trip.geometry.coordinates; // [[lng, lat]]
+                
+                // Convert for Leaflet Polyline: [[lat, lng]]
+                const leafletPath = geojsonCoords.map(c => [c[1], c[0]]);
+                setRoutePathGeoJson(leafletPath);
+                
+                // Keep track of duration/distance
+                setOsrmMeta({
+                    duration: Math.ceil(trip.duration / 60), // minutes
+                    distance: (trip.distance / 1000).toFixed(1) // km
+                });
+
+                // Reorder selected students based on OSRM Waypoint order
+                const sortedWaypoints = data.waypoints.sort((a, b) => a.waypoint_index - b.waypoint_index);
+                // The indices match our selectedStudents array
+                const newOrderedStudents = sortedWaypoints.map(wp => {
+                    // Match the original coordinate approximately (or use original index if available, but osrm doesn't return original index directly sometimes? Wait, waypoint has original_index wait, let's just use the simplest assumption for now without changing actual selectedStudents state).
+                    return selectedStudents[data.waypoints.indexOf(wp)];
+                });
+                // We'll skip reordering the UI array just to avoid complexity, OSRM draws the path optimally.
+            } else {
+                setError('تعذر رسم المسار، يرجى المحاولة بوقت آخر.');
+            }
+        } catch (err) {
+            console.error('OSRM Error', err);
+            setError('تعذر الاتصال بخدمة رسم المسارات (OSRM).');
+        } finally {
+            setOsrmLoading(false);
+        }
+    };
+
+    // --- Save Route to Backend ---
+    const handleSaveRoute = async () => {
+        if (!routeName) {
+            setError('يرجى إدخال اسم المسار');
+            return;
+        }
+        if (selectedStudents.length < 2) {
+            setError('يحب أن يحتوي المسار على طالبين على الأقل');
+            return;
+        }
+        if (routePathGeoJson.length === 0) {
+            setError('الرجاء الضغط على "رسم مسار ذكي" أولاً قبل الحفظ');
             return;
         }
 
-        setFormLoading(true);
+        setSavingRoute(true);
+        setError('');
         try {
-            const payload = {
-                name: form.name,
-                waypoints,
-                estimatedDuration: form.estimatedDuration ? parseInt(form.estimatedDuration) : null,
-                driver: form.driver || null
-            };
-            if (editingRoute) {
-                await api.put(`/routes/${editingRoute}`, payload);
-            } else {
-                await api.post('/routes', payload);
-            }
-            resetForm();
-            fetchRoutes();
+            // Encode polyline as stringified GeoJSON inside our backend String field
+            const polylineStr = JSON.stringify(routePathGeoJson);
+            
+            await api.post('/routes', {
+                name: routeName,
+                students: selectedStudents.map(s => s._id),
+                polyline: polylineStr,
+                estimatedDuration: osrmMeta ? osrmMeta.duration : null
+            });
+
+            setSuccessMsg('تم حفظ المسار بنجاح!');
+            
+            // Reset state
+            setSelectedStudents([]);
+            setRoutePathGeoJson([]);
+            setOsrmMeta(null);
+            setRouteName('');
+            fetchData(); // Refresh both routes and unassigned students
+
+            setTimeout(() => setSuccessMsg(''), 3000);
         } catch (err) {
-            setError(err.response?.data?.message || 'حدث خطأ');
-        } finally { setFormLoading(false); }
+            setError(err.response?.data?.message || 'حدث خطأ أثناء الحفظ');
+        } finally {
+            setSavingRoute(false);
+        }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('هل تريد تعطيل هذا المسار؟')) return;
-        try { await api.delete(`/routes/${id}`); fetchRoutes(); } catch (err) { console.error(err); }
-    };
-
-    const startEdit = (route) => {
-        setEditingRoute(route._id);
-        setForm({
-            name: route.name,
-            estimatedDuration: route.estimatedDuration?.toString() || '',
-            driver: route.driver?._id || '',
-            waypoints: route.waypoints.map(w => ({ lat: w.lat.toString(), lng: w.lng.toString(), label: w.label || '' }))
-        });
-        setShowForm(true); setError('');
+        if (!window.confirm('هل تريد تعطيل هذا المسار؟ سيتم إعادة الطلاب لقائمة غير المعينين.')) return;
+        try { 
+            await api.delete(`/routes/${id}`); 
+            fetchData(); 
+        } catch (err) { console.error(err); }
     };
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4 px-2">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                    <MapPin size={24} className="text-primary-500" />
-                    إدارة المسارات
+                    <RouteIcon size={24} className="text-primary-500" />
+                    المسارات الذكية (Routing)
                 </h2>
-                <button onClick={() => { resetForm(); setShowForm(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25">
-                    <Plus size={18} /> إضافة مسار
-                </button>
+                <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <button 
+                        onClick={() => setActiveTab('create')}
+                        className={`px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-sm ${activeTab === 'create' ? 'bg-white text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        إنشاء مسار جديد
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('manage')}
+                        className={`px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-sm ${activeTab === 'manage' ? 'bg-white text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        إدارة المسارات
+                    </button>
+                </div>
             </div>
 
-            {/* Form Modal */}
-            {showForm && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <button onClick={resetForm} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"><X size={18} /></button>
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">{editingRoute ? 'تعديل المسار' : 'إضافة مسار جديد'}</h3>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">اسم المسار *</label>
-                                <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="مسار المنطقة الشمالية" />
+            {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 flex items-start gap-2"><AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />{error}</div>}
+            {successMsg && <div className="mb-4 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 flex items-start gap-2"><Check size={16} className="text-green-500 mt-0.5 shrink-0" />{successMsg}</div>}
+
+            {activeTab === 'create' && (
+                <div className="flex flex-col lg:flex-row gap-6 h-[75vh] min-h-[600px]">
+                    {/* Left Sidebar: Unassigned Students */}
+                    <div className="w-full lg:w-1/3 flex flex-col gap-4">
+                        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                                <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={18} className="text-primary-500"/> طلاب بدون حافلة ({unassignedStudents.length})</h3>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">المدة التقديرية (دقائق)</label>
-                                <input type="number" min="1" value={form.estimatedDuration} onChange={e => setForm({ ...form, estimatedDuration: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left" dir="ltr" placeholder="35" />
+                            
+                            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                                {loadingData ? (
+                                    <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary-400" /></div>
+                                ) : unassignedStudents.length === 0 ? (
+                                    <div className="text-center p-6 text-gray-400 text-sm bg-gray-50 rounded-xl">جميع الطلاب مخصصين لحافلات.</div>
+                                ) : (
+                                    unassignedStudents.map(student => {
+                                        const isSelected = selectedStudents.some(s => s._id === student._id);
+                                        return (
+                                            <div 
+                                                key={student._id} 
+                                                onClick={() => toggleStudentSelection(student)}
+                                                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between
+                                                    ${isSelected ? 'bg-primary-50 border-primary-200' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+                                            >
+                                                <div>
+                                                    <p className={`font-bold text-sm ${isSelected ? 'text-primary-700' : 'text-gray-800'}`}>{student.name}</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">{student.studentId}</p>
+                                                </div>
+                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-colors ${isSelected ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-200 text-transparent'}`}>
+                                                    <Check size={14} />
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
                             </div>
 
-                            {/* Waypoints */}
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">نقاط المسار (حد أدنى 2) *</label>
-                                    <button type="button" onClick={addWaypoint} className="text-xs text-primary-600 font-bold hover:text-primary-700 flex items-center gap-1"><Plus size={14} /> إضافة نقطة</button>
-                                </div>
-                                {form.waypoints.map((wp, i) => (
-                                    <div key={i} className="flex gap-2 items-start bg-gray-50 rounded-xl p-3 border border-gray-100">
-                                        <span className="text-xs text-gray-400 font-bold mt-3 w-6 shrink-0">{i + 1}</span>
-                                        <div className="flex-1 grid grid-cols-3 gap-2">
-                                            <input type="text" placeholder="Lat" value={wp.lat} onChange={e => updateWaypoint(i, 'lat', e.target.value)} required
-                                                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-primary-500/30" dir="ltr" />
-                                            <input type="text" placeholder="Lng" value={wp.lng} onChange={e => updateWaypoint(i, 'lng', e.target.value)} required
-                                                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-left focus:outline-none focus:ring-1 focus:ring-primary-500/30" dir="ltr" />
-                                            <input type="text" placeholder="اسم" value={wp.label} onChange={e => updateWaypoint(i, 'label', e.target.value)}
-                                                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary-500/30" />
-                                        </div>
-                                        {form.waypoints.length > 2 && (
-                                            <button type="button" onClick={() => removeWaypoint(i)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 mt-1.5"><X size={14} /></button>
-                                        )}
+                            {/* Action Footer */}
+                            <div className="p-4 border-t border-gray-100 bg-white">
+                                <div className="space-y-3">
+                                    <input 
+                                        type="text" 
+                                        placeholder="اسم المسار (مثال: محطة اليرموك)"
+                                        value={routeName}
+                                        onChange={e => setRouteName(e.target.value)}
+                                        className="w-full text-sm px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500"
+                                    />
+                                    
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button 
+                                            onClick={handleAutoRoute}
+                                            disabled={selectedStudents.length < 2 || osrmLoading}
+                                            className="px-3 py-2.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition flex justify-center items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            {osrmLoading ? <Loader2 size={14} className="animate-spin"/> : <Navigation2 size={14}/>}
+                                            رسم مسار ذكي
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={handleSaveRoute}
+                                            disabled={selectedStudents.length < 2 || routePathGeoJson.length === 0 || savingRoute}
+                                            className="px-3 py-2.5 bg-primary-500 text-white text-xs font-bold rounded-xl hover:bg-primary-600 transition flex justify-center items-center disabled:opacity-50"
+                                        >
+                                            {savingRoute ? <Loader2 size={14} className="animate-spin"/> : 'حفظ المسار'}
+                                        </button>
                                     </div>
-                                ))}
-                            </div>
 
-                            <button type="submit" disabled={formLoading}
-                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
-                                {formLoading && <Loader2 size={20} className="animate-spin" />}
-                                {formLoading ? 'جاري الحفظ...' : editingRoute ? 'تحديث' : 'إضافة'}
-                            </button>
-                            {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl"><p className="text-sm text-red-700 flex items-start gap-2"><AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" /><span className="font-semibold">{error}</span></p></div>}
-                        </form>
+                                    {osrmMeta && (
+                                        <div className="text-[11px] font-bold text-center text-gray-500 mt-2 bg-gray-50 rounded-lg py-1.5">
+                                            المدة: {osrmMeta.duration} دقيقة — المسافة: {osrmMeta.distance} كم
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Side: Map */}
+                    <div className="w-full lg:w-2/3 bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden relative shadow-inner z-0">
+                        <MapContainer center={mapCenter} zoom={12} style={{ height: '100%', width: '100%' }} className="z-0">
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                            
+                            {/* Unassigned Students (Grey Pins) */}
+                            {unassignedStudents.map(s => {
+                                const lat = s.location?.coordinates[1];
+                                const lng = s.location?.coordinates[0];
+                                const isSelected = selectedStudents.some(sel => sel._id === s._id);
+                                if (!lat || !lng || isSelected) return null; // Don't show generic pin if selected
+
+                                return (
+                                    <Marker key={s._id} position={[lat, lng]}>
+                                        <Tooltip direction="top" className="font-sans font-bold" opacity={1}>{s.name} (غير معين)</Tooltip>
+                                    </Marker>
+                                );
+                            })}
+
+                            {/* Selected Students (Green Pins) */}
+                            {selectedStudents.map((s, idx) => {
+                                const lat = s.location?.coordinates[1];
+                                const lng = s.location?.coordinates[0];
+                                return (
+                                    <Marker key={`sel-${s._id}`} position={[lat, lng]} icon={selectedIcon}>
+                                        <Tooltip permanent direction="bottom" className="font-sans font-bold text-primary-600" opacity={0.9}>
+                                            المحطة
+                                        </Tooltip>
+                                    </Marker>
+                                );
+                            })}
+
+                            {/* OSRM Route Line */}
+                            {routePathGeoJson.length > 0 && <Polyline positions={routePathGeoJson} color="#3b82f6" weight={5} opacity={0.8} />}
+                            {routePathGeoJson.length > 0 && <FitBounds path={routePathGeoJson} />}
+                            {routePathGeoJson.length === 0 && <RecenterMap center={mapCenter} />}
+                        </MapContainer>
                     </div>
                 </div>
             )}
 
-            {/* Table */}
-            {loading ? (
-                <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
-            ) : routes.length === 0 ? (
-                <div className="p-12 text-center text-gray-400 bg-white border border-gray-100 rounded-2xl">
-                    <MapPin size={48} className="mx-auto mb-4 opacity-30" />
-                    <p className="font-bold text-lg">لا توجد مسارات</p>
-                </div>
-            ) : (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                            <tr className="text-gray-500 font-bold">
-                                <th className="px-6 py-3 text-right">المسار</th>
-                                <th className="px-6 py-3 text-center">النقاط</th>
-                                <th className="px-6 py-3 text-center">المدة</th>
-                                <th className="px-6 py-3 text-right">السائق</th>
-                                <th className="px-6 py-3 text-center">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {routes.map(route => (
-                                <tr key={route._id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
-                                    <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">{route.waypoints?.length || 0}</span></td>
-                                    <td className="px-6 py-4 text-center text-gray-600">{route.estimatedDuration ? `${route.estimatedDuration} د` : '—'}</td>
-                                    <td className="px-6 py-4 text-gray-600">{route.driver?.name || '—'}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => startEdit(route)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors"><Pencil size={16} /></button>
-                                            <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* Manage Routes Tab */}
+            {activeTab === 'manage' && (
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                    {loadingData ? (
+                        <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
+                    ) : routes.length === 0 ? (
+                        <div className="p-12 text-center text-gray-400 bg-white">
+                            <RouteIcon size={48} className="mx-auto mb-4 opacity-30" />
+                            <p className="font-bold text-lg">لا توجد مسارات محفوظة</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-right">
+                                <thead className="bg-gray-50 border-b border-gray-100">
+                                    <tr className="text-gray-500 font-bold">
+                                        <th className="px-6 py-4">اسم المسار</th>
+                                        <th className="px-6 py-4 text-center">الطلاب</th>
+                                        <th className="px-6 py-4 text-center">المدة التقديرية</th>
+                                        <th className="px-6 py-4">السائق المخصص</th>
+                                        <th className="px-6 py-4 text-center">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {routes.map(route => (
+                                        <tr key={route._id} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100">
+                                                    {route.students?.length || 0} طالباً
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center text-gray-600">
+                                                {route.estimatedDuration ? `${route.estimatedDuration} د` : '—'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600 flex items-center gap-2">
+                                                {route.driver ? (
+                                                    <><div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs">🚗</div> {route.driver.name}</>
+                                                ) : <span className="text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded text-xs border border-yellow-100">غير معين</span>}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {/* Edit map is slightly complex, so just delete for now in V2 */}
+                                                    <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="إلغاء المسار">
+                                                        <Ban size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

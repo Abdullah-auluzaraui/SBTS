@@ -5,20 +5,17 @@ const Route = require('../models/Route');
 // POST /api/routes — Create route
 exports.create = async (req, res) => {
   try {
-    const { name, waypoints, driver, estimatedDuration } = req.body;
+    const { name, students, polyline, driver, estimatedDuration } = req.body;
 
     if (!name) {
       return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'Route name is required' });
     }
 
-    if (!waypoints || waypoints.length < 2) {
-      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'A route must have at least 2 waypoints' });
-    }
-
     const route = await Route.create({
       school: req.schoolId,
       name,
-      waypoints,
+      students: students || [],
+      polyline: polyline || '',
       driver: driver || null,
       estimatedDuration: estimatedDuration || null
     });
@@ -34,6 +31,7 @@ exports.list = async (req, res) => {
   try {
     const routes = await Route.find({ school: req.schoolId, isActive: true })
       .populate('driver', 'name username')
+      .populate('students', 'name location') // Populate students to show on map
       .sort({ createdAt: -1 });
 
     res.json({ success: true, routes });
@@ -50,14 +48,10 @@ exports.update = async (req, res) => {
       return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'Route not found' });
     }
 
-    const { name, waypoints, driver, estimatedDuration } = req.body;
+    const { name, students, polyline, driver, estimatedDuration } = req.body;
     if (name !== undefined) route.name = name;
-    if (waypoints !== undefined) {
-      if (waypoints.length < 2) {
-        return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'A route must have at least 2 waypoints' });
-      }
-      route.waypoints = waypoints;
-    }
+    if (students !== undefined) route.students = students;
+    if (polyline !== undefined) route.polyline = polyline;
     if (driver !== undefined) route.driver = driver;
     if (estimatedDuration !== undefined) route.estimatedDuration = estimatedDuration;
 

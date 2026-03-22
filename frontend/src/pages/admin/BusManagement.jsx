@@ -1,59 +1,131 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
-import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff } from 'lucide-react';
 
 const BusManagement = () => {
     const [buses, setBuses] = useState([]);
+    const [drivers, setDrivers] = useState([]);
+    const [allStudents, setAllStudents] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Bus form state
     const [showForm, setShowForm] = useState(false);
     const [editingBus, setEditingBus] = useState(null);
-    const [form, setForm] = useState({ busId: '', capacity: '' });
+    const [form, setForm] = useState({ busId: '', capacity: '', driver: '' });
     const [formLoading, setFormLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [formError, setFormError] = useState('');
 
-    const fetchBuses = async () => {
+    // Student assignment state
+    const [assigningBus, setAssigningBus] = useState(null); // The bus object
+    const [selectedStudents, setSelectedStudents] = useState(new Set());
+    const [assignLoading, setAssignLoading] = useState(false);
+    const [assignMsg, setAssignMsg] = useState('');
+    const [studentSearch, setStudentSearch] = useState('');
+
+    const [showAll, setShowAll] = useState(false);
+
+    const fetchAll = useCallback(async () => {
+        setLoading(true);
         try {
-            const { data } = await api.get('/buses');
-            setBuses(data.buses);
+            const [busRes, driverRes, studentsRes] = await Promise.all([
+                api.get(showAll ? '/buses?all=true' : '/buses'),
+                api.get('/buses/drivers'),
+                api.get('/students')
+            ]);
+            setBuses(busRes.data.buses);
+            setDrivers(driverRes.data.drivers);
+            setAllStudents(studentsRes.data.students);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
+    }, [showAll]);
+
+    useEffect(() => { fetchAll(); }, [fetchAll]);
+
+    // ─── Bus Form ─────────────────────────────────────────────────────
+    const resetForm = () => {
+        setForm({ busId: '', capacity: '', driver: '' });
+        setEditingBus(null);
+        setShowForm(false);
+        setFormError('');
     };
-
-    useEffect(() => { fetchBuses(); }, []);
-
-    const resetForm = () => { setForm({ busId: '', capacity: '' }); setEditingBus(null); setShowForm(false); setError(''); };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        setFormError('');
         setFormLoading(true);
         try {
+            const payload = {
+                capacity: parseInt(form.capacity),
+                driver: form.driver || null
+            };
             if (editingBus) {
-                await api.put(`/buses/${editingBus}`, { capacity: parseInt(form.capacity) });
+                await api.put(`/buses/${editingBus}`, payload);
             } else {
-                await api.post('/buses', { busId: form.busId, capacity: parseInt(form.capacity) });
+                await api.post('/buses', { busId: form.busId, ...payload });
             }
             resetForm();
-            fetchBuses();
+            fetchAll();
         } catch (err) {
-            setError(err.response?.data?.message || 'حدث خطأ');
+            setFormError(err.response?.data?.message || 'حدث خطأ');
         } finally { setFormLoading(false); }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('هل تريد تعطيل هذه الحافلة؟')) return;
+    const handleToggleStatus = async (bus) => {
+        const action = bus.isActive ? 'تعطيل' : 'تفعيل';
+        if (!window.confirm(`هل تريد ${action} الحافلة "${bus.busId}"?`)) return;
         try {
-            await api.delete(`/buses/${id}`);
-            fetchBuses();
+            await api.patch(`/buses/${bus._id}/status`);
+            fetchAll();
         } catch (err) { console.error(err); }
     };
 
     const startEdit = (bus) => {
         setEditingBus(bus._id);
-        setForm({ busId: bus.busId, capacity: bus.capacity.toString() });
+        setForm({ busId: bus.busId, capacity: bus.capacity.toString(), driver: bus.driver?._id || '' });
         setShowForm(true);
-        setError('');
+        setFormError('');
     };
+
+    // ─── Student Assignment ────────────────────────────────────────────
+    const openAssignModal = (bus) => {
+        setAssigningBus(bus);
+        setAssignMsg('');
+        setStudentSearch('');
+        // Pre-select students already assigned to this bus
+        const alreadyAssigned = new Set(
+            allStudents.filter(s => s.assignedBus === bus.busId).map(s => s.id)
+        );
+        setSelectedStudents(alreadyAssigned);
+    };
+
+    const toggleStudent = (id) => {
+        setSelectedStudents(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleAssignSave = async () => {
+        setAssignLoading(true);
+        setAssignMsg('');
+        try {
+            await api.put(`/buses/${assigningBus._id}/assign-students`, {
+                studentIds: Array.from(selectedStudents)
+            });
+            setAssignMsg('success');
+            fetchAll();
+            setTimeout(() => setAssigningBus(null), 1200);
+        } catch (err) {
+            setAssignMsg('error');
+        } finally { setAssignLoading(false); }
+    };
+
+    const filteredStudents = allStudents.filter(s =>
+        s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+        s.studentId?.toLowerCase().includes(studentSearch.toLowerCase())
+    );
 
     return (
         <div>
@@ -63,41 +135,192 @@ const BusManagement = () => {
                     <Bus size={24} className="text-primary-500" />
                     إدارة الحافلات
                 </h2>
-                <button onClick={() => { resetForm(); setShowForm(true); }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25">
-                    <Plus size={18} /> إضافة حافلة
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowAll(v => !v)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all ${
+                            showAll
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                        {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
+                        {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
+                    </button>
+                    <button
+                        onClick={() => { resetForm(); setShowForm(true); }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25"
+                    >
+                        <Plus size={18} /> إضافة حافلة
+                    </button>
+                </div>
             </div>
 
-            {/* Form Modal */}
+            {/* ── Add/Edit Bus Modal ────────────────────────────── */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => resetForm()}>
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={resetForm} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"><X size={18} /></button>
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">{editingBus ? 'تعديل الحافلة' : 'إضافة حافلة جديدة'}</h3>
+                        <button onClick={resetForm} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
+                            <X size={18} />
+                        </button>
+                        <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">
+                            {editingBus ? 'تعديل الحافلة' : 'إضافة حافلة جديدة'}
+                        </h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Bus ID */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">رقم الحافلة</label>
-                                <input type="text" required value={form.busId} onChange={e => setForm({ ...form, busId: e.target.value })} disabled={!!editingBus}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left disabled:opacity-50" dir="ltr" placeholder="BUS-001" />
+                                <input
+                                    type="text" required
+                                    value={form.busId}
+                                    onChange={e => setForm({ ...form, busId: e.target.value })}
+                                    disabled={!!editingBus}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left disabled:opacity-50"
+                                    dir="ltr" placeholder="BUS-001"
+                                />
                             </div>
+
+                            {/* Capacity */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">السعة</label>
-                                <input type="number" required min="1" max="100" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left" dir="ltr" placeholder="40" />
+                                <input
+                                    type="number" required min="1" max="100"
+                                    value={form.capacity}
+                                    onChange={e => setForm({ ...form, capacity: e.target.value })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left"
+                                    dir="ltr" placeholder="40"
+                                />
                             </div>
-                            <button type="submit" disabled={formLoading}
-                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
+
+                            {/* Driver Dropdown */}
+                            <div className="space-y-1.5">
+                                <label className="block text-gray-700 font-bold text-sm px-1">السائق (اختياري)</label>
+                                <select
+                                    value={form.driver}
+                                    onChange={e => setForm({ ...form, driver: e.target.value })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                >
+                                    <option value="" >بدون سائق </option>
+                                    {drivers.map(d => (
+                                        <option key={d._id} value={d._id}>{d.name} ({d.username})</option>
+                                    ))}
+                                </select>
+                                {drivers.length === 0 && (
+                                    <p className="text-xs text-amber-500 px-1">لا يوجد سائقون نشطون في النظام حالياً.</p>
+                                )}
+                            </div>
+
+                            <button
+                                type="submit" disabled={formLoading}
+                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}
+                            >
                                 {formLoading && <Loader2 size={20} className="animate-spin" />}
                                 {formLoading ? 'جاري الحفظ...' : editingBus ? 'تحديث' : 'إضافة'}
                             </button>
-                            {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl"><p className="text-sm text-red-700 flex items-start gap-2"><AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" /><span className="font-semibold">{error}</span></p></div>}
+
+                            {formError && (
+                                <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+                                    <p className="text-sm text-red-700 flex items-start gap-2">
+                                        <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                                        <span className="font-semibold">{formError}</span>
+                                    </p>
+                                </div>
+                            )}
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Table */}
+            {/* ── Assign Students Modal ─────────────────────────── */}
+            {assigningBus && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setAssigningBus(null)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                    <Users size={20} className="text-primary-500" />
+                                    ربط طلاب بـ {assigningBus.busId}
+                                </h3>
+                                <p className="text-sm text-gray-400 mt-0.5">اختر الطلاب الذين سيركبون هذه الحافلة</p>
+                            </div>
+                            <button onClick={() => setAssigningBus(null)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Search */}
+                        <div className="p-4 border-b border-gray-50 shrink-0">
+                            <input
+                                type="text"
+                                placeholder="ابحث باسم الطالب أو رقمه..."
+                                value={studentSearch}
+                                onChange={e => setStudentSearch(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-500 transition-all"
+                            />
+                        </div>
+
+                        {/* Student List */}
+                        <div className="overflow-y-auto flex-grow p-4 space-y-2">
+                            {filteredStudents.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400 text-sm">لا يوجد طلاب مطابقون</div>
+                            ) : filteredStudents.map(student => {
+                                const isSelected = selectedStudents.has(student.id);
+                                const isOnOtherBus = student.assignedBus && student.assignedBus !== assigningBus.busId;
+                                return (
+                                    <div
+                                        key={student.id}
+                                        onClick={() => toggleStudent(student.id)}
+                                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none
+                                            ${isSelected ? 'bg-primary-50 border-primary-200' : 'border-gray-100 hover:bg-gray-50'}`}
+                                    >
+                                        <div>
+                                            <p className={`font-bold text-sm ${isSelected ? 'text-primary-700' : 'text-gray-800'}`}>
+                                                {student.name}
+                                            </p>
+                                            <p className="text-xs text-gray-400">{student.studentId}</p>
+                                            {isOnOtherBus && !isSelected && (
+                                                <p className="text-xs text-amber-500 mt-0.5">مخصص لحافلة: {student.assignedBus}</p>
+                                            )}
+                                        </div>
+                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0
+                                            ${isSelected ? 'bg-primary-500 border-primary-500' : 'border-gray-300'}`}>
+                                            {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 shrink-0">
+                            {assignMsg === 'success' && (
+                                <p className="text-green-600 text-sm font-bold text-center mb-3 flex items-center justify-center gap-1.5">
+                                    <Check size={16} /> تم الحفظ بنجاح!
+                                </p>
+                            )}
+                            {assignMsg === 'error' && (
+                                <p className="text-red-600 text-sm font-bold text-center mb-3">حدث خطأ، يرجى المحاولة مجدداً.</p>
+                            )}
+                            <div className="flex gap-3">
+                                <button onClick={() => setAssigningBus(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold text-sm transition">
+                                    إلغاء
+                                </button>
+                                <button
+                                    onClick={handleAssignSave}
+                                    disabled={assignLoading}
+                                    className="flex-1 py-2.5 rounded-xl bg-primary-500 text-white font-bold text-sm hover:bg-primary-600 transition flex justify-center items-center gap-2 disabled:opacity-60"
+                                >
+                                    {assignLoading ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={16} />}
+                                    حفظ ({selectedStudents.size} طالب)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Buses Table ────────────────────────────────────── */}
             {loading ? (
                 <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
             ) : buses.length === 0 ? (
@@ -106,32 +329,74 @@ const BusManagement = () => {
                     <p className="font-bold text-lg">لا توجد حافلات</p>
                 </div>
             ) : (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50">
-                            <tr className="text-gray-500 font-bold">
-                                <th className="px-6 py-3 text-right">رقم الحافلة</th>
-                                <th className="px-6 py-3 text-center">السعة</th>
-                                <th className="px-6 py-3 text-right">المسار</th>
-                                <th className="px-6 py-3 text-right">السائق</th>
-                                <th className="px-6 py-3 text-center">إجراءات</th>
+                        <thead className="bg-gray-50 border-b border-gray-100">
+                            <tr className="text-gray-500 font-bold text-right">
+                                <th className="px-6 py-4">رقم الحافلة</th>
+                                <th className="px-6 py-4 text-center">السعة</th>
+                                <th className="px-6 py-4">السائق</th>
+                                <th className="px-6 py-4 text-center">الطلاب المربوطين</th>
+                                <th className="px-6 py-4 text-center">إجراءات</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {buses.map(bus => (
-                                <tr key={bus._id} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-gray-800">{bus.busId}</td>
-                                    <td className="px-6 py-4 text-center">{bus.capacity}</td>
-                                    <td className="px-6 py-4 text-gray-600">{bus.route?.name || '—'}</td>
-                                    <td className="px-6 py-4 text-gray-600">{bus.driver?.name || '—'}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors"><Pencil size={16} /></button>
-                                            <button onClick={() => handleDelete(bus._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                        <tbody className="divide-y divide-gray-50">
+                            {buses.map(bus => {
+                                const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
+                                return (
+                                    <tr key={bus._id} className={`hover:bg-gray-50/50 transition-colors group ${!bus.isActive ? 'opacity-60' : ''}`}>
+                                        <td className="px-6 py-4 font-bold text-gray-800 flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center">
+                                                <Bus size={14} className="text-primary-500" />
+                                            </div>
+                                            {bus.busId}
+                                            {!bus.isActive && (
+                                                <span className="text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">معطّلة</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold">{bus.capacity}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {bus.driver ? (
+                                                <span className="flex items-center gap-1.5 text-gray-700 font-medium text-xs">
+                                                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px]">👤</span>
+                                                    {bus.driver.name}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">غير معين</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={() => openAssignModal(bus)}
+                                                className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100 transition"
+                                            >
+                                                <Users size={12} />
+                                                {studentCount} طالب
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {bus.isActive && (
+                                                    <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="تعديل">
+                                                        <Pencil size={16} />
+                                                    </button>
+                                                )}
+                                                {bus.isActive ? (
+                                                    <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="تعطيل الحافلة">
+                                                        <Ban size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors" title="إعادة تفعيل الحافلة">
+                                                        <CircleCheck size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

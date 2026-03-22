@@ -67,10 +67,27 @@ exports.list = async (req, res) => {
       parentAccessCode: s.parentAccessCode,
       parentLinked: !!s.parentId,
       parentName: s.parentId?.name || null,
-      assignedBus: s.assignedBus?.busId || null
+      assignedBus: s.assignedBus?.busId || null,
+      location: s.location || null
     }));
 
     res.json({ success: true, students: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/students/unassigned
+// Fetch students who have no assigned bus AND have a valid location set
+exports.getUnassigned = async (req, res) => {
+  try {
+    const students = await Student.find({
+      school: req.schoolId,
+      assignedBus: null,
+      'location.coordinates.0': { $ne: 0 } // Longitude is not 0
+    }).select('name studentId grade location');
+
+    res.json({ success: true, students });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

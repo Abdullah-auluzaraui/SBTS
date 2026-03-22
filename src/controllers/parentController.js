@@ -56,3 +56,52 @@ exports.linkChild = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// PUT /api/parents/students/:id/location
+// Update student location (Interactive Map feature)
+exports.updateLocation = async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    const studentId = req.params.id;
+
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({ success: false, message: 'Latitude and Longitude are required' });
+    }
+
+    const student = await Student.findOne({ _id: studentId, parentId: req.user._id });
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found or not linked to your account' });
+    }
+
+    student.location = {
+      type: 'Point',
+      coordinates: [lng, lat]
+    };
+    
+    await student.save();
+
+    res.json({ success: true, message: 'Location updated successfully', location: student.location });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/parents/students
+// Get all students linked to the logged-in parent
+exports.getStudents = async (req, res) => {
+  try {
+    const students = await Student.find({ parentId: req.user._id })
+      .populate('school', 'name contact.phone')
+      .populate({
+        path: 'assignedBus',
+        select: 'busId capacity',
+        populate: {
+          path: 'driver',
+          select: 'name phone'
+        }
+      });
+    res.json({ success: true, students });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

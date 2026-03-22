@@ -9,7 +9,4 @@ const invitationSchema = new mongoose.Schema({
   isUsed:    { type: Boolean, default: false }
 }, { timestamps: true });
 
-// Index for fast token lookup
-invitationSchema.index({ token: 1 });
-
 module.exports = mongoose.model('Invitation', invitationSchema);

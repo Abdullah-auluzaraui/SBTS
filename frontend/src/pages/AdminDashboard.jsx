@@ -2,27 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../services/apiService';
-import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2 } from 'lucide-react';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
-    const [stats, setStats] = useState({ buses: 0, routes: 0, students: 0, attendance: 0 });
+    const [stats, setStats] = useState({ buses: 0, routes: 0, students: 0, attendance: 0, drivers: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [busRes, routeRes, studentRes, attendanceRes] = await Promise.all([
+                const [busRes, routeRes, studentRes, attendanceRes, driverRes] = await Promise.all([
                     api.get('/buses'),
                     api.get('/routes'),
                     api.get('/students'),
-                    api.get('/attendance?limit=1')
+                    api.get('/attendance?limit=1'),
+                    api.get('/users/drivers')
                 ]);
                 setStats({
                     buses: busRes.data.buses?.length || 0,
                     routes: routeRes.data.routes?.length || 0,
                     students: studentRes.data.students?.length || 0,
-                    attendance: attendanceRes.data.pagination?.total || 0
+                    attendance: attendanceRes.data.pagination?.total || 0,
+                    drivers: driverRes.data.drivers?.length || 0
                 });
             } catch (err) { console.error(err); }
             finally { setLoading(false); }
@@ -34,6 +36,7 @@ const AdminDashboard = () => {
         { title: 'الحافلات', count: stats.buses, icon: Bus, color: 'blue', link: '/admin/buses' },
         { title: 'المسارات', count: stats.routes, icon: MapPin, color: 'emerald', link: '/admin/routes' },
         { title: 'الطلاب', count: stats.students, icon: GraduationCap, color: 'purple', link: '/admin/students' },
+        { title: 'السائقون', count: stats.drivers, icon: UserCog, color: 'teal', link: '/admin/drivers' },
         { title: 'سجلات الحضور', count: stats.attendance, icon: ClipboardList, color: 'amber', link: '/admin/attendance' },
     ];
 
@@ -42,6 +45,7 @@ const AdminDashboard = () => {
         emerald: { bg: 'from-emerald-50 to-white', border: 'border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', number: 'text-emerald-600' },
         purple: { bg: 'from-purple-50 to-white', border: 'border-purple-100', icon: 'bg-purple-100 text-purple-600', number: 'text-purple-600' },
         amber: { bg: 'from-amber-50 to-white', border: 'border-amber-100', icon: 'bg-amber-100 text-amber-600', number: 'text-amber-600' },
+        teal: { bg: 'from-teal-50 to-white', border: 'border-teal-100', icon: 'bg-teal-100 text-teal-600', number: 'text-teal-600' },
     };
 
     return (

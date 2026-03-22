@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import api from '../services/apiService';
-import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin } from 'lucide-react';
+import LocationPicker from '../components/maps/LocationPicker';
 
 const ParentDashboard = () => {
     const { user } = useAuth();
@@ -14,6 +15,24 @@ const ParentDashboard = () => {
     const [childLoading, setChildLoading] = useState(false);
     const [childError, setChildError] = useState('');
     const [childSuccess, setChildSuccess] = useState('');
+
+    // ─── Maps Feature State ──────────────────────────────────────────
+    const [students, setStudents] = useState([]);
+    const [studentsLoading, setStudentsLoading] = useState(true);
+    const [pickingLocationFor, setPickingLocationFor] = useState(null);
+
+    const fetchStudents = async () => {
+        try {
+            const { data } = await api.get('/parents/students');
+            setStudents(data.students);
+        } catch (err) {
+            console.error('Failed to fetch students:', err);
+        } finally {
+            setStudentsLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchStudents(); }, []);
 
     // Simulate an approaching notification toast after 2 seconds
     useEffect(() => {
@@ -63,6 +82,12 @@ const ParentDashboard = () => {
         } finally {
             setChildLoading(false);
         }
+    };
+
+    const handleLocationSaved = (position) => {
+        setPickingLocationFor(null);
+        setShowToast(true); // Optional: re-use toast to say success
+        fetchStudents(); // Refresh students to get new coordinates
     };
 
     return (
@@ -197,22 +222,79 @@ const ParentDashboard = () => {
                             حالة الطالب
                         </h3>
 
-                        <div className="flex flex-col gap-4 flex-grow justify-center">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-gray-50 px-5 py-5 border border-gray-100 rounded-2xl">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">
-                                        <span className="text-gray-500 font-bold text-lg">خ</span>
-                                    </div>
-                                    <div>
-                                        <span className="block font-bold text-gray-800 text-lg mb-1">خالد العتيبي</span>
-                                        <span className="text-xs text-gray-500 font-medium bg-white px-2 py-0.5 rounded border border-gray-200">مسار المنطقة الشمالية</span>
-                                    </div>
+                        <div className="flex flex-col gap-4 flex-grow justify-start overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+                            {studentsLoading ? (
+                                <div className="flex items-center justify-center p-8 text-primary-500">
+                                    <Loader2 size={30} className="animate-spin" />
                                 </div>
-                                <div className="flex items-center justify-center sm:justify-start gap-2 bg-green-50 text-green-700 px-4 py-2.5 rounded-xl border border-green-200 shadow-sm font-bold text-sm w-full sm:w-auto">
-                                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]"></span>
-                                    متواجد بالحافلة
+                            ) : students.length === 0 ? (
+                                <div className="text-center p-8 bg-gray-50 rounded-2xl border border-gray-100 text-gray-500">
+                                    لا يوجد أبناء مرتبطين بحسابك حالياً.
                                 </div>
-                            </div>
+                            ) : (
+                                students.map(student => (
+                                    <div key={student._id} className="flex flex-col gap-3 bg-gray-50 px-5 py-5 border border-gray-100 rounded-2xl">
+                                        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">
+                                                    <span className="text-gray-500 font-bold text-lg">{student.name.charAt(0)}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="block font-bold text-gray-800 text-lg mb-1">{student.name}</span>
+                                                    <span className="text-xs text-gray-500 font-medium bg-white px-2 py-0.5 rounded border border-gray-200">
+                                                        {student.assignedBus ? `حافلة: ${student.assignedBus.busId}` : 'غير معين لحافلة'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-center sm:justify-start gap-2 bg-green-50 text-green-700 px-4 py-2.5 rounded-xl border border-green-200 shadow-sm font-bold text-sm">
+                                                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]"></span>
+                                                {student.assignedBus ? 'متواجد بالحافلة' : 'في المنزل'}
+                                            </div>
+                                        </div>
+
+                                        {/* Driver Info */}
+                                        {student.assignedBus?.driver && (
+                                            <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-gray-100 shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">
+                                                        <User size={14} className="text-gray-500" />
+                                                    </div>
+                                                    <div className="flex flex-col leading-tight">
+                                                        <span className="text-[10px] text-gray-500 font-normal">السائق</span>
+                                                        <span className="text-xs font-bold text-gray-800">{student.assignedBus.driver.name}</span>
+                                                    </div>
+                                                </div>
+                                                {student.assignedBus.driver.phone ? (
+                                                    <a
+                                                        href={`tel:${student.assignedBus.driver.phone}`}
+                                                        className="flex items-center justify-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg border border-green-200 shadow-sm font-bold text-xs hover:bg-green-100 transition-colors"
+                                                    >
+                                                        <Phone size={14} strokeWidth={2} />
+                                                        اتصال
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">لا يوجد رقم</span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Set Location Button */}
+                                        <div className="border-t border-gray-200 pt-3 mt-1 flex justify-end">
+                                            <button 
+                                                onClick={() => setPickingLocationFor(student)}
+                                                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all border
+                                                    ${student.location && student.location.coordinates[0] !== 0 
+                                                        ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' 
+                                                        : 'bg-primary-50 text-primary-600 border-primary-200 hover:bg-primary-100'}
+                                                `}
+                                            >
+                                                <MapPin size={16} />
+                                                {student.location && student.location.coordinates[0] !== 0 ? 'تحديث موقع المنزل' : 'تحديد موقع المنزل'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
 
                             {/* FE-S1-9: Add Another Child Button */}
                             <button
@@ -308,6 +390,15 @@ const ParentDashboard = () => {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* ─── Map Location Picker Modal ──────────────────────── */}
+            {pickingLocationFor && (
+                <LocationPicker 
+                    student={pickingLocationFor} 
+                    onClose={() => setPickingLocationFor(null)} 
+                    onSaved={handleLocationSaved} 
+                />
             )}
         </MainLayout>
     );
