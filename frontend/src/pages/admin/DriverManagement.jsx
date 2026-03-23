@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
 import {
     UserCog, Plus, X, Loader2, AlertCircle, Eye, EyeOff,
-    Ban, CircleCheck, Trash2, Phone, Check
+    Ban, CircleCheck, Phone, Check
 } from 'lucide-react';
 
 const DriverManagement = () => {
@@ -16,7 +16,7 @@ const DriverManagement = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
-    const [successId, setSuccessId] = useState(null); // Flash for created item
+    const [successId, setSuccessId] = useState(null);
 
     const fetchDrivers = useCallback(async () => {
         setLoading(true);
@@ -60,32 +60,32 @@ const DriverManagement = () => {
         } catch (err) { console.error(err); }
     };
 
-
     return (
         <div>
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                    <UserCog size={24} className="text-primary-500" />
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-3">
+                    <UserCog size={22} className="text-primary-500" />
                     إدارة السائقين
                 </h2>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => setShowAll(v => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-sm border transition-all ${
                             showAll
                                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                         }`}
                     >
-                        {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
-                        {showAll ? 'عرض النشطين فقط' : 'عرض الكل'}
+                        {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
+                        <span className="hidden sm:inline">{showAll ? 'عرض النشطين فقط' : 'عرض الكل'}</span>
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25 text-sm"
                     >
-                        <Plus size={18} /> إضافة سائق
+                        <Plus size={17} />
+                        <span>إضافة سائق</span>
                     </button>
                 </div>
             </div>
@@ -93,7 +93,7 @@ const DriverManagement = () => {
             {/* ── Add Driver Modal ─────────────────────────────── */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-8 relative" onClick={e => e.stopPropagation()}>
                         <button onClick={resetForm} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
                             <X size={18} />
                         </button>
@@ -106,7 +106,6 @@ const DriverManagement = () => {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Full Name */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">الاسم الكامل</label>
                                 <input
@@ -117,27 +116,22 @@ const DriverManagement = () => {
                                 />
                             </div>
 
-                            {/* Username */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
                                 <input
-                                    type="text" required
-                                    dir="ltr"
+                                    type="text" required dir="ltr"
                                     value={form.username}
                                     onChange={e => setForm({ ...form, username: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') })}
                                     placeholder="driver_ahmed"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-right"
                                 />
-
                             </div>
 
-                            {/* Password */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">كلمة المرور</label>
                                 <div className="relative">
                                     <input
-                                        type={showPassword ? 'text' : 'password'} required
-                                        dir="ltr"
+                                        type={showPassword ? 'text' : 'password'} required dir="ltr"
                                         value={form.password}
                                         onChange={e => setForm({ ...form, password: e.target.value })}
                                         minLength={6}
@@ -150,21 +144,16 @@ const DriverManagement = () => {
                                 </div>
                             </div>
 
-                            {/* Phone */}
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال</label>
-                                <div className="relative">
-                                    <input
-                                        type="tel" dir="ltr" required
-                                        value={form.phone}
-                                        onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
-                                        placeholder="0512345678"
-                                        minLength={10}
-                                        maxLength={10}
-                                        pattern="[0-9]*"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-right"
-                                    />
-                                </div>
+                                <input
+                                    type="tel" dir="ltr" required
+                                    value={form.phone}
+                                    onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
+                                    placeholder="0512345678"
+                                    minLength={10} maxLength={10} pattern="[0-9]*"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-right"
+                                />
                             </div>
 
                             <button type="submit" disabled={formLoading}
@@ -186,7 +175,7 @@ const DriverManagement = () => {
                 </div>
             )}
 
-            {/* ── Drivers Table ────────────────────────────────── */}
+            {/* ── Drivers List ─────────────────────────────────── */}
             {loading ? (
                 <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
             ) : drivers.length === 0 ? (
@@ -196,76 +185,132 @@ const DriverManagement = () => {
                     <p className="text-sm mt-1">قم بإضافة أول سائق لمدرستك</p>
                 </div>
             ) : (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-100">
-                            <tr className="text-gray-500 font-bold text-right">
-                                <th className="px-6 py-4">السائق</th>
-                                <th className="px-6 py-4">اسم المستخدم</th>
-                                <th className="px-6 py-4">الجوال</th>
-                                <th className="px-6 py-4 text-center">الحالة</th>
-                                <th className="px-6 py-4 text-center">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {drivers.map(driver => (
-                                <tr
-                                    key={driver._id}
-                                    className={`hover:bg-gray-50/50 transition-colors group ${successId === driver._id ? 'bg-green-50/50' : ''}`}
-                                >
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
-                                                {driver.name.charAt(0)}
-                                            </div>
-                                            <div>
+                <>
+                    {/* ── Mobile: Card List (< md) ───────────────── */}
+                    <div className="md:hidden flex flex-col gap-3">
+                        {drivers.map(driver => (
+                            <div
+                                key={driver._id}
+                                className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
+                                    !driver.isActive ? 'opacity-60 border-gray-100' : 'border-gray-100'
+                                } ${successId === driver._id ? 'border-green-200 bg-green-50/30' : ''}`}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+                                            {driver.name.charAt(0)}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                                                {driver.name}
+                                                {successId === driver._id && <Check size={13} className="text-green-500" />}
+                                            </p>
+                                            <code className="text-[11px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-mono">{driver.username}</code>
+                                        </div>
+                                    </div>
+                                    {driver.isActive ? (
+                                        <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-green-100 shrink-0">
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />نشط
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[11px] font-bold px-2.5 py-1 rounded-full border border-red-100 shrink-0">
+                                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />معلّق
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                                    {driver.phone ? (
+                                        <a href={`tel:${driver.phone}`} className="flex items-center gap-1.5 text-sm text-gray-500">
+                                            <Phone size={13} className="text-gray-400" />
+                                            <span dir="ltr">{driver.phone}</span>
+                                        </a>
+                                    ) : <span className="text-gray-300 text-sm">—</span>}
+
+                                    <button
+                                        onClick={() => handleToggleStatus(driver)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                                            driver.isActive
+                                                ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100'
+                                                : 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100'
+                                        }`}
+                                    >
+                                        {driver.isActive
+                                            ? <><Ban size={13} /> تعليق</>
+                                            : <><CircleCheck size={13} /> تفعيل</>}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── Desktop: Table (>= md) ─────────────────── */}
+                    <div className="hidden md:block bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-100">
+                                <tr className="text-gray-500 font-bold text-right">
+                                    <th className="px-6 py-4">السائق</th>
+                                    <th className="px-6 py-4">اسم المستخدم</th>
+                                    <th className="px-6 py-4">الجوال</th>
+                                    <th className="px-6 py-4 text-center">الحالة</th>
+                                    <th className="px-6 py-4 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {drivers.map(driver => (
+                                    <tr
+                                        key={driver._id}
+                                        className={`hover:bg-gray-50/50 transition-colors group ${!driver.isActive ? 'opacity-60' : ''} ${successId === driver._id ? 'bg-green-50/50' : ''}`}
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm shrink-0">
+                                                    {driver.name.charAt(0)}
+                                                </div>
                                                 <p className="font-bold text-gray-800 flex items-center gap-1.5">
                                                     {driver.name}
                                                     {successId === driver._id && <Check size={14} className="text-green-500" />}
                                                 </p>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <code className="text-xs bg-gray-100 px-2.5 py-1 rounded-lg text-gray-600 font-mono">{driver.username}</code>
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-500 text-sm">
-                                        {driver.phone ? (
-                                            <span className="flex items-center gap-1.5"><Phone size={13} className="text-gray-400" />{driver.phone}</span>
-                                        ) : '—'}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        {driver.isActive ? (
-                                            <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-100">
-                                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                                                نشط
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1 rounded-full border border-red-100">
-                                                <span className="w-1.5 h-1.5 bg-red-400 rounded-full"></span>
-                                                معلّق
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => handleToggleStatus(driver)}
-                                                className={`p-2 rounded-lg transition-colors ${driver.isActive
-                                                    ? 'hover:bg-red-50 text-gray-400 hover:text-red-500'
-                                                    : 'hover:bg-green-50 text-gray-400 hover:text-green-500'}`}
-                                                title={driver.isActive ? 'تعليق الحساب' : 'تفعيل الحساب'}
-                                            >
-                                                {driver.isActive ? <Ban size={16} /> : <CircleCheck size={16} />}
-                                            </button>
-
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <code className="text-xs bg-gray-100 px-2.5 py-1 rounded-lg text-gray-600 font-mono">{driver.username}</code>
+                                        </td>
+                                        <td className="px-6 py-4 text-gray-500">
+                                            {driver.phone ? (
+                                                <span className="flex items-center gap-1.5"><Phone size={13} className="text-gray-400" />{driver.phone}</span>
+                                            ) : '—'}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {driver.isActive ? (
+                                                <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-100">
+                                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />نشط
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1 rounded-full border border-red-100">
+                                                    <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />معلّق
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => handleToggleStatus(driver)}
+                                                    className={`p-2 rounded-lg transition-colors ${driver.isActive
+                                                        ? 'hover:bg-red-50 text-gray-400 hover:text-red-500'
+                                                        : 'hover:bg-green-50 text-gray-400 hover:text-green-500'}`}
+                                                    title={driver.isActive ? 'تعليق الحساب' : 'تفعيل الحساب'}
+                                                >
+                                                    {driver.isActive ? <Ban size={16} /> : <CircleCheck size={16} />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
         </div>
     );

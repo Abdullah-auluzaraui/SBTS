@@ -8,7 +8,13 @@ const schoolSchema = new mongoose.Schema({
     phone: { type: String },
     email: { type: String, lowercase: true }
   },
+  location: {
+    type:        { type: String, enum: ['Point'], default: 'Point' },
+    coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
+  },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
+
+schoolSchema.index({ location: '2dsphere' });
 
 module.exports = mongoose.model('School', schoolSchema);

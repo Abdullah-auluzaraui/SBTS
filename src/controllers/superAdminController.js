@@ -119,7 +119,8 @@ exports.resendInvitation = async (req, res) => {
 // GET /api/super/schools
 exports.listSchools = async (req, res) => {
   try {
-    const schools = await School.find().sort({ createdAt: -1 }).lean();
+    const filter = req.query.all === 'true' ? {} : { isActive: true };
+    const schools = await School.find(filter).sort({ createdAt: -1 }).lean();
 
     const enriched = await Promise.all(
       schools.map(async (school) => {

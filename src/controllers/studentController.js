@@ -51,15 +51,19 @@ exports.create = async (req, res) => {
   }
 };
 
-// GET /api/students — List students (scoped)
+// GET /api/students — List students (scoped, optional ?busId filter)
 exports.list = async (req, res) => {
   try {
-    const students = await Student.find({ school: req.schoolId })
+    const filter = { school: req.schoolId };
+    if (req.query.busId) filter.assignedBus = req.query.busId;
+
+    const students = await Student.find(filter)
       .populate('assignedBus', 'busId')
       .populate('parentId', 'name username')
       .sort({ createdAt: -1 });
 
     const result = students.map(s => ({
+      _id: s._id,
       id: s._id,
       name: s.name,
       studentId: s.studentId,

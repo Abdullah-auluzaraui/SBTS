@@ -221,16 +221,18 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 
 | Task ID | Description | UC |
 |---------|-------------|-----|
-| FE-S2-1 | `SuperAdminDashboard` — Form to register a new School, generate unique `schoolId`, and send a secure Token-based Invitation. | All |
+| FE-S2-1 | `SuperAdminDashboard` — Form to register a new School, send secure Token-based Invitation. Includes active/all schools filter toggle. | All |
 | FE-S2-2 | Install `react-leaflet` and `leaflet` for 100% free open-source interactive mapping. | UC-6 |
 | FE-S2-3 | `RouteManagement` — Split-screen map; dynamic student selection and OSRM Auto-Routing (TSP). | UC-6 |
 | FE-S2-4 | `RouteForm` and `RouteList` — create, edit routes using smart OSRM polylines. Scoped. | UC-6 |
-| FE-S2-5 | `BusForm` and `BusList` — Manage fleets. Scoped to Admin's `schoolId`. | UC-7 |
+| FE-S2-5 | `BusForm` and `BusList` — Manage fleets. Includes "Show All/Active Only" filter and suspend/reactivate toggles. | UC-7 |
+| FE-S2-5b| `DriverManagement` — UI for Admins to directly add/manage Driver accounts, enforce 10-digit phones, and suspend/reactivate. | UC-7 |
 | FE-S2-6 | `StudentForm` (Manual) — Add single student, bus dropdown, auto-generate `parentAccessCode`. | UC-8 |
 | FE-S2-7 | `CSVBulkUpload` — UI component for School Admins to drag-and-drop a CSV file to register 50+ students at once. | UC-8 |
 | FE-S2-8 | `StudentList` (School Admin) — Display `parentAccessCode` for unregistered students so the school can print/distribute them. | UC-8 |
 | FE-S2-9 | `AttendanceTable` — Filter by bus, date, student. Scoped to Admin's `schoolId`. | UC-10 |
-| FE-S2-10 | `AdminDashboard` — summary cards (buses, students, routes, today's attendance) | All |
+| FE-S2-10 | `AdminDashboard` — summary cards (buses, drivers, students, routes, today's attendance). | All |
+| FE-S2-11 | `ParentDashboard` Updates — Displays real assigned bus ID, driver name, and a direct call button via nested populate. | UC-15 |
 
 ---
 
@@ -241,12 +243,14 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 | BE-S2-1 | `POST /api/super/schools` — Create school, generate unique `schoolId`, dispatch Invitation token. | All |
 | BE-S2-1b| `PATCH /api/super/schools/:id/status` & `POST /api/super/schools/:id/reset-admin-password` — Handle school status and admin password recovery. | All |
 | BE-S2-2 | `POST /api/students/bulk` — Parse CSV directly from memory buffer (`multer` memoryStorage) to avoid ephemeral storage loss. Auto-generate `parentAccessCode`s and save. | UC-8 |
-| BE-S2-3 | Data Segregation Verification — Ensure `GET /api/buses`, `GET /api/students`, etc., strictly filter using `req.user.schoolId` injected by Tenant Middleware. | All |
+| BE-S2-3 | Data Segregation Verification — Ensure `GET /api/buses`, `GET /api/students`, etc., strictly filter using `req.user.schoolId` injected by Tenant Middleware. Support `?all=true` queries. | All |
 | BE-S2-4 | `Bus`, `Route`, `Attendance` models — Include `school: ObjectId` references. | All |
-| BE-S2-5 | CRUD endpoints for Buses (`POST/PUT/DELETE /api/buses`) | UC-7 |
-| BE-S2-6 | CRUD endpoints for Routes (`POST/PUT/DELETE /api/routes`) | UC-6 |
+| BE-S2-5 | CRUD + Status toggle endpoints for Buses (`POST/PUT/PATCH /api/buses`) | UC-7 |
+| BE-S2-6 | CRUD endpoints for Routes (`POST/PUT/PATCH /api/routes`) | UC-6 |
+| BE-S2-6b| `userRoutes.js` — CRUD for drivers under a school (`POST /api/users/driver`, `PATCH /status`), enforcing 10-digit phone numbers. | UC-7 |
 | BE-S2-7 | `POST /api/students` — Single student creation API | UC-8 |
 | BE-S2-8 | `GET /api/attendance` — Fetch attendance records scoped by school. Filter by busId, studentId, date range; paginated. | UC-10 |
+| BE-S2-9 | Update `parentController.js` `getStudents` — Nested populate to include assigned Bus ID and Driver (Name/Phone) for Parent UI. | UC-15 |
 
 ---
 
@@ -322,9 +326,11 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 1. Super Admin registers a new school → Receives `schoolId` and School Admin credentials.
 2. School Admin logs in, sees empty dashboard scoped only to their new `schoolId`.
 3. School Admin performs CSV Bulk Upload → 50 students created with auto-generated Access Codes.
-4. School Admin creates a Route via Google Maps and assigns a Bus.
-5. School Admin exports a PDF of `parentAccessCode`s to distribute to parents.
-6. Try saving route with 1 waypoint → validation error.
+4. School Admin creates a Driver account with a required 10-digit phone number.
+5. School Admin creates a Route via Google Maps and assigns an active Bus and Driver.
+6. School Admin toggles (suspends/reactivates) a Driver or Bus; inactive entities are hidden by default, or appear dimmed with a badge when using the "Show All" filter.
+7. School Admin exports a PDF of `parentAccessCode`s to distribute to parents.
+8. Parent logs in and sees their child's assigned Bus ID, Driver Name, and can click "Call" to dial the driver directly.
 
 ---
 
@@ -336,6 +342,7 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 |--------|-----|-------------|
 | Super Admin Dashboard | `/super` | Super Admin |
 | Admin Dashboard (full) | `/admin` | School Admin |
+| Driver Management | `/admin/drivers` | School Admin |
 | Route Management | `/admin/routes` | School Admin |
 | Bus Management | `/admin/buses` | School Admin |
 | Student Management | `/admin/students` | School Admin |
@@ -370,11 +377,13 @@ Week 7–8  │ Sprint 4 │ Reporting, Emergency Alerts & Final Testing
 - ✅ Super Admin can create isolated schools.
 - ✅ School Admin can bulk-upload students via CSV.
 - ✅ System auto-generates 6-character access codes for new students.
-- ✅ All routes, buses, and students are successfully siloed by `schoolId`.
+- ✅ All routes, buses, drivers, and students are successfully siloed by `schoolId`.
 - ✅ Admin maps/route editing functional and restricted to specific school.
 - ✅ Bus dropdown is disabled on student form when no buses exist.
 - ✅ Attendance table supports filtering by bus, date range, and student.
-- ✅ Soft-deleted buses/routes are hidden from dropdowns but data preserved.
+- ✅ Drivers and Buses can be suspended/reactivated instead of hard deleted.
+- ✅ "Active Only" vs "Show All" toggle filters implemented on Super Admin and School Admin tables.
+- ✅ Parent Dashboard pulls live Driver Name and Phone info directly from the assigned bus via nested DB refs.
 
 ---
 
