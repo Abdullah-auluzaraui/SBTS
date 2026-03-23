@@ -4,7 +4,7 @@ import MainLayout from '../components/MainLayout';
 import api from '../services/apiService';
 import {
     Shield, School, Users, Plus, X, Loader2, AlertCircle, CheckCircle2,
-    ToggleLeft, ToggleRight, Copy, RefreshCw, Bus, Link2, Clock
+    ToggleLeft, ToggleRight, Copy, RefreshCw, Bus, Link2, Clock, Eye, EyeOff
 } from 'lucide-react';
 
 const SuperAdminDashboard = () => {
@@ -13,6 +13,7 @@ const SuperAdminDashboard = () => {
     // School list state
     const [schools, setSchools] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showAll, setShowAll] = useState(false);
 
     // Invite modal
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -32,7 +33,7 @@ const SuperAdminDashboard = () => {
     // ─── Fetch Schools ─────────────────────────────────────────────────
     const fetchSchools = async () => {
         try {
-            const { data } = await api.get('/super/schools');
+            const { data } = await api.get(showAll ? '/super/schools?all=true' : '/super/schools');
             setSchools(data.schools);
         } catch (err) {
             console.error('Failed to fetch schools:', err);
@@ -41,7 +42,7 @@ const SuperAdminDashboard = () => {
         }
     };
 
-    useEffect(() => { fetchSchools(); }, []);
+    useEffect(() => { fetchSchools(); }, [showAll]);
 
     // ─── Build full invitation link ────────────────────────────────────
     const fullLink = (path) => `${window.location.origin}${path}`;
@@ -170,11 +171,22 @@ const SuperAdminDashboard = () => {
 
                 {/* Schools Table */}
                 <div className="border border-gray-100 rounded-2xl overflow-hidden">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
+                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
                         <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
                             <School size={20} className="text-indigo-500" />
                             المدارس المسجلة
                         </h3>
+                        <button
+                            onClick={() => setShowAll(v => !v)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${
+                                showAll
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                                    : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                            }`}
+                        >
+                            {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
+                            {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
+                        </button>
                     </div>
 
                     {loading ? (
@@ -201,7 +213,7 @@ const SuperAdminDashboard = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {schools.map((s) => (
-                                        <tr key={s._id} className="hover:bg-gray-50/50 transition-colors">
+                                        <tr key={s._id} className={`hover:bg-gray-50/50 transition-colors ${!s.isActive ? 'opacity-60' : ''}`}>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-gray-800">{s.name}</div>
                                                 {s.admin && <div className="text-xs text-gray-400 mt-0.5">الأدمن: {s.admin.name}</div>}

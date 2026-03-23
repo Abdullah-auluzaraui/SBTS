@@ -2,12 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../services/apiService';
-import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2, School, CheckCircle2, AlertTriangle } from 'lucide-react';
+import SchoolLocationPicker from '../components/maps/SchoolLocationPicker';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState({ buses: 0, routes: 0, students: 0, attendance: 0, drivers: 0 });
     const [loading, setLoading] = useState(true);
+    const [schoolInfo, setSchoolInfo] = useState(null);
+    const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+    const fetchSchoolInfo = async () => {
+        try {
+            const { data } = await api.get('/admin/school');
+            setSchoolInfo(data.school);
+        } catch (err) { console.error(err); }
+    };
+
+    useEffect(() => { fetchSchoolInfo(); }, []);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -32,6 +44,8 @@ const AdminDashboard = () => {
         fetchStats();
     }, []);
 
+    const schoolHasLocation = schoolInfo?.location?.coordinates?.[0] !== 0;
+
     const cards = [
         { title: 'الحافلات', count: stats.buses, icon: Bus, color: 'blue', link: '/admin/buses' },
         { title: 'المسارات', count: stats.routes, icon: MapPin, color: 'emerald', link: '/admin/routes' },
@@ -49,6 +63,7 @@ const AdminDashboard = () => {
     };
 
     return (
+        <>
         <div>
             {/* Welcome */}
             <div className="mb-8 flex items-center gap-4">
@@ -61,6 +76,30 @@ const AdminDashboard = () => {
                     </h2>
                     <p className="text-gray-500 mt-1">مدير المدرسة</p>
                 </div>
+            </div>
+
+            {/* School Location Banner */}
+            <div className={`mb-6 flex items-center justify-between px-5 py-4 rounded-2xl border ${schoolHasLocation ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
+                <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${schoolHasLocation ? 'bg-green-100' : 'bg-amber-100'}`}>
+                        {schoolHasLocation ? <CheckCircle2 size={18} className="text-green-600" /> : <AlertTriangle size={18} className="text-amber-600" />}
+                    </div>
+                    <div>
+                        <p className={`font-bold text-sm ${schoolHasLocation ? 'text-green-700' : 'text-amber-700'}`}>
+                            {schoolHasLocation ? 'موقع المدرسة محدد على الخريطة ✅' : 'لم يتم تحديد موقع المدرسة بعد'}
+                        </p>
+                        <p className={`text-xs ${schoolHasLocation ? 'text-green-600' : 'text-amber-600'}`}>
+                            {schoolHasLocation ? 'سيُستخدم في حساب مسارات الحافلات تلقائياً' : 'يُرجى تحديده لتفعيل المسارات الذكية'}
+                        </p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => setShowLocationPicker(true)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${schoolHasLocation ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' : 'bg-amber-500 text-white border-transparent hover:bg-amber-600 shadow-md shadow-amber-500/25'}`}
+                >
+                    <MapPin size={14} />
+                    {schoolHasLocation ? 'تحديث الموقع' : 'تحديد الموقع'}
+                </button>
             </div>
 
             {/* Stats Cards */}
@@ -87,6 +126,17 @@ const AdminDashboard = () => {
                 </div>
             )}
         </div>
+
+        {/* School Location Picker Modal */}
+        {showLocationPicker && (
+            <SchoolLocationPicker
+                schoolName={schoolInfo?.name || user?.name}
+                existingLocation={schoolInfo?.location}
+                onClose={() => setShowLocationPicker(false)}
+                onSaved={() => { setShowLocationPicker(false); fetchSchoolInfo(); }}
+            />
+        )}
+        </>
     );
 };
 

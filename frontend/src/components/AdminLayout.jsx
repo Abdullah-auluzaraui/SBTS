@@ -1,12 +1,12 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import MainLayout from './MainLayout';
-import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog } from 'lucide-react';
+import { LayoutDashboard, Bus, Map, GraduationCap, ClipboardList, UserCog } from 'lucide-react';
 
 const navItems = [
     { title: 'لوحة التحكم', icon: LayoutDashboard, path: '/admin' },
     { title: 'الحافلات', icon: Bus, path: '/admin/buses' },
-    { title: 'المسارات', icon: MapPin, path: '/admin/routes' },
+    { title: 'متابعة الحافلات', icon: Map, path: '/admin/routes' },
     { title: 'الطلاب', icon: GraduationCap, path: '/admin/students' },
     { title: 'الحضور', icon: ClipboardList, path: '/admin/attendance' },
     { title: 'السائقون', icon: UserCog, path: '/admin/drivers' },

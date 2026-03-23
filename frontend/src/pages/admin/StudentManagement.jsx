@@ -171,7 +171,55 @@ const StudentManagement = () => {
                     <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
                         <span className="text-sm text-gray-500 font-bold">إجمالي: {filteredStudents.length} طالب</span>
                     </div>
-                    <div className="overflow-x-auto">
+
+                    {/* ── Mobile: Card List (< md) ───────────────── */}
+                    <div className="md:hidden flex flex-col p-3 gap-3 bg-gray-50/30">
+                        {filteredStudents.map(s => (
+                            <div key={s.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                                <div className="flex justify-between items-start gap-3">
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-gray-800 text-sm truncate">{s.name}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-[11px] font-mono shrink-0" dir="ltr">
+                                                {s.studentId}
+                                            </span>
+                                            {s.grade && <span className="text-[11px] text-gray-400">الصف: {s.grade}</span>}
+                                        </div>
+                                    </div>
+                                    {/* Parent Status Badge */}
+                                    <div className="shrink-0 text-right">
+                                        {s.parentLinked ? (
+                                            <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-green-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> مرتبط
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 bg-red-50 text-red-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-red-200">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> غير مرتبط
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+                                    <div className="text-xs">
+                                        <span className="text-gray-400">ولي الأمر: </span>
+                                        <span className="font-bold text-gray-700">{s.parentLinked ? s.parentName : '—'}</span>
+                                    </div>
+                                    {!s.parentLinked && (
+                                        <div className="text-right">
+                                            <span className="text-[10px] text-gray-400 block mb-0.5">رمز الوصول:</span>
+                                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[11px] font-bold border border-amber-200 font-mono" dir="ltr">
+                                                {s.parentAccessCode}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* ── Desktop: Table (>= md) ─────────────────── */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50/50">
                                 <tr className="text-gray-500 font-bold">

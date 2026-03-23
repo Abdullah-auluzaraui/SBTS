@@ -365,47 +365,95 @@ const RouteManagement = () => {
                             <p className="font-bold text-lg">لا توجد مسارات محفوظة</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-right">
-                                <thead className="bg-gray-50 border-b border-gray-100">
-                                    <tr className="text-gray-500 font-bold">
-                                        <th className="px-6 py-4">اسم المسار</th>
-                                        <th className="px-6 py-4 text-center">الطلاب</th>
-                                        <th className="px-6 py-4 text-center">المدة التقديرية</th>
-                                        <th className="px-6 py-4">السائق المخصص</th>
-                                        <th className="px-6 py-4 text-center">إجراءات</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {routes.map(route => (
-                                        <tr key={route._id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100">
-                                                    {route.students?.length || 0} طالباً
+                        <>
+                            {/* ── Mobile: Card List (< md) ───────────────── */}
+                            <div className="md:hidden flex flex-col p-3 gap-3 bg-gray-50/30">
+                                {routes.map(route => (
+                                    <div key={route._id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative">
+                                        <button 
+                                            onClick={() => handleDelete(route._id)} 
+                                            className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <Ban size={16} />
+                                        </button>
+                                        
+                                        <h4 className="font-bold text-gray-800 text-base mb-3 pr-2">{route.name}</h4>
+                                        
+                                        <div className="grid grid-cols-2 gap-3 mb-3">
+                                            <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg p-2.5 flex flex-col items-center justify-center">
+                                                <Users size={16} className="text-blue-500 mb-1" />
+                                                <span className="text-blue-700 font-bold text-sm">{route.students?.length || 0} طالباً</span>
+                                            </div>
+                                            <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 flex flex-col items-center justify-center">
+                                                <Navigation2 size={16} className="text-gray-400 mb-1" />
+                                                <span className="text-gray-600 font-bold text-sm">
+                                                    {route.estimatedDuration ? `${route.estimatedDuration} دقيقة` : '—'}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center text-gray-600">
-                                                {route.estimatedDuration ? `${route.estimatedDuration} د` : '—'}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-600 flex items-center gap-2">
-                                                {route.driver ? (
-                                                    <><div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs">🚗</div> {route.driver.name}</>
-                                                ) : <span className="text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded text-xs border border-yellow-100">غير معين</span>}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {/* Edit map is slightly complex, so just delete for now in V2 */}
-                                                    <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="إلغاء المسار">
-                                                        <Ban size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-sm">
+                                            <span className="text-gray-500">السائق المخصص:</span>
+                                            {route.driver ? (
+                                                <span className="font-bold text-gray-700 flex items-center gap-1.5">
+                                                    <span className="text-blue-500">👤</span> {route.driver.name}
+                                                </span>
+                                            ) : (
+                                                <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold border border-amber-100">
+                                                    غير معين
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ── Desktop: Table (>= md) ─────────────────── */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-sm text-right">
+                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                        <tr className="text-gray-500 font-bold">
+                                            <th className="px-6 py-4">اسم المسار</th>
+                                            <th className="px-6 py-4 text-center">الطلاب</th>
+                                            <th className="px-6 py-4 text-center">المدة التقديرية</th>
+                                            <th className="px-6 py-4">السائق المخصص</th>
+                                            <th className="px-6 py-4 text-center">إجراءات</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {routes.map(route => (
+                                            <tr key={route._id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100">
+                                                        {route.students?.length || 0} طالباً
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center text-gray-600">
+                                                    {route.estimatedDuration ? `${route.estimatedDuration} د` : '—'}
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-600">
+                                                    {route.driver ? (
+                                                        <span className="flex items-center gap-1.5 font-medium text-sm">
+                                                            <span className="text-blue-500 text-xs">👤</span> {route.driver.name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs border border-amber-100 font-bold">غير معين</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="إلغاء المسار">
+                                                            <Ban size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
                     )}
                 </div>
             )}

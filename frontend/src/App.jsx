@@ -15,7 +15,7 @@ import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import AdminLayout from './components/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import BusManagement from './pages/admin/BusManagement';
-import RouteManagement from './pages/admin/RouteManagement';
+import FleetMap from './pages/admin/FleetMap';
 import StudentManagement from './pages/admin/StudentManagement';
 import AttendanceRecords from './pages/admin/AttendanceRecords';
 import DriverManagement from './pages/admin/DriverManagement';
@@ -41,7 +41,7 @@ function App() {
                 <Route path="/admin" element={<AdminLayout />}>
                     <Route index element={<AdminDashboard />} />
                     <Route path="buses" element={<BusManagement />} />
-                    <Route path="routes" element={<RouteManagement />} />
+                    <Route path="routes" element={<FleetMap />} />
                     <Route path="students" element={<StudentManagement />} />
                     <Route path="attendance" element={<AttendanceRecords />} />
                     <Route path="drivers" element={<DriverManagement />} />

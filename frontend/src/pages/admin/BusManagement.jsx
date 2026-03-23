@@ -329,77 +329,155 @@ const BusManagement = () => {
                     <p className="font-bold text-lg">لا توجد حافلات</p>
                 </div>
             ) : (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 border-b border-gray-100">
-                            <tr className="text-gray-500 font-bold text-right">
-                                <th className="px-6 py-4">رقم الحافلة</th>
-                                <th className="px-6 py-4 text-center">السعة</th>
-                                <th className="px-6 py-4">السائق</th>
-                                <th className="px-6 py-4 text-center">الطلاب المربوطين</th>
-                                <th className="px-6 py-4 text-center">إجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {buses.map(bus => {
-                                const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
-                                return (
-                                    <tr key={bus._id} className={`hover:bg-gray-50/50 transition-colors group ${!bus.isActive ? 'opacity-60' : ''}`}>
-                                        <td className="px-6 py-4 font-bold text-gray-800 flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center">
-                                                <Bus size={14} className="text-primary-500" />
+                <>
+                    {/* ── Mobile: Card List (visible on < md) ───────── */}
+                    <div className="md:hidden flex flex-col gap-3">
+                        {buses.map(bus => {
+                            const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
+                            return (
+                                <div
+                                    key={bus._id}
+                                    className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
+                                        !bus.isActive ? 'opacity-60 border-gray-100' : 'border-gray-100'
+                                    }`}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        {/* Avatar + Bus ID */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center shrink-0">
+                                                <Bus size={18} className="text-primary-500" />
                                             </div>
-                                            {bus.busId}
-                                            {!bus.isActive && (
-                                                <span className="text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">معطّلة</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold">{bus.capacity}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
+                                            <div>
+                                                <p className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                                                    {bus.busId}
+                                                    {!bus.isActive && (
+                                                        <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-full">معطّلة</span>
+                                                    )}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-0.5">سعة: {bus.capacity} مقعد</p>
+                                            </div>
+                                        </div>
+                                        {/* Assign Students Button */}
+                                        <button
+                                            onClick={() => openAssignModal(bus)}
+                                            className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition shrink-0"
+                                        >
+                                            <Users size={12} />
+                                            {studentCount} طالب
+                                        </button>
+                                    </div>
+
+                                    {/* Driver info & Actions */}
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                                        <div className="text-xs">
                                             {bus.driver ? (
-                                                <span className="flex items-center gap-1.5 text-gray-700 font-medium text-xs">
-                                                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px]">👤</span>
-                                                    {bus.driver.name}
+                                                <span className="flex items-center gap-1.5 text-gray-700 font-medium bg-gray-50 px-2 py-1 rounded-lg">
+                                                    <span className="text-blue-500">👤</span> {bus.driver.name}
                                                 </span>
                                             ) : (
-                                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">غير معين</span>
+                                                <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">بدون سائق</span>
                                             )}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={() => openAssignModal(bus)}
-                                                className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100 hover:bg-blue-100 transition"
-                                            >
-                                                <Users size={12} />
-                                                {studentCount} طالب
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {bus.isActive && (
-                                                    <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="تعديل">
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                )}
-                                                {bus.isActive ? (
-                                                    <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="تعطيل الحافلة">
-                                                        <Ban size={16} />
-                                                    </button>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {bus.isActive && (
+                                                <button onClick={() => startEdit(bus)} className="p-1.5 rounded-lg bg-blue-50 text-blue-500 border border-blue-100 hover:bg-blue-100 transition-colors" title="تعديل">
+                                                    <Pencil size={14} />
+                                                </button>
+                                            )}
+                                            {bus.isActive ? (
+                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-colors" title="تعطيل الحافلة">
+                                                    <Ban size={14} />
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-green-50 text-green-600 border border-green-100 hover:bg-green-100 transition-colors" title="إعادة تفعيل الحافلة">
+                                                    <CircleCheck size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* ── Desktop: Table (visible on >= md) ─────────── */}
+                    <div className="hidden md:block bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-100">
+                                <tr className="text-gray-500 font-bold text-right">
+                                    <th className="px-6 py-4">رقم الحافلة</th>
+                                    <th className="px-6 py-4 text-center">السعة</th>
+                                    <th className="px-6 py-4">السائق</th>
+                                    <th className="px-6 py-4 text-center">الطلاب المربوطين</th>
+                                    <th className="px-6 py-4 text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {buses.map(bus => {
+                                    const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
+                                    return (
+                                        <tr key={bus._id} className={`hover:bg-gray-50/50 transition-colors group ${!bus.isActive ? 'opacity-60' : ''}`}>
+                                            <td className="px-6 py-4 font-bold text-gray-800">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center shrink-0">
+                                                        <Bus size={16} className="text-primary-500" />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {bus.busId}
+                                                        {!bus.isActive && (
+                                                            <span className="text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">معطّلة</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold">{bus.capacity}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {bus.driver ? (
+                                                    <span className="flex items-center gap-1.5 text-gray-700 font-medium text-sm">
+                                                        <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">👤</span>
+                                                        {bus.driver.name}
+                                                    </span>
                                                 ) : (
-                                                    <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors" title="إعادة تفعيل الحافلة">
-                                                        <CircleCheck size={16} />
-                                                    </button>
+                                                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 inline-block">غير معين</span>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => openAssignModal(bus)}
+                                                    className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition"
+                                                >
+                                                    <Users size={14} />
+                                                    {studentCount} طالب
+                                                </button>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {bus.isActive && (
+                                                        <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="تعديل">
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                    )}
+                                                    {bus.isActive ? (
+                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="تعطيل الحافلة">
+                                                            <Ban size={16} />
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors" title="إعادة تفعيل الحافلة">
+                                                            <CircleCheck size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
             )}
         </div>
     );
