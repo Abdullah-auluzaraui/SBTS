@@ -166,70 +166,27 @@ const ParentDashboard = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 relative z-10 flex-grow">
-
-                    {/* Map Placeholder */}
-                    <div className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm bg-gray-50 flex flex-col group h-full">
-                        <div className="bg-gradient-to-br from-gray-100 to-gray-50 flex-grow min-h-[250px] flex flex-col items-center justify-center text-gray-400 font-sans border-b border-gray-200 relative overflow-hidden">
-                            {/* Aesthetic map dots */}
-                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-
-                            <div className="z-10 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-sm text-gray-600 font-bold mb-6 border border-gray-100 flex items-center gap-3">
-                                <Map size={18} strokeWidth={2} className="text-gray-500" />
-                                <span>الخريطة التفاعلية</span>
-                            </div>
-
-                            <div className="text-lg flex items-center gap-3 text-primary-500 font-bold z-10 w-full px-8 justify-center">
-                                <span className="bg-primary-100 px-3 flex-shrink-0 py-1.5 rounded-lg text-primary-700 text-sm">المحطة 1</span>
-                                <span className="flex-grow border-b-2 border-dashed border-primary-300 relative flex justify-center">
-                                    <Bus size={24} strokeWidth={2} className="text-primary-500 absolute -top-3 animate-bounce bg-gray-50 rounded-full px-1" />
-                                </span>
-                                <span className="bg-gray-200 px-3 flex-shrink-0 py-1.5 rounded-lg text-gray-600 text-sm">محطتك</span>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-5 font-bold text-gray-800 flex flex-col xl:flex-row gap-4 justify-between items-center border-t border-gray-100">
-                            <div className="flex items-center gap-3 w-full xl:w-auto overflow-hidden">
-                                <span className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center shrink-0">
-                                    <Bus size={18} strokeWidth={2} className="text-primary-500" />
-                                </span>
-                                <span className="text-lg">BUS-001</span>
-                            </div>
-
-                            {/* Driver Card integrated into map footer */}
-                            <div className="flex items-center justify-between w-full xl:w-auto gap-4 bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">
-                                        <User size={14} className="text-gray-500" />
-                                    </div>
-                                    <div className="flex flex-col leading-tight">
-                                        <span className="text-[10px] text-gray-500 font-normal">السائق</span>
-                                        <span className="text-xs font-bold text-gray-800">أحمد محمد</span>
-                                    </div>
-                                </div>
-                                <button className="flex items-center justify-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg border border-green-200 shadow-sm font-bold text-xs hover:bg-green-100 transition-colors">
-                                    <Phone size={14} strokeWidth={2} />
-                                    اتصال
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
+                <div className="mb-8 relative z-10 flex-grow flex flex-col">
                     {/* Student Status */}
-                    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgb(0,0,0,0.06)] transition-shadow flex flex-col h-full">
-                        <h3 className="font-bold text-lg text-gray-800 border-b border-gray-100 pb-3 mb-5 flex items-center gap-2">
-                            <GraduationCap size={22} strokeWidth={2} className="text-primary-500" />
-                            حالة الطالب
-                        </h3>
+                    <div className="bg-white border border-gray-100 rounded-3xl p-6 md:p-8 shadow-[0_4px_24px_rgb(0,0,0,0.04)] flex flex-col h-full flex-grow">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                            <h3 className="font-bold text-xl text-gray-800 flex items-center gap-2">
+                                <GraduationCap size={24} strokeWidth={2.5} className="text-primary-500" />
+                                الطلاب المسجلين
+                            </h3>
+                            <span className="bg-primary-50 text-primary-600 px-3 py-1 rounded-full text-sm font-bold border border-primary-100">
+                                {students.length}
+                            </span>
+                        </div>
 
-                        <div className="flex flex-col gap-4 flex-grow justify-start overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow items-start content-start">
                             {studentsLoading ? (
                                 <div className="flex items-center justify-center p-8 text-primary-500">
                                     <Loader2 size={30} className="animate-spin" />
                                 </div>
                             ) : students.length === 0 ? (
                                 <div className="text-center p-8 bg-gray-50 rounded-2xl border border-gray-100 text-gray-500">
-                                    لا يوجد أبناء مرتبطين بحسابك حالياً.
+                                    لا يوجد طلاب مرتبطين بحسابك حالياً.
                                 </div>
                             ) : (
                                 students.map(student => (
@@ -278,18 +235,30 @@ const ParentDashboard = () => {
                                             </div>
                                         )}
 
-                                        {/* Set Location Button */}
-                                        <div className="border-t border-gray-200 pt-3 mt-1 flex justify-end">
-                                            <button 
-                                                onClick={() => setPickingLocationFor(student)}
-                                                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all border
-                                                    ${student.location && student.location.coordinates[0] !== 0 
-                                                        ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' 
-                                                        : 'bg-primary-50 text-primary-600 border-primary-200 hover:bg-primary-100'}
-                                                `}
+                                        {/* Actions Footer */}
+                                        <div className="border-t border-gray-200 mt-2 pt-4 flex flex-col sm:flex-row gap-3 justify-between">
+                                            {/* Track Bus Button */}
+                                            <button
+                                                disabled={!student.assignedBus}
+                                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl transition-all ${student.assignedBus
+                                                    ? 'bg-primary-500 text-white border border-primary-600 hover:bg-primary-600 shadow-md shadow-primary-500/20'
+                                                    : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                                                    }`}
                                             >
-                                                <MapPin size={16} />
-                                                {student.location && student.location.coordinates[0] !== 0 ? 'تحديث موقع المنزل' : 'تحديد موقع المنزل'}
+                                                <Map size={18} strokeWidth={2} />
+                                                تتبع الحافلة
+                                            </button>
+
+                                            {/* Set Location Button */}
+                                            <button
+                                                onClick={() => setPickingLocationFor(student)}
+                                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl transition-all border ${student.location && student.location.coordinates[0] !== 0
+                                                    ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
+                                                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                <MapPin size={18} strokeWidth={2} />
+                                                {student.location && student.location.coordinates[0] !== 0 ? 'تحديث المنزل' : 'موقع المنزل'}
                                             </button>
                                         </div>
                                     </div>
@@ -299,10 +268,10 @@ const ParentDashboard = () => {
                             {/* FE-S1-9: Add Another Child Button */}
                             <button
                                 onClick={() => { setShowAddChildModal(true); setChildError(''); setChildSuccess(''); }}
-                                className="flex items-center justify-center gap-2 text-primary-600 bg-primary-50/50 hover:bg-primary-50 border border-primary-100 border-dashed rounded-2xl p-4 font-bold transition-colors w-full"
+                                className="flex items-center justify-center gap-3 text-primary-600 bg-primary-50/50 hover:bg-primary-50 border-2 border-primary-100 border-dashed rounded-2xl p-5 font-bold transition-colors w-full h-full min-h-[140px]"
                             >
-                                <UserPlus size={18} strokeWidth={2} />
-                                إضافة طفل آخر
+                                <UserPlus size={24} strokeWidth={2} className="opacity-70" />
+                                <span>إضافة طالب آخر </span>
                             </button>
                         </div>
                     </div>
@@ -334,7 +303,6 @@ const ParentDashboard = () => {
                                 <label className="block text-gray-700 font-bold text-sm px-1">رقم الطالب</label>
                                 <input
                                     type="text"
-                                    placeholder="مثال: STU-2024-002"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
                                     dir="ltr"
                                     value={childForm.studentId}
@@ -347,7 +315,6 @@ const ParentDashboard = () => {
                                 <label className="block text-gray-700 font-bold text-sm px-1">رمز الوصول (Access Code)</label>
                                 <input
                                     type="text"
-                                    placeholder="مثال: B3Y-41M"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
                                     dir="ltr"
                                     value={childForm.parentAccessCode}
@@ -394,10 +361,10 @@ const ParentDashboard = () => {
 
             {/* ─── Map Location Picker Modal ──────────────────────── */}
             {pickingLocationFor && (
-                <LocationPicker 
-                    student={pickingLocationFor} 
-                    onClose={() => setPickingLocationFor(null)} 
-                    onSaved={handleLocationSaved} 
+                <LocationPicker
+                    student={pickingLocationFor}
+                    onClose={() => setPickingLocationFor(null)}
+                    onSaved={handleLocationSaved}
                 />
             )}
         </MainLayout>

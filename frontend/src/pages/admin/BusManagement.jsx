@@ -111,14 +111,24 @@ const BusManagement = () => {
         setAssignLoading(true);
         setAssignMsg('');
         try {
-            await api.put(`/buses/${assigningBus._id}/assign-students`, {
+            const { data } = await api.put(`/buses/${assigningBus._id}/assign-students`, {
                 studentIds: Array.from(selectedStudents)
             });
-            setAssignMsg('success');
+            // Show success — may include partial blocks
+            if (data.blocked && data.blocked.length > 0) {
+                setAssignMsg({ type: 'partial', text: data.message, blocked: data.blocked });
+            } else {
+                setAssignMsg({ type: 'success', text: data.message });
+                setTimeout(() => setAssigningBus(null), 1400);
+            }
             fetchAll();
-            setTimeout(() => setAssigningBus(null), 1200);
         } catch (err) {
-            setAssignMsg('error');
+            const errData = err.response?.data;
+            if (errData?.blocked) {
+                setAssignMsg({ type: 'error', text: errData.message, blocked: errData.blocked });
+            } else {
+                setAssignMsg({ type: 'error', text: errData?.message || 'حدث خطأ أثناء حفظ التعيينات' });
+            }
         } finally { setAssignLoading(false); }
     };
 
@@ -138,11 +148,10 @@ const BusManagement = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowAll(v => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all ${
-                            showAll
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm border transition-all ${showAll
                                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
                         {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
@@ -242,7 +251,6 @@ const BusManagement = () => {
                                     <Users size={20} className="text-primary-500" />
                                     ربط طلاب بـ {assigningBus.busId}
                                 </h3>
-                                <p className="text-sm text-gray-400 mt-0.5">اختر الطلاب الذين سيركبون هذه الحافلة</p>
                             </div>
                             <button onClick={() => setAssigningBus(null)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
                                 <X size={18} />
@@ -267,25 +275,31 @@ const BusManagement = () => {
                             ) : filteredStudents.map(student => {
                                 const isSelected = selectedStudents.has(student.id);
                                 const isOnOtherBus = student.assignedBus && student.assignedBus !== assigningBus.busId;
+                                const noParent = !student.parentLinked;
+                                const noLocation = !student.location || student.location.coordinates?.[0] === 0;
+                                const isBlocked = noParent || noLocation;
                                 return (
                                     <div
                                         key={student.id}
-                                        onClick={() => toggleStudent(student.id)}
-                                        className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none
-                                            ${isSelected ? 'bg-primary-50 border-primary-200' : 'border-gray-100 hover:bg-gray-50'}`}
+                                        onClick={() => !isBlocked && toggleStudent(student.id)}
+                                        className={`flex items-center justify-between p-3 rounded-xl border transition-all select-none
+                                            ${isBlocked ? 'bg-red-50/50 border-red-100 cursor-not-allowed opacity-70' :
+                                                isSelected ? 'bg-primary-50 border-primary-200 cursor-pointer' : 'border-gray-100 hover:bg-gray-50 cursor-pointer'}`}
                                     >
-                                        <div>
-                                            <p className={`font-bold text-sm ${isSelected ? 'text-primary-700' : 'text-gray-800'}`}>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`font-bold text-sm truncate ${isBlocked ? 'text-gray-500' : isSelected ? 'text-primary-700' : 'text-gray-800'}`}>
                                                 {student.name}
                                             </p>
                                             <p className="text-xs text-gray-400">{student.studentId}</p>
                                             {isOnOtherBus && !isSelected && (
                                                 <p className="text-xs text-amber-500 mt-0.5">مخصص لحافلة: {student.assignedBus}</p>
                                             )}
+                                            {noParent && <p className="text-[10px] text-red-500 font-bold mt-0.5">⚠️ لم يرتبط بولي أمر</p>}
+                                            {!noParent && noLocation && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ لم يتم تحديد موقع المنزل</p>}
                                         </div>
-                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0
-                                            ${isSelected ? 'bg-primary-500 border-primary-500' : 'border-gray-300'}`}>
-                                            {isSelected && <Check size={12} className="text-white" strokeWidth={3} />}
+                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 mr-3
+                                            ${isBlocked ? 'border-gray-200 bg-gray-100' : isSelected ? 'bg-primary-500 border-primary-500' : 'border-gray-300'}`}>
+                                            {isSelected && !isBlocked && <Check size={12} className="text-white" strokeWidth={3} />}
                                         </div>
                                     </div>
                                 );
@@ -294,13 +308,28 @@ const BusManagement = () => {
 
                         {/* Footer */}
                         <div className="p-4 border-t border-gray-100 shrink-0">
-                            {assignMsg === 'success' && (
+                            {assignMsg?.type === 'success' && (
                                 <p className="text-green-600 text-sm font-bold text-center mb-3 flex items-center justify-center gap-1.5">
-                                    <Check size={16} /> تم الحفظ بنجاح!
+                                    <Check size={16} /> {assignMsg.text}
                                 </p>
                             )}
-                            {assignMsg === 'error' && (
-                                <p className="text-red-600 text-sm font-bold text-center mb-3">حدث خطأ، يرجى المحاولة مجدداً.</p>
+                            {assignMsg?.type === 'partial' && (
+                                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                                    <p className="text-amber-700 text-sm font-bold mb-1.5">{assignMsg.text}</p>
+                                    <ul className="space-y-0.5">
+                                        {assignMsg.blocked.map((b, i) => <li key={i} className="text-xs text-amber-600">• {b}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+                            {assignMsg?.type === 'error' && (
+                                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                                    <p className="text-red-600 text-sm font-bold mb-1.5">{assignMsg.text}</p>
+                                    {assignMsg.blocked && (
+                                        <ul className="space-y-0.5">
+                                            {assignMsg.blocked.map((b, i) => <li key={i} className="text-xs text-red-500">• {b}</li>)}
+                                        </ul>
+                                    )}
+                                </div>
                             )}
                             <div className="flex gap-3">
                                 <button onClick={() => setAssigningBus(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold text-sm transition">
@@ -337,9 +366,8 @@ const BusManagement = () => {
                             return (
                                 <div
                                     key={bus._id}
-                                    className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${
-                                        !bus.isActive ? 'opacity-60 border-gray-100' : 'border-gray-100'
-                                    }`}
+                                    className={`bg-white border rounded-2xl p-4 shadow-sm transition-all ${!bus.isActive ? 'opacity-60 border-gray-100' : 'border-gray-100'
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         {/* Avatar + Bus ID */}

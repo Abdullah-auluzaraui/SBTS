@@ -118,23 +118,64 @@ exports.assignStudents = async (req, res) => {
   try {
     const bus = await Bus.findOne({ _id: req.params.id, school: req.schoolId });
     if (!bus) {
-      return res.status(404).json({ success: false, message: 'Bus not found' });
+      return res.status(404).json({ success: false, message: 'الحافلة غير موجودة' });
     }
 
     const { studentIds } = req.body; // Array of student _ids
 
+    if (!studentIds || studentIds.length === 0) {
+      // Empty list = unassign all students from this bus
+      await Student.updateMany({ assignedBus: bus._id, school: req.schoolId }, { $set: { assignedBus: null } });
+      return res.json({ success: true, message: 'تم إلغاء تعيين جميع الطلاب من الحافلة' });
+    }
+
+    // ─── Two-Step Validation ──────────────────────────────────────────
+    // Fetch full info for each requested student
+    const candidates = await Student.find({
+      _id: { $in: studentIds },
+      school: req.schoolId
+    }).select('name parentId location');
+
+    const blocked = [];
+    const validIds = [];
+
+    for (const student of candidates) {
+      // Step 1: Must have a linked parent
+      if (!student.parentId) {
+        blocked.push(`"${student.name}": لم يتم ربطه بولي أمر بعد`);
+        continue;
+      }
+      // Step 2: Parent must have set home location (longitude !== 0)
+      if (!student.location || student.location.coordinates[0] === 0) {
+        blocked.push(`"${student.name}": لم يقم ولي الأمر بتحديد موقع المنزل بعد`);
+        continue;
+      }
+      validIds.push(student._id);
+    }
+
+    if (validIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا يمكن تعيين أي طالب من القائمة المحددة. تحقق من الملاحظات.',
+        blocked
+      });
+    }
+
     // Remove this bus from all students currently assigned to it
     await Student.updateMany({ assignedBus: bus._id, school: req.schoolId }, { $set: { assignedBus: null } });
 
-    // Assign the new list
-    if (studentIds && studentIds.length > 0) {
-      await Student.updateMany(
-        { _id: { $in: studentIds }, school: req.schoolId },
-        { $set: { assignedBus: bus._id } }
-      );
-    }
+    // Assign only the valid students
+    await Student.updateMany(
+      { _id: { $in: validIds }, school: req.schoolId },
+      { $set: { assignedBus: bus._id } }
+    );
 
-    res.json({ success: true, message: `تم تعيين ${studentIds?.length || 0} طلاب للحافلة بنجاح` });
+    res.json({
+      success: true,
+      message: `تم تعيين ${validIds.length} طالب للحافلة بنجاح`,
+      assigned: validIds.length,
+      blocked: blocked.length > 0 ? blocked : undefined
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
