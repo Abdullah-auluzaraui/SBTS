@@ -3,7 +3,7 @@ const multer = require('multer');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { create, list, bulkUpload, getUnassigned } = require('../controllers/studentController');
+const { create, list, bulkUpload, getUnassigned, toggleStatus } = require('../controllers/studentController');
 
 const router = express.Router();
 
@@ -17,5 +17,6 @@ router.post('/', create);
 router.get('/', list);
 router.get('/unassigned', getUnassigned);
 router.post('/bulk', upload.single('file'), bulkUpload);
+router.patch('/:id/status', toggleStatus);
 
 module.exports = router;
