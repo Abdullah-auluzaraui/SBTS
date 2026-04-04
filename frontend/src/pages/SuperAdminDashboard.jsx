@@ -105,9 +105,9 @@ const SuperAdminDashboard = () => {
     const statusBadge = (status) => {
         const map = {
             accepted: { label: 'مسجّل', classes: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
-            pending:  { label: 'معلّقة', classes: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-            expired:  { label: 'منتهية', classes: 'bg-red-50 text-red-600 border-red-200', dot: 'bg-red-400' },
-            none:     { label: 'بدون دعوة', classes: 'bg-gray-50 text-gray-500 border-gray-200', dot: 'bg-gray-400' }
+            pending: { label: 'معلّقة', classes: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+            expired: { label: 'منتهية', classes: 'bg-red-50 text-red-600 border-red-200', dot: 'bg-red-400' },
+            none: { label: 'بدون دعوة', classes: 'bg-gray-50 text-gray-500 border-gray-200', dot: 'bg-gray-400' }
         };
         const s = map[status] || map.none;
         return (
@@ -178,11 +178,10 @@ const SuperAdminDashboard = () => {
                         </h3>
                         <button
                             onClick={() => setShowAll(v => !v)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${
-                                showAll
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${showAll
                                     ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                     : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
-                            }`}
+                                }`}
                         >
                             {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
                             {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
@@ -317,11 +316,6 @@ const SuperAdminDashboard = () => {
                                     <label className="block text-gray-700 font-bold text-sm px-1">البريد الإلكتروني للمدير *</label>
                                     <input type="email" required value={inviteForm.contactEmail} onChange={e => setInviteForm({ ...inviteForm, contactEmail: e.target.value })}
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="admin@school.edu.sa" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">رقم الهاتف (اختياري)</label>
-                                    <input type="text" value={inviteForm.contactPhone} onChange={e => setInviteForm({ ...inviteForm, contactPhone: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="+966..." />
                                 </div>
 
                                 <button type="submit" disabled={inviteLoading}

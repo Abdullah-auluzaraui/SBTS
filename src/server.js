@@ -16,6 +16,7 @@ const routeRoutes = require('./routes/routeRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const userRoutes = require('./routes/userRoutes');
+const driverRoutes = require('./routes/driverRoutes');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/api/routes', routeRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/driver', driverRoutes);
 
 app.get('/', (req, res) => {
   res.send('🚀 SBTS Backend Running Successfully');

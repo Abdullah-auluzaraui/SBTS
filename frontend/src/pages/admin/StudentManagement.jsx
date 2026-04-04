@@ -1,16 +1,183 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/apiService';
-import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search } from 'lucide-react';
+import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square } from 'lucide-react';
 
+// ─── Print Styles (injected once) ─────────────────────────────────────────
+const PRINT_STYLES = `
+@media print {
+  body * { visibility: hidden !important; }
+  #print-area, #print-area * { visibility: visible !important; }
+  #print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    padding: 16px !important;
+    background: white !important;
+    direction: rtl !important;
+    font-family: 'Segoe UI', Tahoma, sans-serif !important;
+  }
+}
+`;
+
+function injectPrintStyles() {
+  if (document.getElementById('student-print-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'student-print-styles';
+  style.innerHTML = PRINT_STYLES;
+  document.head.appendChild(style);
+}
+
+// ─── Print Modal Component ─────────────────────────────────────────────────
+const PrintModal = ({ students, onClose }) => {
+  const [selected, setSelected] = useState(new Set(students.map(s => s.id)));
+
+  const toggleOne = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected(prev => prev.size === students.length ? new Set() : new Set(students.map(s => s.id)));
+  };
+
+  const handlePrint = () => {
+    const chosenStudents = students.filter(s => selected.has(s.id));
+    if (chosenStudents.length === 0) return;
+
+    injectPrintStyles();
+
+    // Build print area
+    let existing = document.getElementById('print-area');
+    if (existing) existing.remove();
+
+    const printArea = document.createElement('div');
+    printArea.id = 'print-area';
+    printArea.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 16px;
+      direction: rtl;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+    `;
+
+    chosenStudents.forEach(s => {
+      printArea.innerHTML += `
+        <div style="border: 1.5px solid #d1d5db; border-radius: 10px; padding: 14px 16px; background: #fff; page-break-inside: avoid;">
+          <div style="font-weight: 900; font-size: 13px; color: #111827; margin-bottom: 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px;">${s.name}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <span style="font-size: 11px; color: #6b7280;">رقم الطالب</span>
+            <span style="font-size: 11px; font-weight: 700; color: #374151; direction: ltr; font-family: monospace;">${s.studentId}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span style="font-size: 11px; color: #6b7280;">رمز الوصول</span>
+            <span style="font-size: 13px; font-weight: 900; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 6px; font-family: monospace; direction: ltr;">${s.parentAccessCode}</span>
+          </div>
+        </div>
+      `;
+    });
+
+    document.body.appendChild(printArea);
+    window.print();
+    printArea.remove();
+  };
+
+  const allSelected = selected.size === students.length;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <Printer size={20} className="text-primary-500" />
+              طباعة رموز الوصول
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">يظهر هنا فقط الطلاب الذين لم يتم ربطهم بولي أمر بعد</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Select All Bar */}
+        <div className="flex items-center justify-between px-6 py-3 bg-gray-50 border-b border-gray-100">
+          <button onClick={toggleAll} className="flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary-600 transition-colors">
+            {allSelected ? <CheckSquare size={18} className="text-primary-500" /> : <Square size={18} className="text-gray-400" />}
+            {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+          </button>
+          <span className="text-sm text-gray-500 font-bold">{selected.size} محدد من {students.length}</span>
+        </div>
+
+        {/* Student List */}
+        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
+          {students.length === 0 ? (
+            <div className="py-12 text-center text-gray-400">
+              <CheckCircle2 size={40} className="mx-auto mb-3 opacity-30" />
+              <p className="font-bold">جميع الطلاب مرتبطون بأولياء أمور</p>
+              <p className="text-sm mt-1">لا توجد رموز وصول بحاجة للطباعة</p>
+            </div>
+          ) : students.map(s => (
+            <button
+              key={s.id}
+              onClick={() => toggleOne(s.id)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-right ${selected.has(s.id)
+                ? 'bg-primary-50 border-primary-200'
+                : 'bg-white border-gray-100 hover:border-gray-200'}`}
+            >
+              <div className="shrink-0">
+                {selected.has(s.id)
+                  ? <CheckSquare size={18} className="text-primary-500" />
+                  : <Square size={18} className="text-gray-300" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-gray-800 text-sm truncate">{s.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5" dir="ltr">{s.studentId}</p>
+              </div>
+              <span className="shrink-0 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-lg text-sm font-bold font-mono" dir="ltr">
+                {s.parentAccessCode}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all">
+            إلغاء
+          </button>
+          <button
+            onClick={handlePrint}
+            disabled={selected.size === 0}
+            className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${selected.size > 0
+              ? 'bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/25'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+          >
+            <Printer size={18} />
+            طباعة {selected.size > 0 ? `(${selected.size})` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ────────────────────────────────────────────────────────
 const StudentManagement = () => {
     const [students, setStudents] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [showAll, setShowAll] = useState(false);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ name: '', studentId: '', grade: '' });
+    const [showPrint, setShowPrint] = useState(false);
+    const [form, setForm] = useState({ name: '' });
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [togglingId, setTogglingId] = useState(null);
 
     // CSV state
     const [csvLoading, setCsvLoading] = useState(false);
@@ -19,13 +186,14 @@ const StudentManagement = () => {
 
     const fetchStudents = async () => {
         try {
-            const { data } = await api.get('/students');
+            const url = showAll ? '/students?all=true' : '/students';
+            const { data } = await api.get(url);
             setStudents(data.students);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchStudents(); }, []);
+    useEffect(() => { fetchStudents(); }, [showAll]);
 
     // ─── Single Create ─────────────────────────────────────────────────
     const handleCreate = async (e) => {
@@ -34,12 +202,23 @@ const StudentManagement = () => {
         setFormLoading(true);
         try {
             const { data } = await api.post('/students', form);
-            setSuccess(`تم إضافة "${data.student.name}" — رمز الوصول: ${data.student.parentAccessCode}`);
-            setForm({ name: '', studentId: '', grade: '' });
+            setSuccess(`تم إضافة "${data.student.name}" بنجاح.`);
+            setForm({ name: '' });
             fetchStudents();
         } catch (err) {
             setError(err.response?.data?.message || 'حدث خطأ');
         } finally { setFormLoading(false); }
+    };
+
+    // ─── Toggle Active Status ──────────────────────────────────────────
+    const handleToggleStatus = async (student) => {
+        setTogglingId(student.id);
+        try {
+            await api.patch(`/students/${student.id}/status`);
+            fetchStudents();
+        } catch (err) {
+            console.error(err);
+        } finally { setTogglingId(null); }
     };
 
     // ─── CSV Bulk Upload ───────────────────────────────────────────────
@@ -61,20 +240,49 @@ const StudentManagement = () => {
         }
     };
 
-    const filteredStudents = students.filter(s => 
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredStudents = students.filter(s =>
+        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.studentId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Students eligible for printing (active + not yet linked)
+    const printableStudents = students.filter(s => s.isActive !== false && !s.parentLinked);
+
     return (
         <div>
+            {/* Print Modal */}
+            {showPrint && <PrintModal students={printableStudents} onClose={() => setShowPrint(false)} />}
+
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                     <GraduationCap size={24} className="text-primary-500" />
                     إدارة الطلاب
                 </h2>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
+                    {/* Show All toggle */}
+                    <button
+                        onClick={() => setShowAll(v => !v)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${showAll
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'}`}
+                    >
+                        {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
+                        {showAll ? 'عرض النشطين فقط' : 'عرض الكل'}
+                    </button>
+                    {/* Print Button */}
+                    <button
+                        onClick={() => setShowPrint(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm relative"
+                    >
+                        <Printer size={16} />
+                        طباعة رموز الوصول
+                        {printableStudents.length > 0 && (
+                            <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-primary-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                                {printableStudents.length}
+                            </span>
+                        )}
+                    </button>
                     <label className={`flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-dashed border-primary-300 text-primary-600 font-bold rounded-xl hover:bg-primary-50 transition-all cursor-pointer ${csvLoading ? 'opacity-70 cursor-wait' : ''}`}>
                         {csvLoading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
                         {csvLoading ? 'جاري الرفع...' : 'رفع CSV'}
@@ -94,6 +302,11 @@ const StudentManagement = () => {
                     <div>
                         <p className={`font-bold ${csvResult.success ? 'text-green-700' : 'text-red-700'}`}>{csvResult.message}</p>
                         {csvResult.imported !== undefined && <p className="text-sm text-gray-600 mt-1">تم استيراد: {csvResult.imported} — تم تجاهل: {csvResult.skipped}</p>}
+                        {csvResult.errors?.length > 0 && (
+                            <ul className="mt-2 space-y-0.5">
+                                {csvResult.errors.map((e, i) => <li key={i} className="text-xs text-red-600">• {e}</li>)}
+                            </ul>
+                        )}
                     </div>
                     <button onClick={() => setCsvResult(null)} className="mr-auto text-gray-400 hover:text-gray-600"><X size={16} /></button>
                 </div>
@@ -104,9 +317,9 @@ const StudentManagement = () => {
                 <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center shrink-0">
                     <Search size={20} className="text-gray-400" />
                 </div>
-                <input 
-                    type="text" 
-                    placeholder="ابحث عن طالب بالاسم أو برقم الطالب..." 
+                <input
+                    type="text"
+                    placeholder="ابحث عن طالب بالاسم أو برقم الطالب..."
                     className="w-full bg-transparent border-none focus:outline-none text-gray-700 placeholder-gray-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -123,22 +336,13 @@ const StudentManagement = () => {
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setShowForm(false)} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"><X size={18} /></button>
-                        <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">إضافة طالب</h3>
+                        <h3 className="text-xl font-bold text-gray-800 mb-2 text-center">إضافة طالب</h3>
+                        <p className="text-xs text-gray-400 text-center mb-6">يجب أن يكون الاسم ثلاثياً على الأقل</p>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">اسم الطالب *</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">اسم الطالب</label>
                                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="خالد العتيبي" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">رقم الطالب *</label>
-                                <input type="text" required value={form.studentId} onChange={e => setForm({ ...form, studentId: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left" dir="ltr" placeholder="STU-2024-001" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">الصف</label>
-                                <input type="text" value={form.grade} onChange={e => setForm({ ...form, grade: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="5A" />
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="خالد محمد العتيبي" />
                             </div>
                             <button type="submit" disabled={formLoading}
                                 className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
@@ -175,18 +379,20 @@ const StudentManagement = () => {
                     {/* ── Mobile: Card List (< md) ───────────────── */}
                     <div className="md:hidden flex flex-col p-3 gap-3 bg-gray-50/30">
                         {filteredStudents.map(s => (
-                            <div key={s.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                            <div key={s.id} className={`bg-white border rounded-xl p-4 shadow-sm ${!s.isActive ? 'border-red-100 opacity-70' : 'border-gray-100'}`}>
                                 <div className="flex justify-between items-start gap-3">
                                     <div className="min-w-0">
                                         <p className="font-bold text-gray-800 text-sm truncate">{s.name}</p>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                                             <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-[11px] font-mono shrink-0" dir="ltr">
                                                 {s.studentId}
                                             </span>
-                                            {s.grade && <span className="text-[11px] text-gray-400">الصف: {s.grade}</span>}
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${s.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-500 border-red-200'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${s.isActive ? 'bg-green-500' : 'bg-red-400'}`} />
+                                                {s.isActive ? 'نشط' : 'معطّل'}
+                                            </span>
                                         </div>
                                     </div>
-                                    {/* Parent Status Badge */}
                                     <div className="shrink-0 text-right">
                                         {s.parentLinked ? (
                                             <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-green-200">
@@ -201,18 +407,26 @@ const StudentManagement = () => {
                                 </div>
 
                                 <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
-                                    <div className="text-xs">
-                                        <span className="text-gray-400">ولي الأمر: </span>
-                                        <span className="font-bold text-gray-700">{s.parentLinked ? s.parentName : '—'}</span>
+                                    <div>
+                                        {!s.parentLinked && (
+                                            <div>
+                                                <span className="text-[10px] text-gray-400 block mb-0.5">رمز الوصول:</span>
+                                                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[11px] font-bold border border-amber-200 font-mono" dir="ltr">
+                                                    {s.parentAccessCode}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
-                                    {!s.parentLinked && (
-                                        <div className="text-right">
-                                            <span className="text-[10px] text-gray-400 block mb-0.5">رمز الوصول:</span>
-                                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[11px] font-bold border border-amber-200 font-mono" dir="ltr">
-                                                {s.parentAccessCode}
-                                            </span>
-                                        </div>
-                                    )}
+                                    <button
+                                        onClick={() => handleToggleStatus(s)}
+                                        disabled={togglingId === s.id}
+                                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${s.isActive
+                                            ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                                            : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
+                                    >
+                                        {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
+                                        {s.isActive ? 'تعطيل' : 'تفعيل'}
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -225,17 +439,23 @@ const StudentManagement = () => {
                                 <tr className="text-gray-500 font-bold">
                                     <th className="px-6 py-3 text-right">الطالب</th>
                                     <th className="px-6 py-3 text-right">رقم الطالب</th>
-                                    <th className="px-6 py-3 text-center">الصف</th>
+                                    <th className="px-6 py-3 text-center">الحالة</th>
                                     <th className="px-6 py-3 text-center">رمز الوصول</th>
                                     <th className="px-6 py-3 text-center">ولي الأمر</th>
+                                    <th className="px-6 py-3 text-center">إجراء</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredStudents.map(s => (
-                                    <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
+                                    <tr key={s.id} className={`hover:bg-gray-50/50 transition-colors ${!s.isActive ? 'opacity-60 bg-gray-50/30' : ''}`}>
                                         <td className="px-6 py-4 font-bold text-gray-800">{s.name}</td>
                                         <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg text-xs font-mono" dir="ltr">{s.studentId}</span></td>
-                                        <td className="px-6 py-4 text-center text-gray-600">{s.grade || '—'}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${s.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-500 border-red-200'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${s.isActive ? 'bg-green-500' : 'bg-red-400'}`}></span>
+                                                {s.isActive ? 'نشط' : 'معطّل'}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4 text-center">
                                             {!s.parentLinked ? (
                                                 <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-200 font-mono" dir="ltr">{s.parentAccessCode}</span>
@@ -255,6 +475,18 @@ const StudentManagement = () => {
                                                     غير مرتبط
                                                 </span>
                                             )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button
+                                                onClick={() => handleToggleStatus(s)}
+                                                disabled={togglingId === s.id}
+                                                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all mx-auto ${s.isActive
+                                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                                                    : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
+                                            >
+                                                {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
+                                                {s.isActive ? 'تعطيل' : 'تفعيل'}
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
