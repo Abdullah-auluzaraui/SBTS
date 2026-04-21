@@ -4,6 +4,7 @@ import MainLayout from '../components/MainLayout';
 import api from '../services/apiService';
 import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin } from 'lucide-react';
 import LocationPicker from '../components/maps/LocationPicker';
+import BusTrackingModal from '../components/maps/BusTrackingModal';
 
 const ParentDashboard = () => {
     const { user } = useAuth();
@@ -20,6 +21,9 @@ const ParentDashboard = () => {
     const [students, setStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(true);
     const [pickingLocationFor, setPickingLocationFor] = useState(null);
+
+    // tracking: { busId, busName } | null — يفتح Modal التتبع
+    const [tracking, setTracking] = useState(null);
 
     const fetchStudents = async () => {
         try {
@@ -240,6 +244,10 @@ const ParentDashboard = () => {
                                             {/* Track Bus Button */}
                                             <button
                                                 disabled={!student.assignedBus}
+                                                onClick={() => student.assignedBus && setTracking({
+                                                    busId:   student.assignedBus._id,
+                                                    busName: student.assignedBus.busId
+                                                })}
                                                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl transition-all ${student.assignedBus
                                                     ? 'bg-primary-500 text-white border border-primary-600 hover:bg-primary-600 shadow-md shadow-primary-500/20'
                                                     : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
@@ -365,6 +373,15 @@ const ParentDashboard = () => {
                     student={pickingLocationFor}
                     onClose={() => setPickingLocationFor(null)}
                     onSaved={handleLocationSaved}
+                />
+            )}
+
+            {/* ─── Bus Tracking Modal ────────────────────────────────── */}
+            {tracking && (
+                <BusTrackingModal
+                    busId={tracking.busId}
+                    busName={tracking.busName}
+                    onClose={() => setTracking(null)}
                 />
             )}
         </MainLayout>

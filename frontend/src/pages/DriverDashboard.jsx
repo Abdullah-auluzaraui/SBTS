@@ -4,42 +4,10 @@ import MainLayout from '../components/MainLayout';
 import { Bus, Play, Map, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import SharedBusMap from '../components/maps/SharedBusMap';
 
-// ── Fix default Leaflet icons ─────────────────────────────────────────────
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
 
-const studentIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [20, 33], iconAnchor: [10, 33], popupAnchor: [1, -28], shadowSize: [33, 33]
-});
 
-const schoolIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-});
-
-// Auto-fit bounds when route path changes
-const FitBounds = ({ path }) => {
-    const map = useMap();
-    useEffect(() => {
-        if (path && path.length > 1) {
-            map.fitBounds(L.latLngBounds(path), { padding: [50, 50] });
-        }
-    }, [path, map]);
-    return null;
-};
-
-const DEFAULT_CENTER = [24.7136, 46.6753];
 
 const DriverDashboard = () => {
     const { user } = useAuth();
@@ -107,12 +75,22 @@ const DriverDashboard = () => {
 
             if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
                 const trip = osrmData.trips[0];
-                const leafletPath = trip.geometry.coordinates.map(c => [c[1], c[0]]); // GeoJSON [lng, lat] -> Leaflet [lat, lng]
-                setRoutePath(leafletPath);
+                // GeoJSON [lng, lat] -> Leaflet/SharedBusMap {lat, lng}
+                const pathForMap    = trip.geometry.coordinates.map(c => [c[1], c[0]]);
+                const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+
+                setRoutePath(pathForMap);
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
                     distance: (trip.distance / 1000).toFixed(1)
                 });
+
+                // حفظ المسار في الباكند ليتمكن ولي الأمر من جلبه مشتركاً
+                try {
+                    await api.post('/driver/trip/start', { routePath: pathForBackend });
+                } catch (saveErr) {
+                    console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
+                }
             } else {
                 setError('تعذّر حساب المسار من خدمة الخرائط.');
             }
@@ -281,7 +259,11 @@ const DriverDashboard = () => {
                                 </div>
                             </div>
                             <button 
-                                onClick={() => setTripStarted(false)}
+                                onClick={async () => {
+                                    try { await api.post('/driver/trip/end'); } catch (e) { console.warn('فشل إنهاء الرحلة في الباكند:', e); }
+                                    setTripStarted(false);
+                                    setRoutePath([]);
+                                }}
                                 className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors border border-red-100 text-sm"
                             >
                                 إنهاء الرحلة
@@ -290,61 +272,13 @@ const DriverDashboard = () => {
 
                         {/* Map Container */}
                         <div className="flex-1 rounded-2xl overflow-hidden shadow-inner border border-gray-200 relative mb-4">
-                            {routeLoading && (
-                                <div className="absolute inset-0 z-[1000] bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center">
-                                    <Loader2 size={40} className="text-primary-500 animate-spin mb-3" />
-                                    <p className="font-bold text-gray-700">جاري رسم المسار الذكي...</p>
-                                </div>
-                            )}
-                            <MapContainer
-                                center={DEFAULT_CENTER}
-                                zoom={12}
-                                className="w-full h-full z-0"
-                            >
-                                <TileLayer
-                                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                                    attribution="&copy; OpenStreetMap contributors &copy; CARTO"
-                                />
-
-                                {/* Route Path */}
-                                {routePath.length > 0 && (
-                                    <>
-                                        <Polyline positions={routePath} color="#0EA5E9" weight={5} opacity={0.6} />
-                                        <Polyline positions={routePath} color="#0369A1" weight={2} opacity={0.9} dashArray="5, 10" />
-                                        <FitBounds path={routePath} />
-                                    </>
-                                )}
-
-                                {/* School Marker */}
-                                {dashboardData?.school?.location?.coordinates && (
-                                    <Marker position={[dashboardData.school.location.coordinates[1], dashboardData.school.location.coordinates[0]]} icon={schoolIcon}>
-                                        <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
-                                            <div className="font-bold text-gray-800 p-1 text-center">
-                                                المدرسة: {dashboardData.school.name}
-                                            </div>
-                                        </Tooltip>
-                                    </Marker>
-                                )}
-
-                                {/* Students Markers */}
-                                {students?.map(student => {
-                                    if (student.location?.coordinates?.[0] !== 0) {
-                                        return (
-                                            <Marker 
-                                                key={student._id} 
-                                                position={[student.location.coordinates[1], student.location.coordinates[0]]}
-                                                icon={studentIcon}
-                                            >
-                                                <Tooltip direction="top" offset={[0, -20]}>
-                                                    <div className="font-bold">{student.name}</div>
-                                                    <div className="text-xs text-gray-500">طالب</div>
-                                                </Tooltip>
-                                            </Marker>
-                                        );
-                                    }
-                                    return null;
-                                })}
-                            </MapContainer>
+                            <SharedBusMap
+                                routePath={routePath.map(([lat, lng]) => ({ lat, lng }))}
+                                school={dashboardData?.school}
+                                students={students || []}
+                                busLocation={null}
+                                routeLoading={routeLoading}
+                            />
                         </div>
                     </div>
                 )}

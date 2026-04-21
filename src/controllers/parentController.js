@@ -105,3 +105,53 @@ exports.getStudents = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// GET /api/parents/bus/:busId/live
+// جلب بيانات الرحلة النشطة لولي الأمر — مع تصفية الخصوصية (أبناؤه فقط)
+exports.getBusLive = async (req, res) => {
+  try {
+    const { busId } = req.params;
+    const parentId = req.user._id;
+
+    const Bus = require('../models/Bus');
+    const Trip = require('../models/Trip');
+
+    // 1. تحقق أن ولي الأمر لديه طالب واحد على الأقل في هذه الحافلة (تأمين)
+    const myStudentInBus = await Student.findOne({ assignedBus: busId, parentId });
+    if (!myStudentInBus) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك إذن لتتبع هذه الحافلة'
+      });
+    }
+
+    // 2. جلب بيانات الحافلة مع المدرسة
+    const bus = await Bus.findById(busId).populate('school', 'name location');
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'الحافلة غير موجودة' });
+    }
+
+    // 3. جلب الرحلة النشطة (إن وجدت)
+    const trip = await Trip.findOne({ bus: busId, status: 'active' });
+
+    // 4. جلب أبناء ولي الأمر في هذه الحافلة فقط (الخصوصية: نستبعد باقي الطلاب)
+    const myStudents = await Student.find({ assignedBus: busId, parentId })
+      .select('name location');
+
+    res.json({
+      success: true,
+      tripActive:   !!trip,
+      routePath:    trip ? trip.routePath : [],
+      lastLocation: trip ? trip.lastLocation : null,
+      school: bus.school ? {
+        name:     bus.school.name,
+        location: bus.school.location
+      } : null,
+      myStudents
+    });
+  } catch (err) {
+    console.error('Get Bus Live Error:', err);
+    res.status(500).json({ success: false, message: 'فشل جلب بيانات التتبع' });
+  }
+};
+
