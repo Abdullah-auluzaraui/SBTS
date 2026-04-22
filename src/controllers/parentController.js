@@ -1,56 +1,138 @@
 const Student = require('../models/Student');
 
-// BE-S1-4b: Link additional student to logged-in parent (1-to-Many)
-// POST /api/parents/students
-exports.linkChild = async (req, res) => {
+// POST /api/parents/link-request
+exports.requestLinking = async (req, res) => {
   try {
-    const { studentId, parentAccessCode } = req.body;
+    const { studentName, nationalId, dob, phone } = req.body;
 
-    // 1. Validate required fields
-    if (!studentId || !parentAccessCode) {
-      return res.status(400).json({
-        success: false,
-        errorCode: 'INVALID_CREDENTIALS',
-        message: 'Student ID and Access Code are both required'
-      });
+    if (!studentName || !nationalId || !dob || !phone) {
+      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد، رقم الجوال)' });
     }
 
-    // 2. Find student and validate Access Code
-    const student = await Student.findOne({ studentId });
-    if (!student || student.parentAccessCode !== parentAccessCode) {
-      return res.status(400).json({
-        success: false,
-        errorCode: 'INVALID_CREDENTIALS',
-        message: 'Invalid Student ID or Access Code'
-      });
+    // 1. Search by dob and normalized name
+    const { normalizeArabicName } = require('../utils/textUtils');
+    const { decrypt } = require('../utils/crypto');
+    const normalized = normalizeArabicName(studentName);
+    
+    // Convert input dob to start of day for accurate comparison (if needed), but exact Date match is fine if time is 00:00:00
+    // To be safe, we query by normalizedName and filter dob in memory as well if Timezones cause issues.
+    // For now, let's query by normalizedName and filter the rest in memory to avoid Timezone bugs.
+    const students = await Student.find({ normalizedName: normalized });
+
+    if (students.length === 0) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على طالب بهذه البيانات' });
     }
 
-    // 3. Check if student is already linked
+    // 2. Filter by exact DOB (ignoring time) and decrypted National ID
+    const inputDate = new Date(dob).toISOString().split('T')[0];
+    const student = students.find(s => {
+      const dbDate = new Date(s.dob).toISOString().split('T')[0];
+      const dbNationalId = decrypt(s.nationalId);
+      return dbDate === inputDate && dbNationalId === nationalId.trim();
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'بيانات الهوية أو تاريخ الميلاد غير متطابقة' });
+    }
+
     if (student.parentId) {
-      return res.status(400).json({
-        success: false,
-        errorCode: 'STUDENT_ALREADY_LINKED',
-        message: 'This student is already linked to a parent account.'
-      });
+      return res.status(400).json({ success: false, message: 'هذا الطالب مرتبط بحساب ولي أمر بالفعل' });
     }
 
-    // 4. Ensure the student belongs to the same school as the parent
-    if (String(student.school) !== String(req.user.school)) {
-      return res.status(403).json({
-        success: false,
-        errorCode: 'SCHOOL_MISMATCH',
-        message: 'This student does not belong to your school.'
-      });
+    // 3. Rate Limiting Check (max 3 unverified OTPs for this phone in last 15 mins)
+    const OTP = require('../models/OTP');
+    const recentOtps = await OTP.countDocuments({ phone, createdAt: { $gt: new Date(Date.now() - 15 * 60 * 1000) } });
+    if (recentOtps >= 3) {
+      return res.status(429).json({ success: false, message: 'لقد تجاوزت الحد المسموح من المحاولات. يرجى المحاولة لاحقاً.' });
     }
 
-    // 5. Link the student to this parent
+    // 4. Generate OTP (6 digits)
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 5. Save OTP
+    await OTP.create({
+      phone,
+      otp: otpCode,
+      studentId: student._id
+    });
+
+    // 6. Mock SMS (Console Log)
+    console.log(`\n========================================`);
+    console.log(`📱 MOCK SMS: To ${phone}`);
+    console.log(`🔑 OTP Code for linking ${student.name}: ${otpCode}`);
+    console.log(`⏳ Expires in 5 minutes.`);
+    console.log(`========================================\n`);
+
+    res.json({ success: true, message: 'تم إرسال رمز التحقق إلى جوالك', studentId: student._id });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/parents/link-verify
+exports.verifyLinking = async (req, res) => {
+  try {
+    const { phone, otp, studentId } = req.body;
+
+    if (!phone || !otp || !studentId) {
+      return res.status(400).json({ success: false, message: 'البيانات غير مكتملة' });
+    }
+
+    const OTP = require('../models/OTP');
+    
+    // Find all OTPs for this phone and student
+    const otps = await OTP.find({ phone, studentId });
+    if (otps.length === 0) {
+      return res.status(400).json({ success: false, message: 'رمز التحقق غير صالح أو منتهي الصلاحية' });
+    }
+
+    // Check which one matches
+    let validOtpDoc = null;
+    for (const doc of otps) {
+      const isMatch = await doc.matchOTP(otp);
+      if (isMatch) {
+        validOtpDoc = doc;
+        break;
+      }
+    }
+
+    if (!validOtpDoc) {
+      return res.status(400).json({ success: false, message: 'رمز التحقق غير صحيح' });
+    }
+
+    // Link the student
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
+    }
+
+    if (student.parentId) {
+      return res.status(400).json({ success: false, message: 'الطالب مرتبط بالفعل' });
+    }
+
+    // Ensure the student belongs to the same school as the parent (if parent has school assigned)
+    if (req.user.school && String(student.school) !== String(req.user.school)) {
+      return res.status(403).json({ success: false, message: 'هذا الطالب ينتمي لمدرسة أخرى.' });
+    }
+
     student.parentId = req.user._id;
     await student.save();
 
+    // Update parent's phone if missing
+    const User = require('../models/User');
+    const parent = await User.findById(req.user._id);
+    if (!parent.phone) {
+      parent.phone = phone;
+      await parent.save();
+    }
+
+    // Delete all OTPs for this phone to prevent reuse
+    await OTP.deleteMany({ phone });
+
     res.json({
       success: true,
-      message: 'Student linked successfully',
-      student: { id: student._id, name: student.name, studentId: student.studentId, grade: student.grade }
+      message: 'تم ربط الطالب بنجاح',
+      student: { id: student._id, name: student.name, studentId: student.studentId }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

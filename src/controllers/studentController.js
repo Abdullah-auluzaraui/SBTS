@@ -1,12 +1,6 @@
 const Student = require('../models/Student');
-
-// ─── Helper: Generate 6-char Access Code (e.g., 'A7X-92K') ────────────
-const generateAccessCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const part1 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  const part2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  return `${part1}-${part2}`;
-};
+const { encrypt, decrypt, maskData } = require('../utils/crypto');
+const { normalizeArabicName } = require('../utils/textUtils');
 
 // ─── Helper: Generate Next Sequential Student ID (e.g. S260000001) ──
 const generateNextStudentId = async (yearStr) => {
@@ -31,10 +25,14 @@ const generateNextStudentId = async (yearStr) => {
 // POST /api/students
 exports.create = async (req, res) => {
   try {
-    const { name, assignedBus } = req.body;
+    const { name, nationalId, dob, assignedBus, grade } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'اسم الطالب مطلوب' });
+    }
+
+    if (!nationalId || !dob) {
+      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'الهوية الوطنية وتاريخ الميلاد مطلوبان' });
     }
 
     const nameParts = name.trim().split(/\s+/);
@@ -43,12 +41,13 @@ exports.create = async (req, res) => {
     }
 
     // Soft Warning: Duplicate name check scoped to this specific school
-    const existingName = await Student.findOne({ school: req.user.schoolId, name: name.trim() });
+    const schoolIdToUse = req.schoolId || req.user?.schoolId;
+    const existingName = await Student.findOne({ school: schoolIdToUse, name: name.trim() });
     if (existingName) {
       return res.status(400).json({ 
         success: false, 
         errorCode: 'DUPLICATE_NAME', 
-        message: 'يوجد طالب مسجل مسبقاً بنفس الاسم تماماً في مدرستك. يرجى إضافة اسم الجد أو العائلة للتمييز بينهما عند توزيع رموز الوصول.' 
+        message: 'يوجد طالب مسجل مسبقاً بنفس الاسم تماماً في مدرستك. يرجى إضافة اسم الجد أو العائلة للتمييز بينهما.' 
       });
     }
 
@@ -56,14 +55,14 @@ exports.create = async (req, res) => {
     const yearStr = new Date().getFullYear().toString().slice(-2);
     const studentId = await generateNextStudentId(yearStr);
 
-    const parentAccessCode = generateAccessCode();
-
     const student = await Student.create({
-      name,
+      name: name.trim(),
+      nationalId: encrypt(nationalId),
+      dob: new Date(dob),
+      normalizedName: normalizeArabicName(name),
       studentId,
       grade: grade || null,
-      school: req.schoolId,
-      parentAccessCode,
+      school: schoolIdToUse,
       assignedBus: assignedBus || null
     });
 
@@ -74,8 +73,8 @@ exports.create = async (req, res) => {
         id: student._id,
         name: student.name,
         studentId: student.studentId,
+        nationalId: maskData(nationalId),
         grade: student.grade,
-        parentAccessCode: student.parentAccessCode,
         parentLinked: !!student.parentId
       }
     });
@@ -102,7 +101,7 @@ exports.list = async (req, res) => {
       id: s._id,
       name: s.name,
       studentId: s.studentId,
-      parentAccessCode: s.parentAccessCode,
+      nationalId: s.nationalId ? maskData(decrypt(s.nationalId)) : null,
       parentLinked: !!s.parentId,
       parentName: s.parentId?.name || null,
       assignedBus: s.assignedBus?.busId || null,
@@ -152,8 +151,7 @@ exports.getUnassigned = async (req, res) => {
   }
 };
 
-// Export helper for Phase 4 (CSV bulk upload)
-exports.generateAccessCode = generateAccessCode;
+// Export helper removed
 
 // ─── BE-S2-2: CSV Bulk Upload ──────────────────────────────────────────
 // POST /api/students/bulk
@@ -178,15 +176,16 @@ exports.bulkUpload = async (req, res) => {
       stream
         .pipe(csvParser({
           separator: separator,
-          mapHeaders: ({ header, index }) => {
-            // Remove BOM characters and trim spaces
-            return header ? header.replace(/^\uFEFF/, '').trim() : `col_${index}`;
-          }
+          headers: ['name', 'nationalId', 'dob']
         }))
         .on('data', (row) => {
           const cleanRow = {};
           for (const key in row) {
-            cleanRow[key] = typeof row[key] === 'string' ? row[key].trim() : row[key];
+            let val = row[key];
+            if (typeof val === 'string') {
+              val = val.replace(/^\uFEFF/, '').trim();
+            }
+            cleanRow[key] = val;
           }
           rows.push(cleanRow);
         })
@@ -213,7 +212,9 @@ exports.bulkUpload = async (req, res) => {
     let nextCounter = parseInt(nextStudentIdStr.replace(`S${yearStr}`, ''), 10);
 
     for (const row of rows) {
-      const rawName = row.name || row.Name || row['اسم الطالب'];
+      const rawName = row.name;
+      const rawNationalId = row.nationalId;
+      const rawDob = row.dob;
       
       if (!rawName || rawName.trim() === '') {
         skipped++;
@@ -221,6 +222,12 @@ exports.bulkUpload = async (req, res) => {
         continue;
       }
       
+      if (!rawNationalId || !rawDob) {
+        skipped++;
+        errors.push(`تم تخطي "${rawName.trim()}": الهوية الوطنية وتاريخ الميلاد مطلوبان.`);
+        continue;
+      }
+
       const name = rawName.trim();
       const nameParts = name.split(/\s+/);
       if (nameParts.length < 3) {
@@ -241,11 +248,29 @@ exports.bulkUpload = async (req, res) => {
       const studentId = `S${yearStr}${paddedCounter}`;
       nextCounter++; // Increment for the next row
 
+      // Parse the Date correctly (DD/MM/YYYY or DD-MM-YYYY etc)
+      let parsedDate = null;
+      const dateStr = rawDob.toString().trim();
+      const match = dateStr.match(/^(\d{1,2})[\/\-\s]+(\d{1,2})[\/\-\s]+(\d{4})$/);
+      if (match) {
+          parsedDate = new Date(`${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`);
+      } else {
+          parsedDate = new Date(dateStr);
+      }
+      
+      if (isNaN(parsedDate.getTime())) {
+          skipped++;
+          errors.push(`تم تخطي "${name}": صيغة التاريخ غير صحيحة.`);
+          continue;
+      }
+
       await Student.create({
         name,
+        nationalId: encrypt(rawNationalId.toString().trim()),
+        dob: parsedDate,
+        normalizedName: normalizeArabicName(name),
         studentId,
-        school: schoolIdToUse,
-        parentAccessCode: generateAccessCode()
+        school: schoolIdToUse
       });
       
       existingNameSet.add(name); // Add to set to prevent duplicates within the same CSV payload

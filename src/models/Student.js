@@ -13,8 +13,10 @@ const studentSchema = new mongoose.Schema({
     coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
   },
 
-  // Secure parent onboarding: auto-generated code (e.g., 'A7X-92K')
-  parentAccessCode: { type: String, required: true },
+  // Automated Parent Linking
+  nationalId: { type: String, required: true }, // Stored encrypted
+  dob: { type: Date, required: true },
+  normalizedName: { type: String, required: true }, // For fuzzy matching
   // 1-to-Many: parentId links to a single parent account (not unique — parent can have multiple children)
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true, default: null },
   nfcTagId: { type: String, unique: true, sparse: true },

@@ -26,145 +26,6 @@ function injectPrintStyles() {
   document.head.appendChild(style);
 }
 
-// ─── Print Modal Component ─────────────────────────────────────────────────
-const PrintModal = ({ students, onClose }) => {
-  const [selected, setSelected] = useState(new Set(students.map(s => s.id)));
-
-  const toggleOne = (id) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    setSelected(prev => prev.size === students.length ? new Set() : new Set(students.map(s => s.id)));
-  };
-
-  const handlePrint = () => {
-    const chosenStudents = students.filter(s => selected.has(s.id));
-    if (chosenStudents.length === 0) return;
-
-    injectPrintStyles();
-
-    // Build print area
-    let existing = document.getElementById('print-area');
-    if (existing) existing.remove();
-
-    const printArea = document.createElement('div');
-    printArea.id = 'print-area';
-    printArea.style.cssText = `
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      padding: 16px;
-      direction: rtl;
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-    `;
-
-    chosenStudents.forEach(s => {
-      printArea.innerHTML += `
-        <div style="border: 1.5px solid #d1d5db; border-radius: 10px; padding: 14px 16px; background: #fff; page-break-inside: avoid;">
-          <div style="font-weight: 900; font-size: 13px; color: #111827; margin-bottom: 8px; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px;">${s.name}</div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-            <span style="font-size: 11px; color: #6b7280;">رقم الطالب</span>
-            <span style="font-size: 11px; font-weight: 700; color: #374151; direction: ltr; font-family: monospace;">${s.studentId}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <span style="font-size: 11px; color: #6b7280;">رمز الوصول</span>
-            <span style="font-size: 13px; font-weight: 900; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 6px; font-family: monospace; direction: ltr;">${s.parentAccessCode}</span>
-          </div>
-        </div>
-      `;
-    });
-
-    document.body.appendChild(printArea);
-    window.print();
-    printArea.remove();
-  };
-
-  const allSelected = selected.size === students.length;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <Printer size={20} className="text-primary-500" />
-              طباعة رموز الوصول
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">يظهر هنا فقط الطلاب الذين لم يتم ربطهم بولي أمر بعد</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Select All Bar */}
-        <div className="flex items-center justify-between px-6 py-3 bg-gray-50 border-b border-gray-100">
-          <button onClick={toggleAll} className="flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-primary-600 transition-colors">
-            {allSelected ? <CheckSquare size={18} className="text-primary-500" /> : <Square size={18} className="text-gray-400" />}
-            {allSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
-          </button>
-          <span className="text-sm text-gray-500 font-bold">{selected.size} محدد من {students.length}</span>
-        </div>
-
-        {/* Student List */}
-        <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
-          {students.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
-              <CheckCircle2 size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="font-bold">جميع الطلاب مرتبطون بأولياء أمور</p>
-              <p className="text-sm mt-1">لا توجد رموز وصول بحاجة للطباعة</p>
-            </div>
-          ) : students.map(s => (
-            <button
-              key={s.id}
-              onClick={() => toggleOne(s.id)}
-              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-right ${selected.has(s.id)
-                ? 'bg-primary-50 border-primary-200'
-                : 'bg-white border-gray-100 hover:border-gray-200'}`}
-            >
-              <div className="shrink-0">
-                {selected.has(s.id)
-                  ? <CheckSquare size={18} className="text-primary-500" />
-                  : <Square size={18} className="text-gray-300" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-800 text-sm truncate">{s.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5" dir="ltr">{s.studentId}</p>
-              </div>
-              <span className="shrink-0 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-lg text-sm font-bold font-mono" dir="ltr">
-                {s.parentAccessCode}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all">
-            إلغاء
-          </button>
-          <button
-            onClick={handlePrint}
-            disabled={selected.size === 0}
-            className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${selected.size > 0
-              ? 'bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/25'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-          >
-            <Printer size={18} />
-            طباعة {selected.size > 0 ? `(${selected.size})` : ''}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ─── Main Component ────────────────────────────────────────────────────────
 const StudentManagement = () => {
     const [students, setStudents] = useState([]);
@@ -172,8 +33,7 @@ const StudentManagement = () => {
     const [showAll, setShowAll] = useState(false);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [showPrint, setShowPrint] = useState(false);
-    const [form, setForm] = useState({ name: '' });
+    const [form, setForm] = useState({ name: '', nationalId: '', dob: '' });
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -203,7 +63,7 @@ const StudentManagement = () => {
         try {
             const { data } = await api.post('/students', form);
             setSuccess(`تم إضافة "${data.student.name}" بنجاح.`);
-            setForm({ name: '' });
+            setForm({ name: '', nationalId: '', dob: '' });
             fetchStudents();
         } catch (err) {
             setError(err.response?.data?.message || 'حدث خطأ');
@@ -250,9 +110,6 @@ const StudentManagement = () => {
 
     return (
         <div>
-            {/* Print Modal */}
-            {showPrint && <PrintModal students={printableStudents} onClose={() => setShowPrint(false)} />}
-
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
@@ -269,19 +126,6 @@ const StudentManagement = () => {
                     >
                         {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
                         {showAll ? 'عرض النشطين فقط' : 'عرض الكل'}
-                    </button>
-                    {/* Print Button */}
-                    <button
-                        onClick={() => setShowPrint(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm relative"
-                    >
-                        <Printer size={16} />
-                        طباعة رموز الوصول
-                        {printableStudents.length > 0 && (
-                            <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-primary-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">
-                                {printableStudents.length}
-                            </span>
-                        )}
                     </button>
                     <label className={`flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-dashed border-primary-300 text-primary-600 font-bold rounded-xl hover:bg-primary-50 transition-all cursor-pointer ${csvLoading ? 'opacity-70 cursor-wait' : ''}`}>
                         {csvLoading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
@@ -343,6 +187,18 @@ const StudentManagement = () => {
                                 <label className="block text-gray-700 font-bold text-sm px-1">اسم الطالب</label>
                                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="خالد محمد العتيبي" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="block text-gray-700 font-bold text-sm px-1">الهوية الوطنية</label>
+                                    <input type="text" required value={form.nationalId} onChange={e => setForm({ ...form, nationalId: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left" dir="ltr" placeholder="10xxxxxxxx" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="block text-gray-700 font-bold text-sm px-1">تاريخ الميلاد</label>
+                                    <input type="date" required value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" />
+                                </div>
                             </div>
                             <button type="submit" disabled={formLoading}
                                 className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
@@ -408,14 +264,10 @@ const StudentManagement = () => {
 
                                 <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
                                     <div>
-                                        {!s.parentLinked && (
-                                            <div>
-                                                <span className="text-[10px] text-gray-400 block mb-0.5">رمز الوصول:</span>
-                                                <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[11px] font-bold border border-amber-200 font-mono" dir="ltr">
-                                                    {s.parentAccessCode}
-                                                </span>
-                                            </div>
-                                        )}
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">الهوية الوطنية:</span>
+                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[11px] font-bold border border-blue-200 font-mono" dir="ltr">
+                                            {s.nationalId}
+                                        </span>
                                     </div>
                                     <button
                                         onClick={() => handleToggleStatus(s)}
@@ -440,7 +292,7 @@ const StudentManagement = () => {
                                     <th className="px-6 py-3 text-right">الطالب</th>
                                     <th className="px-6 py-3 text-right">رقم الطالب</th>
                                     <th className="px-6 py-3 text-center">الحالة</th>
-                                    <th className="px-6 py-3 text-center">رمز الوصول</th>
+                                    <th className="px-6 py-3 text-center">الهوية الوطنية</th>
                                     <th className="px-6 py-3 text-center">ولي الأمر</th>
                                     <th className="px-6 py-3 text-center">إجراء</th>
                                 </tr>
@@ -457,11 +309,7 @@ const StudentManagement = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            {!s.parentLinked ? (
-                                                <span className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-200 font-mono" dir="ltr">{s.parentAccessCode}</span>
-                                            ) : (
-                                                <span className="text-gray-300 text-xs">—</span>
-                                            )}
+                                            <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-200 font-mono" dir="ltr">{s.nationalId}</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {s.parentLinked ? (
