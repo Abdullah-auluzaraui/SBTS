@@ -1,9 +1,11 @@
 const express = require('express');
-const { register, login, verifyInvitation, acceptInvitation } = require('../controllers/authController');
+const { registerRequest, registerVerify, login, verifyInvitation, acceptInvitation } = require('../controllers/authController');
 
 const router = express.Router();
 
-router.post('/register', register);
+// New OTP-based Registration
+router.post('/register-request', registerRequest);
+router.post('/register-verify', registerVerify);
 router.post('/login', login);
 
 // Invitation onboarding (public — no auth required)

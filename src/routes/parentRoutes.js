@@ -1,15 +1,18 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
-const { linkChild, updateLocation, getStudents, getBusLive } = require('../controllers/parentController');
+const { requestLinking, verifyLinking, updateLocation, getStudents, getBusLive } = require('../controllers/parentController');
 
 const router = express.Router();
 
 // GET /api/parents/students — Get all linked children
 router.get('/students', authMiddleware, roleMiddleware(['parent']), getStudents);
 
-// POST /api/parents/students — Link additional child (BE-S1-4b)
-router.post('/students', authMiddleware, roleMiddleware(['parent']), linkChild);
+// POST /api/parents/link-request — Request to link a child (OTP sent)
+router.post('/link-request', authMiddleware, roleMiddleware(['parent']), requestLinking);
+
+// POST /api/parents/link-verify — Verify OTP and link the child
+router.post('/link-verify', authMiddleware, roleMiddleware(['parent']), verifyLinking);
 
 // PUT /api/parents/students/:id/location — Update student home location (Maps Feature)
 router.put('/students/:id/location', authMiddleware, roleMiddleware(['parent']), updateLocation);

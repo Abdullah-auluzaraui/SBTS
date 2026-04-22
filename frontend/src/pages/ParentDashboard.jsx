@@ -12,7 +12,8 @@ const ParentDashboard = () => {
 
     // ─── FE-S1-9: Add Another Child Modal State ────────────────────────
     const [showAddChildModal, setShowAddChildModal] = useState(false);
-    const [childForm, setChildForm] = useState({ studentId: '', parentAccessCode: '' });
+    const [linkStep, setLinkStep] = useState(1);
+    const [childForm, setChildForm] = useState({ studentName: '', nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
     const [childLoading, setChildLoading] = useState(false);
     const [childError, setChildError] = useState('');
     const [childSuccess, setChildSuccess] = useState('');
@@ -55,34 +56,45 @@ const ParentDashboard = () => {
         };
     }, []);
 
-    // ─── FE-S1-9: Handle linking another child ─────────────────────────
-    const handleAddChild = async (e) => {
+    // ─── FE-S1-9: Handle linking another child (Two-Step) ──────────────
+    const handleRequestLinking = async (e) => {
         e.preventDefault();
-        setChildError('');
-        setChildSuccess('');
-        setChildLoading(true);
-
+        setChildError(''); setChildSuccess(''); setChildLoading(true);
         try {
-            const { data } = await api.post('/parents/students', {
-                studentId: childForm.studentId,
-                parentAccessCode: childForm.parentAccessCode
+            const { data } = await api.post('/parents/link-request', {
+                studentName: childForm.studentName,
+                nationalId: childForm.nationalId,
+                dob: childForm.dob,
+                phone: childForm.phone
+            });
+            setChildForm(prev => ({ ...prev, studentId: data.studentId }));
+            setLinkStep(2);
+        } catch (err) {
+            setChildError(err.response?.data?.message || 'حدث خطأ. يرجى المحاولة مجدداً.');
+        } finally {
+            setChildLoading(false);
+        }
+    };
+
+    const handleVerifyLinking = async (e) => {
+        e.preventDefault();
+        setChildError(''); setChildSuccess(''); setChildLoading(true);
+        try {
+            const { data } = await api.post('/parents/link-verify', {
+                phone: childForm.phone,
+                otp: childForm.otp,
+                studentId: childForm.studentId
             });
             setChildSuccess(`تم ربط الطالب "${data.student.name}" بنجاح!`);
-            setChildForm({ studentId: '', parentAccessCode: '' });
-
-            // Auto-close modal after 2 seconds
+            fetchStudents(); // refresh the list
             setTimeout(() => {
                 setShowAddChildModal(false);
+                setLinkStep(1);
+                setChildForm({ studentName: '', nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
                 setChildSuccess('');
             }, 2000);
         } catch (err) {
-            const payload = err.response?.data || {};
-            const errorMessages = {
-                INVALID_CREDENTIALS: 'رقم الطالب أو رمز الوصول غير صحيح.',
-                STUDENT_ALREADY_LINKED: 'هذا الطالب مرتبط بالفعل بحساب ولي أمر.',
-                SCHOOL_MISMATCH: 'هذا الطالب لا ينتمي لنفس مدرستك.',
-            };
-            setChildError(errorMessages[payload.errorCode] || payload.message || 'حدث خطأ. يرجى المحاولة مجدداً.');
+            setChildError(err.response?.data?.message || 'رمز التحقق غير صحيح');
         } finally {
             setChildLoading(false);
         }
@@ -275,7 +287,13 @@ const ParentDashboard = () => {
 
                             {/* FE-S1-9: Add Another Child Button */}
                             <button
-                                onClick={() => { setShowAddChildModal(true); setChildError(''); setChildSuccess(''); }}
+                                onClick={() => { 
+                                    setShowAddChildModal(true); 
+                                    setLinkStep(1);
+                                    setChildForm(prev => ({ ...prev, phone: user?.phone || '' }));
+                                    setChildError(''); 
+                                    setChildSuccess(''); 
+                                }}
                                 className="flex items-center justify-center gap-3 text-primary-600 bg-primary-50/50 hover:bg-primary-50 border-2 border-primary-100 border-dashed rounded-2xl p-5 font-bold transition-colors w-full h-full min-h-[140px]"
                             >
                                 <UserPlus size={24} strokeWidth={2} className="opacity-70" />
@@ -298,51 +316,128 @@ const ParentDashboard = () => {
                             <X size={18} />
                         </button>
 
-                        <div className="text-center mb-6">
-                            <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
-                                <UserPlus size={28} strokeWidth={1.75} className="text-primary-500" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-800">إضافة طالب آخر</h3>
-                            <p className="text-gray-500 text-sm mt-1">أدخل رقم الطالب ورمز الوصول المقدم من المدرسة</p>
-                        </div>
+                        {linkStep === 1 ? (
+                            <>
+                                <div className="text-center mb-6">
+                                    <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                                        <UserPlus size={28} strokeWidth={1.75} className="text-primary-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800">إضافة طالب آخر</h3>
+                                    <p className="text-gray-500 text-sm mt-1">أدخل بيانات الطالب للمطابقة</p>
+                                </div>
 
-                        <form onSubmit={handleAddChild} className="space-y-4">
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">رقم الطالب</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
-                                    dir="ltr"
-                                    value={childForm.studentId}
-                                    onChange={(e) => setChildForm({ ...childForm, studentId: e.target.value })}
-                                    required
-                                />
-                            </div>
+                                <form onSubmit={handleRequestLinking} className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="block text-gray-700 font-bold text-sm px-1">اسم الطالب (ثلاثي)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                            value={childForm.studentName}
+                                            onChange={(e) => setChildForm({ ...childForm, studentName: e.target.value })}
+                                            required
+                                        />
+                                    </div>
 
-                            <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">رمز الوصول (Access Code)</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans placeholder-gray-400 text-left"
-                                    dir="ltr"
-                                    value={childForm.parentAccessCode}
-                                    onChange={(e) => setChildForm({ ...childForm, parentAccessCode: e.target.value })}
-                                    required
-                                />
-                            </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="block text-gray-700 font-bold text-sm px-1">الهوية الوطنية</label>
+                                            <input
+                                                type="text"
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
+                                                dir="ltr"
+                                                value={childForm.nationalId}
+                                                onChange={(e) => setChildForm({ ...childForm, nationalId: e.target.value })}
+                                                required
+                                            />
+                                        </div>
 
-                            <button
-                                type="submit"
-                                disabled={childLoading}
-                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 mt-2 ${childLoading
-                                    ? 'opacity-70 cursor-not-allowed shadow-none'
-                                    : 'hover:bg-primary-600 shadow-primary-500/30 transform hover:-translate-y-0.5'
-                                    }`}
-                            >
-                                {childLoading && <Loader2 size={20} className="animate-spin" />}
-                                <span>{childLoading ? 'جاري الربط...' : 'ربط الطالب'}</span>
-                            </button>
-                        </form>
+                                        <div className="space-y-1.5">
+                                            <label className="block text-gray-700 font-bold text-sm px-1">تاريخ الميلاد</label>
+                                            <input
+                                                type="date"
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                                value={childForm.dob}
+                                                onChange={(e) => setChildForm({ ...childForm, dob: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال (لإرسال الرمز)</label>
+                                        <input
+                                            type="tel"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
+                                            dir="ltr"
+                                            value={childForm.phone}
+                                            onChange={(e) => setChildForm({ ...childForm, phone: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={childLoading}
+                                        className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 mt-2 ${childLoading
+                                            ? 'opacity-70 cursor-not-allowed shadow-none'
+                                            : 'hover:bg-primary-600 shadow-primary-500/30 transform hover:-translate-y-0.5'
+                                            }`}
+                                    >
+                                        {childLoading && <Loader2 size={20} className="animate-spin" />}
+                                        <span>{childLoading ? 'جاري المطابقة...' : 'مطابقة البيانات'}</span>
+                                    </button>
+                                </form>
+                            </>
+                        ) : (
+                            <div className="text-center animate-fade-in-up">
+                                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-green-100">
+                                    <CheckCircle2 size={30} className="text-green-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800">تأكيد الربط</h3>
+                                <p className="text-gray-500 text-sm mt-2 mb-6 leading-relaxed">
+                                    أرسلنا رمز تحقق (OTP) إلى جوالك <span className="font-bold text-gray-800" dir="ltr">{childForm.phone}</span>
+                                </p>
+
+                                <form onSubmit={handleVerifyLinking} className="space-y-6">
+                                    <div className="flex justify-center">
+                                        <input
+                                            type="text"
+                                            maxLength="6"
+                                            className="w-48 text-center text-3xl tracking-widest px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-0 focus:border-green-500 transition-all font-mono"
+                                            placeholder="------"
+                                            dir="ltr"
+                                            value={childForm.otp}
+                                            onChange={(e) => setChildForm({ ...childForm, otp: e.target.value.replace(/\D/g, '') })}
+                                            autoFocus
+                                            required
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={childLoading || childForm.otp.length !== 6}
+                                        className={`w-full bg-green-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 mt-4 ${
+                                            (childLoading || childForm.otp.length !== 6)
+                                            ? 'opacity-70 cursor-not-allowed shadow-none'
+                                            : 'hover:bg-green-600 shadow-green-500/30 transform hover:-translate-y-0.5'
+                                        }`}
+                                    >
+                                        {childLoading ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
+                                        <span>{childLoading ? 'جاري التأكيد...' : 'تأكيد وربط'}</span>
+                                    </button>
+
+                                    <div className="pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setLinkStep(1)}
+                                            className="text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
+                                        >
+                                            تعديل البيانات
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
 
                         {/* Error */}
                         {childError && (

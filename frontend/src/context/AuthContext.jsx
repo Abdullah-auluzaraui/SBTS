@@ -73,12 +73,35 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ─── Task FE-S1-5: register() — POST /api/auth/register ─────────────────
-    // username is entered by the user in the registration form
-    const register = async (name, username, email, password, studentId, parentAccessCode) => {
+    // ─── NEW: OTP-Based Registration ─────────────────────────────────────────
+    
+    // Step 1: Request OTP
+    const registerRequest = async (name, username, email, phone, studentName, nationalId, dob) => {
         setLoading(true);
         try {
-            const { data } = await api.post('/auth/register', { name, username, email, password, studentId, parentAccessCode });
+            const { data } = await api.post('/auth/register-request', { 
+                name, username, email, phone, studentName, nationalId, dob 
+            });
+            return data;
+        } catch (err) {
+            const payload = err.response?.data || {
+                success: false,
+                errorCode: 'NETWORK_ERROR',
+                message: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
+            };
+            throw payload;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Step 2: Verify OTP and Login
+    const registerVerify = async (name, username, email, password, phone, otp, studentId) => {
+        setLoading(true);
+        try {
+            const { data } = await api.post('/auth/register-verify', { 
+                name, username, email, password, phone, otp, studentId 
+            });
 
             persistSession(data.token, data.user);
             navigate('/parent');
@@ -88,7 +111,7 @@ export const AuthProvider = ({ children }) => {
             const payload = err.response?.data || {
                 success: false,
                 errorCode: 'NETWORK_ERROR',
-                message: 'Cannot reach the server. Please check your connection.',
+                message: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
             };
             throw payload;
         } finally {
@@ -111,7 +134,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         initialLoading,
         login,
-        register,
+        registerRequest,
+        registerVerify,
         logout,
         isAuthenticated: !!token,
     };
