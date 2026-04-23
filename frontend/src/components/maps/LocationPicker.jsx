@@ -69,12 +69,14 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
 
   const handleCurrentLocation = () => {
     setGeoLoading(true);
+    setError('');
     if (!navigator.geolocation) {
       setError('متصفحك لا يدعم تحديد الموقع.');
       setGeoLoading(false);
       return;
     }
 
+    // First attempt: low accuracy (fast — uses WiFi/cell triangulation, < 2 seconds)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -83,12 +85,30 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
         setGeoLoading(false);
         setError('');
       },
-      (err) => {
-        console.warn('Geolocation blocked or failed:', err);
-        setGeoLoading(false);
-        // We do not show aggressive errors if they just blocked GPS, they can pick manually
+      () => {
+        // Fallback: high accuracy with extended timeout
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setPosition(coords);
+            setMapCenter([coords.lat, coords.lng]);
+            setGeoLoading(false);
+            setError('');
+          },
+          (err) => {
+            setGeoLoading(false);
+            if (err.code === err.PERMISSION_DENIED) {
+              setError('تم رفض إذن الموقع. يرجى السماح للمتصفح باستخدام الموقع ثم المحاولة مجدداً.');
+            } else if (err.code === err.TIMEOUT) {
+              setError('انتهت مهلة تحديد الموقع. تأكد من تفعيل خدمة الموقع على جهازك وحاول مجدداً.');
+            } else {
+              setError('تعذّر تحديد موقعك. يمكنك تحديد الموقع يدوياً على الخريطة.');
+            }
+          },
+          { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+        );
       },
-      { enableHighAccuracy: true, timeout: 5000 }
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
     );
   };
 

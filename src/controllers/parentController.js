@@ -14,10 +14,10 @@ exports.requestLinking = async (req, res) => {
     const { decrypt } = require('../utils/crypto');
     const normalized = normalizeArabicName(studentName);
     
-    // Convert input dob to start of day for accurate comparison (if needed), but exact Date match is fine if time is 00:00:00
-    // To be safe, we query by normalizedName and filter dob in memory as well if Timezones cause issues.
-    // For now, let's query by normalizedName and filter the rest in memory to avoid Timezone bugs.
-    const students = await Student.find({ normalizedName: normalized });
+    // Scope search to the parent's own school to prevent cross-tenant student discovery.
+    // If the parent has no school linked yet, the empty result is a safe fallback.
+    const schoolFilter = req.user.school ? { school: req.user.school } : {};
+    const students = await Student.find({ normalizedName: normalized, ...schoolFilter });
 
     if (students.length === 0) {
       return res.status(404).json({ success: false, message: 'لم يتم العثور على طالب بهذه البيانات' });
@@ -207,14 +207,14 @@ exports.getBusLive = async (req, res) => {
       });
     }
 
-    // 2. جلب بيانات الحافلة مع المدرسة
-    const bus = await Bus.findById(busId).populate('school', 'name location');
+    // 2. جلب بيانات الحافلة مع المدرسة — scoped to parent's school
+    const bus = await Bus.findOne({ _id: busId, school: req.user.school }).populate('school', 'name location');
     if (!bus) {
       return res.status(404).json({ success: false, message: 'الحافلة غير موجودة' });
     }
 
-    // 3. جلب الرحلة النشطة (إن وجدت)
-    const trip = await Trip.findOne({ bus: busId, status: 'active' });
+    // 3. جلب الرحلة النشطة — scoped to same school
+    const trip = await Trip.findOne({ bus: busId, status: 'active', school: req.user.school });
 
     // 4. جلب أبناء ولي الأمر في هذه الحافلة فقط (الخصوصية: نستبعد باقي الطلاب)
     const myStudents = await Student.find({ assignedBus: busId, parentId })

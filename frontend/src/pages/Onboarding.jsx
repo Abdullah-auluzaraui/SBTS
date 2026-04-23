@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/apiService';
-import { Shield, School, Loader2, AlertCircle, CheckCircle2, User, Lock, Mail } from 'lucide-react';
+import { Shield, School, Loader2, AlertCircle, CheckCircle2, Lock, Mail } from 'lucide-react';
 
 const Onboarding = () => {
     const [searchParams] = useSearchParams();
@@ -14,7 +14,7 @@ const Onboarding = () => {
     const [verifyError, setVerifyError] = useState('');
 
     // Form state
-    const [form, setForm] = useState({ name: '', username: '', password: '', confirmPassword: '' });
+    const [form, setForm] = useState({ username: '', password: '', confirmPassword: '' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
 
@@ -63,7 +63,6 @@ const Onboarding = () => {
         try {
             const { data } = await api.post('/auth/accept-invitation', {
                 token,
-                name: form.name,
                 username: form.username,
                 password: form.password
             });
@@ -137,18 +136,10 @@ const Onboarding = () => {
                                 </div>
                             </div>
 
-                            <h3 className="text-lg font-bold text-gray-800 mb-1">إنشاء حسابك</h3>
-                            <p className="text-gray-500 text-sm mb-6">أدخل بياناتك لإكمال تسجيل حساب مدير المدرسة</p>
+                            <h3 className="text-lg font-bold text-gray-800 mb-1">إعداد حساب المدرسة</h3>
+                            <p className="text-gray-500 text-sm mb-6">سيُعرَّف الحساب باسم المدرسة — أدخل اسم المستخدم وكلمة المرور للدخول</p>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">الاسم الكامل</label>
-                                    <div className="relative">
-                                        <User size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" placeholder="يوسف الأحمد" />
-                                    </div>
-                                </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
                                     <div className="relative">
