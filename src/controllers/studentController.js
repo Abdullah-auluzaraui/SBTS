@@ -25,6 +25,7 @@ const generateNextStudentId = async (yearStr) => {
 // POST /api/students
 exports.create = async (req, res) => {
   try {
+    // Destructure only allowed fields — school/schoolId from body are intentionally excluded
     const { name, nationalId, dob, assignedBus, grade } = req.body;
 
     if (!name || name.trim() === '') {
@@ -40,8 +41,8 @@ exports.create = async (req, res) => {
       return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'يجب أن يكون الاسم ثلاثياً كحد أدنى (الاسم الأول واسم الأب واسم العائلة)' });
     }
 
-    // Soft Warning: Duplicate name check scoped to this specific school
-    const schoolIdToUse = req.schoolId || req.user?.schoolId;
+    // Strip any school/schoolId injected from body — always use token-derived value
+    const schoolIdToUse = req.schoolId;
     const existingName = await Student.findOne({ school: schoolIdToUse, name: name.trim() });
     if (existingName) {
       return res.status(400).json({ 
@@ -202,7 +203,8 @@ exports.bulkUpload = async (req, res) => {
     const errors = [];
 
     // Pre-fetch all existing names in this school to efficiently block duplicates
-    const schoolIdToUse = req.schoolId || req.user.schoolId;
+    // Strip any school/schoolId injected from body — always use token-derived value
+    const schoolIdToUse = req.schoolId;
     const existingStudents = await Student.find({ school: schoolIdToUse }).select('name');
     const existingNameSet = new Set(existingStudents.map(s => s.name));
 

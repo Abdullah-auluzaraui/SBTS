@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
-import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, Wand2, MapPin, AlertTriangle, Navigation2 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix leaflet default icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const schoolIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+});
+
+const BUS_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 const BusManagement = () => {
     const [buses, setBuses] = useState([]);
@@ -23,6 +42,13 @@ const BusManagement = () => {
     const [studentSearch, setStudentSearch] = useState('');
 
     const [showAll, setShowAll] = useState(false);
+
+    // Auto-assign state
+    const [showAutoAssign, setShowAutoAssign] = useState(false);
+    const [autoLoading, setAutoLoading] = useState(false);
+    const [autoPreview, setAutoPreview] = useState(null);
+    const [autoError, setAutoError] = useState('');
+    const [autoConfirming, setAutoConfirming] = useState(false);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -137,6 +163,37 @@ const BusManagement = () => {
         s.studentId?.toLowerCase().includes(studentSearch.toLowerCase())
     );
 
+    // ─── Auto-assign handlers ──────────────────────────────────────────
+    const handleAutoPreview = async () => {
+        setShowAutoAssign(true);
+        setAutoLoading(true);
+        setAutoPreview(null);
+        setAutoError('');
+        try {
+            const { data } = await api.post('/buses/auto-assign', { confirm: false });
+            setAutoPreview(data);
+        } catch (err) {
+            setAutoError(err.response?.data?.message || 'حدث خطأ أثناء حساب التوزيع');
+        } finally {
+            setAutoLoading(false);
+        }
+    };
+
+    const handleAutoConfirm = async () => {
+        setAutoConfirming(true);
+        setAutoError('');
+        try {
+            await api.post('/buses/auto-assign', { confirm: true });
+            setShowAutoAssign(false);
+            setAutoPreview(null);
+            fetchAll();
+        } catch (err) {
+            setAutoError(err.response?.data?.message || 'حدث خطأ أثناء تطبيق التوزيع');
+        } finally {
+            setAutoConfirming(false);
+        }
+    };
+
     return (
         <div>
             {/* Header */}
@@ -155,6 +212,12 @@ const BusManagement = () => {
                     >
                         {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
                         {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
+                    </button>
+                    <button
+                        onClick={handleAutoPreview}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/25"
+                    >
+                        <Wand2 size={18} /> توزيع تلقائي
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
@@ -345,6 +408,213 @@ const BusManagement = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Auto-Assign Preview Modal ─────────────────────── */}
+            {showAutoAssign && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !autoConfirming && setShowAutoAssign(false)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0 bg-emerald-50/60">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                                    <Wand2 size={20} className="text-emerald-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-800">التوزيع التلقائي للطلاب</h3>
+                                    <p className="text-xs text-gray-500">توزيع ذكي حسب القرب الجغرافي واتجاه المسار نحو المدرسة</p>
+                                </div>
+                            </div>
+                            <button onClick={() => !autoConfirming && setShowAutoAssign(false)} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 min-h-0 overflow-y-auto">
+
+                            {/* Loading */}
+                            {autoLoading && (
+                                <div className="h-80 flex flex-col items-center justify-center gap-4">
+                                    <Loader2 size={40} className="text-emerald-500 animate-spin" />
+                                    <div className="text-center">
+                                        <p className="font-bold text-gray-700">جاري حساب التوزيع الأمثل...</p>
+                                        <p className="text-sm text-gray-400 mt-1">يتم الاستعلام عن مسارات OSRM لكل حافلة</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Error */}
+                            {!autoLoading && autoError && (
+                                <div className="h-80 flex flex-col items-center justify-center gap-3 px-8">
+                                    <AlertTriangle size={40} className="text-red-400" />
+                                    <p className="text-red-600 font-bold text-center">{autoError}</p>
+                                </div>
+                            )}
+
+                            {/* Preview */}
+                            {!autoLoading && autoPreview && (
+                                <div className="flex flex-col lg:flex-row gap-0 min-h-0">
+
+                                    {/* Left: Summary list */}
+                                    <div className="w-full lg:w-80 shrink-0 border-b lg:border-b-0 lg:border-l border-gray-100 flex flex-col overflow-y-auto" style={{ maxHeight: '520px' }}>
+
+                                        {/* Stats bar */}
+                                        <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 shrink-0">
+                                            <div className="flex items-center justify-between text-sm mb-2">
+                                                <span className="text-gray-500">إجمالي الطلاب المؤهلين</span>
+                                                <span className="font-bold text-gray-800">{autoPreview.totalEligible}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm mb-2">
+                                                <span className="text-gray-500">سيتم توزيعهم</span>
+                                                <span className="font-bold text-emerald-600">{autoPreview.assignedCount}</span>
+                                            </div>
+                                            {autoPreview.unassigned.length > 0 && (
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-gray-500">لا تتسعهم الحافلات</span>
+                                                    <span className="font-bold text-amber-600">{autoPreview.unassigned.length}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Bus assignments */}
+                                        <div className="flex-1 overflow-y-auto divide-y divide-gray-50 p-3 space-y-2">
+                                            {autoPreview.assignments.map((a, i) => (
+                                                <div key={a.bus._id} className="p-3 rounded-xl border border-gray-100">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: BUS_COLORS[i % BUS_COLORS.length] }} />
+                                                        <span className="font-bold text-gray-800 text-sm">{a.bus.busId}</span>
+                                                        <span className="mr-auto text-xs text-gray-400">{a.students.length} / {a.bus.capacity}</span>
+                                                    </div>
+                                                    {a.route && (
+                                                        <div className="flex gap-3 text-xs text-gray-500 mb-2 px-1">
+                                                            <span className="flex items-center gap-1"><Navigation2 size={10} className="text-blue-400" />{a.route.duration} دقيقة</span>
+                                                            <span>{a.route.distance} كم</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {a.students.slice(0, 5).map(s => (
+                                                            <span key={s._id} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium">{s.name}</span>
+                                                        ))}
+                                                        {a.students.length > 5 && (
+                                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-[10px]">+{a.students.length - 5} آخرون</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Unassigned students */}
+                                            {autoPreview.unassigned.length > 0 && (
+                                                <div className="p-3 rounded-xl border border-amber-100 bg-amber-50">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                                                        <span className="font-bold text-amber-700 text-sm">طلاب لم تتسعهم الحافلات</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {autoPreview.unassigned.map(s => (
+                                                            <span key={s._id} className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-medium">{s.name}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Map */}
+                                    <div className="flex-1 min-w-0" style={{ height: '520px' }}>
+                                        <MapContainer
+                                            center={
+                                                autoPreview.school
+                                                    ? [autoPreview.school.lat, autoPreview.school.lng]
+                                                    : [24.7136, 46.6753]
+                                            }
+                                            zoom={12}
+                                            style={{ height: '100%', width: '100%' }}
+                                            className="z-0"
+                                        >
+                                            <TileLayer
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                attribution="&copy; OpenStreetMap"
+                                            />
+
+                                            {/* School marker */}
+                                            {autoPreview.school && (
+                                                <Marker
+                                                    position={[autoPreview.school.lat, autoPreview.school.lng]}
+                                                    icon={schoolIcon}
+                                                >
+                                                    <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
+                                                        🏫 {autoPreview.school.name || 'المدرسة'}
+                                                    </Tooltip>
+                                                </Marker>
+                                            )}
+
+                                            {/* Bus routes and student markers */}
+                                            {autoPreview.assignments.map((a, i) => {
+                                                const color = BUS_COLORS[i % BUS_COLORS.length];
+                                                const dotIcon = new L.DivIcon({
+                                                    html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></div>`,
+                                                    className: '',
+                                                    iconSize: [10, 10],
+                                                    iconAnchor: [5, 5]
+                                                });
+                                                return (
+                                                    <React.Fragment key={a.bus._id}>
+                                                        {a.route?.polyline && (
+                                                            <Polyline
+                                                                positions={a.route.polyline}
+                                                                color={color}
+                                                                weight={4}
+                                                                opacity={0.8}
+                                                            />
+                                                        )}
+                                                        {a.students.map(s => {
+                                                            const [lng, lat] = s.location.coordinates;
+                                                            return (
+                                                                <Marker key={s._id} position={[lat, lng]} icon={dotIcon}>
+                                                                    <Tooltip direction="top" opacity={0.95} className="font-sans text-xs">
+                                                                        {s.name} — {a.bus.busId}
+                                                                    </Tooltip>
+                                                                </Marker>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </MapContainer>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        {!autoLoading && autoPreview && (
+                            <div className="px-6 py-4 border-t border-gray-100 shrink-0 flex items-center justify-between gap-4 bg-gray-50/50">
+                                <p className="text-xs text-gray-400">
+                                    سيتم إلغاء جميع التعيينات الحالية وإعادة توزيع الطلاب وفق هذا المقترح
+                                </p>
+                                <div className="flex gap-3 shrink-0">
+                                    <button
+                                        onClick={() => setShowAutoAssign(false)}
+                                        disabled={autoConfirming}
+                                        className="px-5 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+                                    >
+                                        إلغاء
+                                    </button>
+                                    <button
+                                        onClick={handleAutoConfirm}
+                                        disabled={autoConfirming}
+                                        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow shadow-emerald-500/25 text-sm disabled:opacity-60"
+                                    >
+                                        {autoConfirming ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                                        {autoConfirming ? 'جاري التطبيق...' : 'تأكيد التوزيع'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

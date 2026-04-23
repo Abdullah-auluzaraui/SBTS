@@ -231,13 +231,13 @@ exports.verifyInvitation = async (req, res) => {
 // POST /api/auth/accept-invitation
 exports.acceptInvitation = async (req, res) => {
   try {
-    const { token, name, username, password } = req.body;
+    const { token, username, password } = req.body;
 
-    if (!token || !name || !username || !password) {
+    if (!token || !username || !password) {
       return res.status(400).json({
         success: false,
         errorCode: 'VALIDATION_ERROR',
-        message: 'token, name, username, and password are all required'
+        message: 'token, username, and password are all required'
       });
     }
 
@@ -259,13 +259,13 @@ exports.acceptInvitation = async (req, res) => {
       return res.status(400).json({ success: false, errorCode: 'USER_EXISTS', message: 'اسم المستخدم مأخوذ بالفعل' });
     }
 
-    // 3. Create schooladmin account (Zero-Knowledge: admin sets their own password)
+    // 3. Create schooladmin account — name is taken from the school name automatically
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
       username,
       email: invitation.email,
       password: hash,
-      name,
+      name: invitation.school.name,
       role: 'schooladmin',
       school: invitation.school._id,
       isActive: true

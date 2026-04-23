@@ -9,15 +9,15 @@ exports.getDriverDashboardData = async (req, res) => {
   try {
     const driverId = req.user._id;
 
-    // 1. Get the assigned bus
-    const bus = await Bus.findOne({ driver: driverId, isActive: true })
+    // 1. Get the assigned bus — scoped to driver's own school
+    const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId })
       .select('busId capacity school')
       .populate('school', 'location name');
 
-    // 2. Get students assigned to this bus
+    // 2. Get students assigned to this bus — also scoped to prevent cross-tenant data leak
     let students = [];
     if (bus) {
-      students = await Student.find({ assignedBus: bus._id })
+      students = await Student.find({ assignedBus: bus._id, school: req.schoolId })
         .select('name studentId grade location parentLinked parentName');
     }
 
@@ -49,8 +49,8 @@ exports.startTrip = async (req, res) => {
       return res.status(400).json({ success: false, message: 'routePath مطلوب ويجب أن يكون مصفوفة من {lat, lng}' });
     }
 
-    // 1. تحقق أن السائق لديه حافلة نشطة
-    const bus = await Bus.findOne({ driver: driverId, isActive: true }).populate('school', 'name location');
+    // 1. تحقق أن السائق لديه حافلة نشطة — scoped to driver's school
+    const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId }).populate('school', 'name location');
     if (!bus) {
       return res.status(404).json({ success: false, message: 'لا توجد حافلة مخصصة لهذا السائق' });
     }
@@ -80,12 +80,12 @@ exports.endTrip = async (req, res) => {
   try {
     const driverId = req.user._id;
 
-    const bus = await Bus.findOne({ driver: driverId, isActive: true });
+    const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId });
     if (!bus) {
       return res.status(404).json({ success: false, message: 'لا توجد حافلة مخصصة لهذا السائق' });
     }
 
-    const trip = await Trip.findOne({ bus: bus._id, status: 'active' });
+    const trip = await Trip.findOne({ bus: bus._id, status: 'active', school: req.schoolId });
     if (!trip) {
       return res.status(404).json({ success: false, message: 'لا توجد رحلة نشطة لهذه الحافلة' });
     }
@@ -109,10 +109,22 @@ exports.markManualAttendance = async (req, res) => {
       return res.status(400).json({ success: false, message: 'بيانات غير مكتملة لتسجيل الحضور' });
     }
 
+    // Verify the bus belongs to this driver AND this school — prevents cross-tenant injection
+    const bus = await Bus.findOne({ _id: busId, driver: req.user._id, school: req.schoolId });
+    if (!bus) {
+      return res.status(403).json({ success: false, message: 'الحافلة غير صالحة أو لا تخصك' });
+    }
+
+    // Verify the student is assigned to this bus within the same school
+    const student = await Student.findOne({ _id: studentId, assignedBus: bus._id, school: req.schoolId });
+    if (!student) {
+      return res.status(403).json({ success: false, message: 'الطالب غير مسجل في حافلتك' });
+    }
+
     const attendance = await Attendance.create({
       school: req.schoolId,
-      student: studentId,
-      bus: busId,
+      student: student._id,
+      bus: bus._id,
       event: event,
       recordedBy: 'manual'
     });

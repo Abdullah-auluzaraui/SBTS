@@ -61,15 +61,45 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
 
     const handleMyLocation = () => {
         setGeoLoading(true);
-        navigator.geolocation?.getCurrentPosition(
+        setError('');
+
+        if (!navigator.geolocation) {
+            setError('متصفحك لا يدعم تحديد الموقع.');
+            setGeoLoading(false);
+            return;
+        }
+
+        // First attempt: low accuracy (fast — uses WiFi/cell triangulation)
+        navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
                 setPosition(coords);
                 setFlyTarget([coords.lat, coords.lng]);
                 setGeoLoading(false);
             },
-            () => setGeoLoading(false),
-            { enableHighAccuracy: true, timeout: 6000 }
+            () => {
+                // Fallback: high accuracy with extended timeout
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        setPosition(coords);
+                        setFlyTarget([coords.lat, coords.lng]);
+                        setGeoLoading(false);
+                    },
+                    (err) => {
+                        setGeoLoading(false);
+                        if (err.code === err.PERMISSION_DENIED) {
+                            setError('تم رفض إذن الموقع. يرجى السماح للمتصفح باستخدام الموقع ثم المحاولة مجدداً.');
+                        } else if (err.code === err.TIMEOUT) {
+                            setError('انتهت مهلة تحديد الموقع. تأكد من تفعيل خدمة الموقع على جهازك وحاول مجدداً.');
+                        } else {
+                            setError('تعذّر تحديد موقعك. يمكنك تحديد الموقع يدوياً على الخريطة.');
+                        }
+                    },
+                    { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+                );
+            },
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
         );
     };
 
