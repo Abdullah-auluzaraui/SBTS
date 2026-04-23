@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Bus, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 // Task FE-S1-2: LoginForm
 const Login = () => {
@@ -9,6 +10,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [showForgotModal, setShowForgotModal] = useState(false);
     const { login, loading } = useAuth();
     const navigate = useNavigate();
 
@@ -29,6 +31,7 @@ const Login = () => {
     };
 
     return (
+        <>
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden">
             {/* Decorative background blobs */}
             <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
@@ -95,7 +98,17 @@ const Login = () => {
                         </button>
                     </div>
 
-                    <div className="text-center pt-6 mt-6 border-t border-gray-100">
+                    <div className="text-center pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setShowForgotModal(true)}
+                            className="text-sm text-primary-600 hover:text-primary-700 font-bold hover:underline transition-colors"
+                        >
+                            نسيت كلمة المرور؟
+                        </button>
+                    </div>
+
+                    <div className="text-center pt-4 mt-2 border-t border-gray-100">
                         <p className="text-base text-gray-600">
                             ليس لديك حساب؟{' '}
                             <button
@@ -121,6 +134,9 @@ const Login = () => {
 
             </div>
         </div>
+
+        {showForgotModal && <ForgotPasswordModal onClose={() => setShowForgotModal(false)} />}
+        </>
     );
 };
 

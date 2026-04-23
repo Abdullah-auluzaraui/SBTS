@@ -7,7 +7,7 @@ import LocationPicker from '../components/maps/LocationPicker';
 import BusTrackingModal from '../components/maps/BusTrackingModal';
 
 const ParentDashboard = () => {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const [showToast, setShowToast] = useState(false);
 
     // ─── FE-S1-9: Add Another Child Modal State ────────────────────────
@@ -86,7 +86,9 @@ const ParentDashboard = () => {
                 studentId: childForm.studentId
             });
             setChildSuccess(`تم ربط الطالب "${data.student.name}" بنجاح!`);
-            fetchStudents(); // refresh the list
+            fetchStudents();
+            // Persist the phone in the local user session if it was just set for the first time
+            if (data.phone && !user?.phone) updateUser({ phone: data.phone });
             setTimeout(() => {
                 setShowAddChildModal(false);
                 setLinkStep(1);
@@ -363,17 +365,24 @@ const ParentDashboard = () => {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال (لإرسال الرمز)</label>
-                                        <input
-                                            type="tel"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
-                                            dir="ltr"
-                                            value={childForm.phone}
-                                            onChange={(e) => setChildForm({ ...childForm, phone: e.target.value })}
-                                            required
-                                        />
-                                    </div>
+                                    {user?.phone ? (
+                                        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                                            <span className="text-gray-500 text-sm">سيُرسل الرمز إلى:</span>
+                                            <span className="font-bold text-gray-800 font-sans text-left" dir="ltr">{user.phone}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال (لإرسال الرمز)</label>
+                                            <input
+                                                type="tel"
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
+                                                dir="ltr"
+                                                value={childForm.phone}
+                                                onChange={(e) => setChildForm({ ...childForm, phone: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                    )}
 
                                     <button
                                         type="submit"

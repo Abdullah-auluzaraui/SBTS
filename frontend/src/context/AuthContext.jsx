@@ -119,6 +119,15 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // ─── Patch user fields without full re-login ─────────────────────────────
+    const updateUser = (patch) => {
+        setUser(prev => {
+            const updated = { ...prev, ...patch };
+            localStorage.setItem('user', JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     // ─── Task FE-S1-6: logout() ──────────────────────────────────────────────
     const logout = () => {
         setToken(null);
@@ -137,6 +146,7 @@ export const AuthProvider = ({ children }) => {
         registerRequest,
         registerVerify,
         logout,
+        updateUser,
         isAuthenticated: !!token,
     };
 

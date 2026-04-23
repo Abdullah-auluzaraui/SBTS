@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const Invitation = require('../models/Invitation');
@@ -142,7 +143,7 @@ exports.registerVerify = async (req, res) => {
     res.status(201).json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school }
+      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school, phone: user.phone || null }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -185,7 +186,7 @@ exports.login = async (req, res) => {
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school || null }
+      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school || null, phone: user.phone || null }
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -231,13 +232,13 @@ exports.verifyInvitation = async (req, res) => {
 // POST /api/auth/accept-invitation
 exports.acceptInvitation = async (req, res) => {
   try {
-    const { token, username, password } = req.body;
+    const { token, username, password, phone } = req.body;
 
-    if (!token || !username || !password) {
+    if (!token || !username || !password || !phone) {
       return res.status(400).json({
         success: false,
         errorCode: 'VALIDATION_ERROR',
-        message: 'token, username, and password are all required'
+        message: 'token, username, password, and phone are all required'
       });
     }
 
@@ -268,6 +269,8 @@ exports.acceptInvitation = async (req, res) => {
       name: invitation.school.name,
       role: 'schooladmin',
       school: invitation.school._id,
+      phone,
+      isPhoneVerified: true, // phone entered during invited setup is trusted
       isActive: true
     });
 
@@ -281,8 +284,136 @@ exports.acceptInvitation = async (req, res) => {
     res.status(201).json({
       success: true,
       token: jwtToken,
-      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school }
+      user: { id: user._id, name: user.name, role: user.role, schoolId: user.school, phone: user.phone || null }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── FORGOT PASSWORD — Step 1 ────────────────────────────────────────────────
+// POST /api/auth/forgot-password
+// Accepts phone, generates an OTP, returns mockOtp in dev mode
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { username, phone } = req.body;
+    if (!username || !phone) {
+      return res.status(400).json({ success: false, message: 'اسم المستخدم ورقم الجوال مطلوبان' });
+    }
+
+    // Both username and phone must match the same account
+    const user = await User.findOne({ username, phone });
+    if (!user) {
+      // Generic response prevents account enumeration via username or phone alone
+      return res.json({ success: true, message: 'إذا كانت البيانات صحيحة، سيصلك رمز التحقق' });
+    }
+
+    // Rate limit: max 3 OTPs per phone in 15 minutes
+    const recent = await OTP.countDocuments({
+      phone,
+      purpose: 'forgot-password',
+      createdAt: { $gt: new Date(Date.now() - 15 * 60 * 1000) }
+    });
+    if (recent >= 3) {
+      return res.status(429).json({ success: false, message: 'لقد تجاوزت الحد المسموح من المحاولات. حاول بعد 15 دقيقة.' });
+    }
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    await OTP.create({ phone, otp: otpCode, purpose: 'forgot-password' });
+
+    console.log(`\n========================================`);
+    console.log(`📱 MOCK SMS [forgot-password]: To ${phone}`);
+    console.log(`🔑 OTP Code: ${otpCode}`);
+    console.log(`⏳ Expires in 5 minutes.`);
+    console.log(`========================================\n`);
+
+    res.json({
+      success: true,
+      message: 'تم إرسال رمز التحقق إلى جوالك',
+      mockOtp: otpCode // dev only
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── FORGOT PASSWORD — Step 2 ────────────────────────────────────────────────
+// POST /api/auth/verify-otp
+// Verifies OTP and returns a short-lived reset token (10 min)
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { phone, otpCode } = req.body;
+    if (!phone || !otpCode) {
+      return res.status(400).json({ success: false, message: 'الرقم والرمز مطلوبان' });
+    }
+
+    const otps = await OTP.find({ phone, purpose: 'forgot-password' });
+    if (otps.length === 0) {
+      return res.status(400).json({ success: false, message: 'رمز التحقق غير صالح أو منتهي الصلاحية' });
+    }
+
+    let validDoc = null;
+    for (const doc of otps) {
+      if (await doc.matchOTP(otpCode)) { validDoc = doc; break; }
+    }
+    if (!validDoc) {
+      return res.status(400).json({ success: false, message: 'رمز التحقق غير صحيح' });
+    }
+
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+
+    // Issue short-lived reset token (purpose-scoped to prevent reuse)
+    const resetToken = jwt.sign(
+      { id: user._id, purpose: 'reset-password' },
+      process.env.JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    await OTP.deleteMany({ phone, purpose: 'forgot-password' });
+
+    res.json({ success: true, message: 'تم التحقق بنجاح', resetToken });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── FORGOT PASSWORD — Step 3 ────────────────────────────────────────────────
+// POST /api/auth/reset-password
+// Verifies the reset token and saves the new password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { resetToken, newPassword } = req.body;
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ success: false, message: 'التوكن وكلمة المرور مطلوبان' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(resetToken, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, message: 'رمز إعادة التعيين غير صالح أو منتهي الصلاحية' });
+    }
+
+    if (payload.purpose !== 'reset-password') {
+      return res.status(401).json({ success: false, message: 'رمز غير صالح' });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      payload.id,
+      { password: await bcrypt.hash(newPassword, 10) },
+      { new: true, runValidators: false }
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+
+    res.json({ success: true, message: 'تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
-import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, Wand2, MapPin, AlertTriangle, Navigation2 } from 'lucide-react';
+import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, MapPin, AlertTriangle, Navigation2, Network } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -217,7 +217,7 @@ const BusManagement = () => {
                         onClick={handleAutoPreview}
                         className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/25"
                     >
-                        <Wand2 size={18} /> توزيع تلقائي
+                        توزيع تلقائي
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
@@ -421,7 +421,7 @@ const BusManagement = () => {
                         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0 bg-emerald-50/60">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                                    <Wand2 size={20} className="text-emerald-600" />
+                                    <Network size={20} className="text-emerald-600" />
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-800">التوزيع التلقائي للطلاب</h3>

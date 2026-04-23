@@ -15,8 +15,9 @@ const userSchema = new mongoose.Schema({
     required: function () { return this.role !== 'superadmin'; },
     default: null
   },
-  phone:    { type: String },
-  isActive: { type: Boolean, default: true }
+  phone:            { type: String },
+  isPhoneVerified:  { type: Boolean, default: false },
+  isActive:         { type: Boolean, default: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

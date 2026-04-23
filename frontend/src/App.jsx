@@ -19,6 +19,7 @@ import FleetMap from './pages/admin/FleetMap';
 import StudentManagement from './pages/admin/StudentManagement';
 import AttendanceRecords from './pages/admin/AttendanceRecords';
 import DriverManagement from './pages/admin/DriverManagement';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
     useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
@@ -46,16 +47,20 @@ function App() {
                     <Route path="attendance" element={<AttendanceRecords />} />
                     <Route path="drivers" element={<DriverManagement />} />
                 </Route>
+                {/* Profile is a standalone full-page route — NOT nested inside AdminLayout */}
+                <Route path="/admin/profile" element={<ProfilePage />} />
             </Route>
 
             {/* /driver → requires role: 'driver' */}
             <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
                 <Route path="/driver" element={<DriverDashboard />} />
+                <Route path="/driver/profile" element={<ProfilePage />} />
             </Route>
 
             {/* /parent → requires role: 'parent' */}
             <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
                 <Route path="/parent" element={<ParentDashboard />} />
+                <Route path="/parent/profile" element={<ProfilePage />} />
             </Route>
 
             {/* Fallback */}

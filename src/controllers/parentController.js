@@ -3,10 +3,19 @@ const Student = require('../models/Student');
 // POST /api/parents/link-request
 exports.requestLinking = async (req, res) => {
   try {
-    const { studentName, nationalId, dob, phone } = req.body;
+    const { studentName, nationalId, dob } = req.body;
 
-    if (!studentName || !nationalId || !dob || !phone) {
-      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد، رقم الجوال)' });
+    // Use the phone already on the parent's account; only require it from the body if not set yet
+    const phone = req.user.phone || req.body.phone;
+
+    const missingPhone = !phone;
+    if (!studentName || !nationalId || !dob || missingPhone) {
+      return res.status(400).json({
+        success: false,
+        message: missingPhone
+          ? 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد، رقم الجوال)'
+          : 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد)'
+      });
     }
 
     // 1. Search by dob and normalized name
@@ -72,7 +81,10 @@ exports.requestLinking = async (req, res) => {
 // POST /api/parents/link-verify
 exports.verifyLinking = async (req, res) => {
   try {
-    const { phone, otp, studentId } = req.body;
+    const { otp, studentId } = req.body;
+
+    // Use the phone already on the parent's account; only require it from the body if not set yet
+    const phone = req.user.phone || req.body.phone;
 
     if (!phone || !otp || !studentId) {
       return res.status(400).json({ success: false, message: 'البيانات غير مكتملة' });
@@ -132,6 +144,7 @@ exports.verifyLinking = async (req, res) => {
     res.json({
       success: true,
       message: 'تم ربط الطالب بنجاح',
+      phone,
       student: { id: student._id, name: student.name, studentId: student.studentId }
     });
   } catch (err) {

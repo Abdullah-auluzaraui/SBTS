@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import LogoutConfirmModal from './LogoutConfirmModal';
-import { Bus, Bell } from 'lucide-react';
+import { Bus, Bell, UserCircle } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
+
+    const profilePath = { parent: '/parent/profile', driver: '/driver/profile', schooladmin: '/admin/profile' }[user?.role];
 
     // Translate roles for display
     const roleDisplay = {
@@ -33,6 +37,15 @@ const MainLayout = ({ children }) => {
                         {user.role === 'parent' && (
                             <button className="hover:bg-gray-100 rounded-full p-2 transition shadow-sm border border-gray-100 bg-white flex items-center justify-center">
                                 <Bell size={18} strokeWidth={2} className="text-primary-500" />
+                            </button>
+                        )}
+                        {['parent', 'driver', 'schooladmin'].includes(user.role) && (
+                            <button
+                                onClick={() => navigate(profilePath)}
+                                title="الملف الشخصي"
+                                className="hover:bg-gray-100 rounded-full p-2 transition shadow-sm border border-gray-100 bg-white flex items-center justify-center"
+                            >
+                                <UserCircle size={18} strokeWidth={2} className="text-gray-500" />
                             </button>
                         )}
                         <button

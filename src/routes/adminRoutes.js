@@ -15,7 +15,7 @@ router.get('/dashboard', (req, res) => {
 // GET /api/admin/school — Get current school info (including location)
 router.get('/school', async (req, res) => {
   try {
-    const school = await School.findById(req.schoolId).select('name schoolId contact location');
+    const school = await School.findById(req.schoolId).select('name schoolId contact location emergencyContacts');
     if (!school) return res.status(404).json({ success: false, message: 'School not found' });
     res.json({ success: true, school });
   } catch (err) {
@@ -36,6 +36,24 @@ router.put('/school/location', async (req, res) => {
       { new: true }
     );
     res.json({ success: true, message: 'School location updated', location: school.location });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/admin/school/emergency-contacts — Update emergency contacts
+router.put('/school/emergency-contacts', async (req, res) => {
+  try {
+    const { contacts } = req.body;
+    if (!Array.isArray(contacts)) {
+      return res.status(400).json({ success: false, message: 'contacts must be an array' });
+    }
+    const school = await School.findByIdAndUpdate(
+      req.schoolId,
+      { emergencyContacts: contacts },
+      { new: true }
+    );
+    res.json({ success: true, message: 'Emergency contacts updated', emergencyContacts: school.emergencyContacts });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
