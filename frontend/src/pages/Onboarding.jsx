@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/apiService';
-import { Shield, School, Loader2, AlertCircle, CheckCircle2, Lock, Mail } from 'lucide-react';
+import { Shield, School, Loader2, AlertCircle, Lock, Mail, Phone } from 'lucide-react';
 
 const Onboarding = () => {
     const [searchParams] = useSearchParams();
@@ -14,7 +14,7 @@ const Onboarding = () => {
     const [verifyError, setVerifyError] = useState('');
 
     // Form state
-    const [form, setForm] = useState({ username: '', password: '', confirmPassword: '' });
+    const [form, setForm] = useState({ username: '', phone: '', password: '', confirmPassword: '' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
 
@@ -50,6 +50,10 @@ const Onboarding = () => {
         e.preventDefault();
         setFormError('');
 
+        if (!form.phone || !/^\d{10}$/.test(form.phone)) {
+            setFormError('رقم الجوال يجب أن يتكون من 10 أرقام');
+            return;
+        }
         if (form.password !== form.confirmPassword) {
             setFormError('كلمتا المرور غير متطابقتين');
             return;
@@ -64,6 +68,7 @@ const Onboarding = () => {
             const { data } = await api.post('/auth/accept-invitation', {
                 token,
                 username: form.username,
+                phone: form.phone,
                 password: form.password
             });
 
@@ -137,7 +142,7 @@ const Onboarding = () => {
                             </div>
 
                             <h3 className="text-lg font-bold text-gray-800 mb-1">إعداد حساب المدرسة</h3>
-                            <p className="text-gray-500 text-sm mb-6">سيُعرَّف الحساب باسم المدرسة — أدخل اسم المستخدم وكلمة المرور للدخول</p>
+                            <p className="text-gray-500 text-sm mb-6">سيُعرَّف الحساب باسم المدرسة — أدخل بياناتك لإتمام الإعداد</p>
 
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div className="space-y-1.5">
@@ -146,6 +151,14 @@ const Onboarding = () => {
                                         <Mail size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input type="text" required value={form.username} onChange={e => setForm({ ...form, username: e.target.value })}
                                             className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="admin_alnour" />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال</label>
+                                    <div className="relative">
+                                        <Phone size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input type="tel" required value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
+                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left font-sans" dir="ltr" placeholder="05xxxxxxxx" maxLength={10} />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">

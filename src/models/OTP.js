@@ -2,39 +2,41 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const otpSchema = new mongoose.Schema({
-  phone: { 
-    type: String, 
+  phone: {
+    type: String,
     required: true,
     index: true
   },
-  otp: { 
-    type: String, 
-    required: true 
+  otp: {
+    type: String,
+    required: true
   },
-  studentId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Student', 
-    required: true 
+  // Purpose-based OTP: 'link-student' requires studentId; others do not
+  purpose: {
+    type: String,
+    enum: ['link-student', 'forgot-password', 'change-phone'],
+    default: 'link-student'
   },
-  // Automatically delete document after 5 minutes (300 seconds)
-  createdAt: { 
-    type: Date, 
-    default: Date.now, 
-    expires: 300 
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    required: false,
+    default: null
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: 300 // 5-minute TTL
   }
 });
 
-// Hash the OTP before saving it to the database for security
-otpSchema.pre('save', async function(next) {
-  if (!this.isModified('otp')) {
-    next();
-  }
+otpSchema.pre('save', async function (next) {
+  if (!this.isModified('otp')) return next();
   const salt = await bcrypt.genSalt(10);
   this.otp = await bcrypt.hash(this.otp, salt);
 });
 
-// Method to verify OTP
-otpSchema.methods.matchOTP = async function(enteredOTP) {
+otpSchema.methods.matchOTP = async function (enteredOTP) {
   return await bcrypt.compare(enteredOTP, this.otp);
 };
 
