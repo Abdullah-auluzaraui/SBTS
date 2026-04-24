@@ -12,7 +12,7 @@ exports.getDriverDashboardData = async (req, res) => {
     // 1. Get the assigned bus — scoped to driver's own school
     const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId })
       .select('busId capacity school')
-      .populate('school', 'location name');
+      .populate('school', 'location name emergencyContacts');
 
     // 2. Get students assigned to this bus — also scoped to prevent cross-tenant data leak
     let students = [];
@@ -25,7 +25,11 @@ exports.getDriverDashboardData = async (req, res) => {
       success: true,
       data: {
         bus: bus ? { busId: bus.busId, capacity: bus.capacity, _id: bus._id } : null,
-        school: bus?.school ? { name: bus.school.name, location: bus.school.location } : null,
+        school: bus?.school ? {
+          name: bus.school.name,
+          location: bus.school.location,
+          emergencyContacts: bus.school.emergencyContacts || []
+        } : null,
         students: students
       }
     });

@@ -1,18 +1,21 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import MainLayout from './MainLayout';
 import { LayoutDashboard, Bus, Map, GraduationCap, ClipboardList, UserCog } from 'lucide-react';
 
-const navItems = [
-    { title: 'لوحة التحكم', icon: LayoutDashboard, path: '/admin' },
-    { title: 'الحافلات', icon: Bus, path: '/admin/buses' },
-    { title: 'متابعة الحافلات', icon: Map, path: '/admin/routes' },
-    { title: 'الطلاب', icon: GraduationCap, path: '/admin/students' },
-    { title: 'الحضور', icon: ClipboardList, path: '/admin/attendance' },
-    { title: 'السائقون', icon: UserCog, path: '/admin/drivers' },
-];
-
 const AdminLayout = () => {
+    const { t } = useTranslation();
+
+    const navItems = [
+        { title: t('admin.dashboard'), icon: LayoutDashboard, path: '/admin' },
+        { title: t('admin.buses'), icon: Bus, path: '/admin/buses' },
+        { title: t('admin.routes'), icon: Map, path: '/admin/routes' },
+        { title: t('admin.students'), icon: GraduationCap, path: '/admin/students' },
+        { title: t('admin.attendance'), icon: ClipboardList, path: '/admin/attendance' },
+        { title: t('admin.drivers'), icon: UserCog, path: '/admin/drivers' },
+    ];
+
     return (
         <MainLayout>
             <div className="bg-white border text-right border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10">

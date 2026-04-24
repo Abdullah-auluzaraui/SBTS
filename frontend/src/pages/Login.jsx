@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Bus, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
-// Task FE-S1-2: LoginForm
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -13,6 +14,7 @@ const Login = () => {
     const [showForgotModal, setShowForgotModal] = useState(false);
     const { login, loading } = useAuth();
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -20,42 +22,42 @@ const Login = () => {
         try {
             await login(username, password);
         } catch (err) {
-            // Map backend errorCodes (Section 3.3) to user-friendly Arabic messages
             const errorMessages = {
-                INVALID_CREDENTIALS: 'اسم المستخدم أو كلمة المرور غير صحيحة.',
-                ACCOUNT_INACTIVE: 'تم تعليق حسابك. يرجى التواصل مع الإدارة.',
-                NETWORK_ERROR: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
+                INVALID_CREDENTIALS: t('auth.errors.invalidCredentials'),
+                ACCOUNT_INACTIVE: t('auth.errors.accountInactive'),
+                NETWORK_ERROR: t('auth.errors.networkError'),
             };
-            setError(errorMessages[err.errorCode] || err.message || 'فشل تسجيل الدخول. يرجى المحاولة مجدداً.');
+            setError(errorMessages[err.errorCode] || err.message || t('auth.errors.loginFailed'));
         }
     };
 
     return (
         <>
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden">
-            {/* Decorative background blobs */}
+            <div className="absolute top-4 right-4 z-20">
+                <LanguageSwitcher />
+            </div>
             <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
 
             <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-md relative z-10 border border-gray-100">
 
-                {/* Header */}
                 <div className="text-center mb-8">
                     <div className="w-20 h-20 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                         <Bus size={40} strokeWidth={1.75} className="text-primary-500" />
                     </div>
                     <h2 className="text-3xl font-bold bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent mb-2">
-                        مرحباً بك مجدداً
+                        {t('auth.welcome')}
                     </h2>
-                    <p className="text-gray-500 font-medium">تسجيل الدخول إلى نظام تتبع الحافلات</p>
+                    <p className="text-gray-500 font-medium">{t('auth.loginSubtitle')}</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-5">
                     <div className="space-y-1.5">
-                        <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
+                        <label className="block text-gray-700 font-bold text-sm px-1">{t('auth.usernameLabel')}</label>
                         <input
                             type="text"
-                            placeholder="ادخل اسم المستخدم"
+                            placeholder={t('auth.usernamePlaceholder')}
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
@@ -64,11 +66,11 @@ const Login = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label className="block text-gray-700 font-bold text-sm px-1">كلمة المرور</label>
+                        <label className="block text-gray-700 font-bold text-sm px-1">{t('auth.passwordLabel')}</label>
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
-                                placeholder="أدخل كلمة المرور"
+                                placeholder={t('auth.passwordPlaceholder')}
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400 pl-12"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -94,7 +96,7 @@ const Login = () => {
                                 }`}
                         >
                             {loading && <Loader2 size={20} className="animate-spin" />}
-                            <span>{loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}</span>
+                            <span>{loading ? t('auth.loggingIn') : t('auth.login')}</span>
                         </button>
                     </div>
 
@@ -104,25 +106,24 @@ const Login = () => {
                             onClick={() => setShowForgotModal(true)}
                             className="text-sm text-primary-600 hover:text-primary-700 font-bold hover:underline transition-colors"
                         >
-                            نسيت كلمة المرور؟
+                            {t('auth.forgotPassword')}
                         </button>
                     </div>
 
                     <div className="text-center pt-4 mt-2 border-t border-gray-100">
                         <p className="text-base text-gray-600">
-                            ليس لديك حساب؟{' '}
+                            {t('auth.noAccount')}{' '}
                             <button
                                 type="button"
                                 onClick={() => navigate('/register')}
                                 className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
                             >
-                                سجل من هنا كولي أمر
+                                {t('auth.registerLink')}
                             </button>
                         </p>
                     </div>
                 </form>
 
-                {/* Error state */}
                 {error && (
                     <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl">
                         <p className="text-sm text-red-700 flex items-start gap-2">

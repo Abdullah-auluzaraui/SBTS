@@ -7,6 +7,7 @@ import {
   User, Shield, Phone, Loader2, AlertCircle, CheckCircle2,
   Eye, EyeOff, Info, X, Lock, ArrowRight
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ─── Reusable sub-components ──────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ const InputField = ({ label, type = 'text', value, onChange, disabled, placehold
 
 // ─── Phone Change sub-modal ───────────────────────────────────────────────────
 const PhoneChangeModal = ({ onClose, onSuccess }) => {
+  const { t } = useTranslation();
   const [step, setStep] = useState(1); // 1: enter new phone, 2: enter OTP
   const [newPhone, setNewPhone] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -69,7 +71,7 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setError('');
-    if (!/^\d{10}$/.test(newPhone)) { setError('رقم الجوال يجب أن يتكون من 10 أرقام'); return; }
+    if (!/^\d{10}$/.test(newPhone)) { setError(t('profile.errors.invalidPhone')); return; }
     setLoading(true);
     try {
       const { data } = await api.post('/profile/phone/request', { newPhone });
@@ -80,7 +82,7 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
       }
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ. حاول مجدداً.');
+      setError(err.response?.data?.message || t('profile.errors.genericError'));
     } finally {
       setLoading(false);
     }
@@ -89,13 +91,13 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError('');
-    if (otpCode.length !== 6) { setError('أدخل الرمز المكون من 6 أرقام'); return; }
+    if (otpCode.length !== 6) { setError(t('profile.errors.invalidOtp')); return; }
     setLoading(true);
     try {
       const { data } = await api.put('/profile/phone/verify', { newPhone, otpCode });
       onSuccess(data.phone);
     } catch (err) {
-      setError(err.response?.data?.message || 'رمز التحقق غير صحيح');
+      setError(err.response?.data?.message || t('profile.errors.wrongOtp'));
     } finally {
       setLoading(false);
     }
@@ -114,18 +116,18 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
               <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Phone size={26} strokeWidth={1.75} className="text-primary-500" />
               </div>
-              <h3 className="text-lg font-bold text-gray-800">تغيير رقم الجوال</h3>
-              <p className="text-gray-500 text-xs mt-1">سيُرسل رمز تحقق إلى الرقم الجديد</p>
+              <h3 className="text-lg font-bold text-gray-800">{t('profile.changePhoneTitle')}</h3>
+              <p className="text-gray-500 text-xs mt-1">{t('profile.changePhoneSubtitle')}</p>
             </div>
             <form onSubmit={handleRequestOtp} className="space-y-4">
-              <InputField label="الرقم الجديد" type="tel" value={newPhone}
+              <InputField label={t('profile.newPhoneLabel')} type="tel" value={newPhone}
                 onChange={e => setNewPhone(e.target.value.replace(/\D/g, ''))}
                 placeholder="05xxxxxxxx" dir="ltr" required />
               {error && <ErrorAlert message={error} />}
               <button type="submit" disabled={loading}
                 className="w-full bg-primary-500 text-white font-bold py-3 rounded-xl hover:bg-primary-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {loading ? 'جاري الإرسال...' : 'إرسال الرمز'}
+                {loading ? t('profile.sending') : t('profile.sendCode')}
               </button>
             </form>
           </>
@@ -135,8 +137,8 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
               <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Shield size={26} strokeWidth={1.75} className="text-green-500" />
               </div>
-              <h3 className="text-lg font-bold text-gray-800">أدخل رمز التحقق</h3>
-              <p className="text-gray-500 text-xs mt-1">أُرسل إلى <span dir="ltr" className="font-bold">{newPhone}</span></p>
+              <h3 className="text-lg font-bold text-gray-800">{t('profile.verifyPhoneTitle')}</h3>
+              <p className="text-gray-500 text-xs mt-1">{t('profile.sentTo')} <span dir="ltr" className="font-bold">{newPhone}</span></p>
             </div>
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="flex justify-center">
@@ -148,11 +150,11 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
               <button type="submit" disabled={loading || otpCode.length !== 6}
                 className="w-full bg-green-500 text-white font-bold py-3 rounded-xl hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
                 {loading && <Loader2 size={16} className="animate-spin" />}
-                {loading ? 'جاري التحقق...' : 'تأكيد الرقم'}
+                {loading ? t('profile.verifying') : t('profile.verifyPhone')}
               </button>
               <button type="button" onClick={() => { setStep(1); setOtpCode(''); setError(''); }}
                 className="w-full text-sm text-gray-500 font-bold hover:text-gray-700 transition-colors">
-                تغيير الرقم
+                {t('profile.changePhoneBack')}
               </button>
             </form>
           </>
@@ -164,6 +166,7 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
 
 // ─── Main Profile Page ────────────────────────────────────────────────────────
 const ProfilePage = () => {
+  const { t } = useTranslation();
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const dashboardPath = { schooladmin: '/admin', parent: '/parent', driver: '/driver' }[user?.role] || '/';
@@ -219,11 +222,11 @@ const ProfilePage = () => {
       if (['parent', 'schooladmin'].includes(user.role)) payload.username = username;
 
       const { data } = await api.put('/profile/me', payload);
-      setGenSuccess('تم حفظ التغييرات بنجاح');
+      setGenSuccess(t('profile.saveSuccess'));
       updateUser({ name: data.user.name, email: data.user.email, username: data.user.username });
       setProfile(prev => ({ ...prev, ...data.user }));
     } catch (err) {
-      setGenError(err.response?.data?.message || 'فشل الحفظ. حاول مجدداً.');
+      setGenError(err.response?.data?.message || t('profile.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -234,22 +237,22 @@ const ProfilePage = () => {
     setShowPhoneModal(false);
     setProfile(prev => ({ ...prev, phone: newPhone, isPhoneVerified: true }));
     updateUser({ phone: newPhone });
-    setGenSuccess('تم تحديث رقم الجوال بنجاح');
+    setGenSuccess(t('profile.phoneUpdateSuccess'));
   };
 
   // ── Change Password ────────────────────────────────────────────────────────
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setPwdError(''); setPwdSuccess('');
-    if (newPassword.length < 6) { setPwdError('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
-    if (newPassword !== confirmPassword) { setPwdError('كلمتا المرور غير متطابقتين'); return; }
+    if (newPassword.length < 6) { setPwdError(t('profile.errors.shortPassword')); return; }
+    if (newPassword !== confirmPassword) { setPwdError(t('profile.errors.passwordMismatch')); return; }
     setPwdSaving(true);
     try {
       await api.put('/profile/password', { currentPassword, newPassword });
-      setPwdSuccess('تم تغيير كلمة المرور بنجاح');
+      setPwdSuccess(t('profile.passwordChangeSuccess'));
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (err) {
-      setPwdError(err.response?.data?.message || 'فشل التغيير. تأكد من كلمة المرور الحالية.');
+      setPwdError(err.response?.data?.message || t('profile.errors.changeFailed'));
     } finally {
       setPwdSaving(false);
     }
@@ -281,45 +284,45 @@ const ProfilePage = () => {
             className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors mb-6"
           >
             <ArrowRight size={16} />
-            العودة
+            {t('common.back')}
           </button>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-8">
-            <TabButton active={tab === 'general'} onClick={() => setTab('general')} icon={User} label="المعلومات العامة" />
-            <TabButton active={tab === 'security'} onClick={() => setTab('security')} icon={Lock} label="الأمان" />
+            <TabButton active={tab === 'general'} onClick={() => setTab('general')} icon={User} label={t('profile.generalInfo')} />
+            <TabButton active={tab === 'security'} onClick={() => setTab('security')} icon={Lock} label={t('profile.security')} />
           </div>
 
           {/* ── General Info Tab ─────────────────────────────────────────── */}
           {tab === 'general' && (
             <form onSubmit={handleSaveGeneral} className="space-y-5">
-              <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">المعلومات الشخصية</h3>
+              <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">{t('profile.personalInfo')}</h3>
 
               {/* Name */}
               <InputField
-                label="الاسم"
+                label={t('profile.nameLabel')}
                 value={name}
                 onChange={e => setName(e.target.value)}
                 disabled={isDriver}
-                hint={isDriver ? 'الاسم للقراءة فقط — تواصل مع مدير المدرسة لتغييره' : undefined}
+                hint={isDriver ? t('profile.nameReadonly') : undefined}
               />
 
               {/* Username — parent and admin only */}
               {(isAdmin || isParent) && (
                 <InputField
-                  label="اسم المستخدم"
+                  label={t('profile.usernameLabel')}
                   value={username}
                   onChange={e => setUsername(e.target.value.trim())}
                   dir="ltr"
                   placeholder="username"
-                  hint="الحروف الإنجليزية والأرقام والشرطة السفلية فقط"
+                  hint={t('profile.usernameHint')}
                 />
               )}
 
               {/* Email — schooladmin only */}
               {isAdmin && (
                 <InputField
-                  label="البريد الإلكتروني"
+                  label={t('profile.emailLabel')}
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -329,19 +332,19 @@ const ProfilePage = () => {
 
               {/* Phone */}
               <div className="space-y-1.5">
-                <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال</label>
+                <label className="block text-gray-700 font-bold text-sm px-1">{t('profile.phoneLabel')}</label>
                 <div className="flex items-center gap-3">
                   <div className={`flex-1 px-4 py-3 border rounded-xl text-sm text-left font-sans bg-gray-50 border-gray-100 ${profile?.phone ? 'text-gray-700' : 'text-gray-400'}`} dir="ltr">
-                    {profile?.phone || 'لم يُضف رقم جوال بعد'}
+                    {profile?.phone || t('profile.noPhone')}
                   </div>
                   {profile?.isPhoneVerified && (
                     <span className="flex items-center gap-1 text-xs text-green-600 font-bold shrink-0">
-                      <CheckCircle2 size={14} /> موثّق
+                      <CheckCircle2 size={14} /> {t('profile.verified')}
                     </span>
                   )}
                   <button type="button" onClick={() => setShowPhoneModal(true)}
                     className="shrink-0 px-4 py-3 text-sm font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors border border-primary-100">
-                    تغيير
+                    {t('profile.changePhone')}
                   </button>
                 </div>
               </div>
@@ -354,14 +357,14 @@ const ProfilePage = () => {
                 <button type="submit" disabled={saving}
                   className="w-full bg-primary-500 text-white font-bold py-3 rounded-xl hover:bg-primary-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60 mt-2">
                   {saving && <Loader2 size={18} className="animate-spin" />}
-                  {saving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                  {saving ? t('profile.savingChanges') : t('profile.saveChanges')}
                 </button>
               )}
 
               {isDriver && (
                 <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
                   <Info size={16} className="shrink-0 mt-0.5" />
-                  <span>لتغيير اسمك، تواصل مع مدير المدرسة.</span>
+                  <span>{t('profile.driverNote')}</span>
                 </div>
               )}
             </form>
@@ -370,10 +373,10 @@ const ProfilePage = () => {
           {/* ── Security Tab ─────────────────────────────────────────────── */}
           {tab === 'security' && (
             <form onSubmit={handleChangePassword} className="space-y-5">
-              <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">تغيير كلمة المرور</h3>
+              <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">{t('profile.changePasswordTitle')}</h3>
 
               <div className="space-y-1.5">
-                <label className="block text-gray-700 font-bold text-sm px-1">كلمة المرور الحالية</label>
+                <label className="block text-gray-700 font-bold text-sm px-1">{t('profile.currentPassword')}</label>
                 <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'}
@@ -391,7 +394,7 @@ const ProfilePage = () => {
               </div>
 
               <InputField
-                label="كلمة المرور الجديدة"
+                label={t('profile.newPassword')}
                 type="password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
@@ -400,7 +403,7 @@ const ProfilePage = () => {
               />
 
               <InputField
-                label="تأكيد كلمة المرور الجديدة"
+                label={t('profile.confirmNewPassword')}
                 type="password"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
@@ -414,7 +417,7 @@ const ProfilePage = () => {
               <button type="submit" disabled={pwdSaving}
                 className="w-full bg-primary-500 text-white font-bold py-3 rounded-xl hover:bg-primary-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60 mt-2">
                 {pwdSaving && <Loader2 size={18} className="animate-spin" />}
-                {pwdSaving ? 'جاري الحفظ...' : 'تغيير كلمة المرور'}
+                {pwdSaving ? t('profile.changingPassword') : t('profile.changePassword')}
               </button>
             </form>
           )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
+import { useTranslation } from 'react-i18next';
 import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, MapPin, AlertTriangle, Navigation2, Network } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -22,6 +23,7 @@ const schoolIcon = new L.Icon({
 const BUS_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
 const BusManagement = () => {
+    const { t } = useTranslation();
     const [buses, setBuses] = useState([]);
     const [drivers, setDrivers] = useState([]);
     const [allStudents, setAllStudents] = useState([]);
@@ -200,7 +202,7 @@ const BusManagement = () => {
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                     <Bus size={24} className="text-primary-500" />
-                    إدارة الحافلات
+                    {t('busManagement.title')}
                 </h2>
                 <div className="flex items-center gap-3">
                     <button
@@ -211,19 +213,19 @@ const BusManagement = () => {
                             }`}
                     >
                         {showAll ? <Eye size={16} /> : <EyeOff size={16} />}
-                        {showAll ? 'عرض النشطة فقط' : 'عرض الكل'}
+                        {showAll ? t('common.showActive') : t('common.showAll')}
                     </button>
                     <button
                         onClick={handleAutoPreview}
                         className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/25"
                     >
-                        توزيع تلقائي
+                        {t('busManagement.autoAssign')}
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
                         className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25"
                     >
-                        <Plus size={18} /> إضافة حافلة
+                        <Plus size={18} /> {t('busManagement.addBus')}
                     </button>
                 </div>
             </div>
@@ -236,12 +238,12 @@ const BusManagement = () => {
                             <X size={18} />
                         </button>
                         <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">
-                            {editingBus ? 'تعديل الحافلة' : 'إضافة حافلة جديدة'}
+                            {editingBus ? t('busManagement.editBus') : t('busManagement.addNewBus')}
                         </h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {/* Bus ID */}
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">رقم الحافلة</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('busManagement.busId')}</label>
                                 <input
                                     type="text" required
                                     value={form.busId}
@@ -254,7 +256,7 @@ const BusManagement = () => {
 
                             {/* Capacity */}
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">السعة</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('busManagement.capacity')}</label>
                                 <input
                                     type="number" required min="1" max="100"
                                     value={form.capacity}
@@ -266,13 +268,13 @@ const BusManagement = () => {
 
                             {/* Driver Dropdown */}
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">السائق (اختياري)</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('busManagement.driver')}</label>
                                 <select
                                     value={form.driver}
                                     onChange={e => setForm({ ...form, driver: e.target.value })}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
                                 >
-                                    <option value="" >بدون سائق </option>
+                                    <option value="">{t('busManagement.noDriver')}</option>
                                     {drivers.map(d => (
                                         <option key={d._id} value={d._id}>{d.name} ({d.username})</option>
                                     ))}
@@ -287,7 +289,7 @@ const BusManagement = () => {
                                 className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}
                             >
                                 {formLoading && <Loader2 size={20} className="animate-spin" />}
-                                {formLoading ? 'جاري الحفظ...' : editingBus ? 'تحديث' : 'إضافة'}
+                                {formLoading ? t('busManagement.saving') : editingBus ? t('busManagement.update') : t('busManagement.save')}
                             </button>
 
                             {formError && (
@@ -312,7 +314,7 @@ const BusManagement = () => {
                             <div>
                                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                                     <Users size={20} className="text-primary-500" />
-                                    ربط طلاب بـ {assigningBus.busId}
+                                    {t('busManagement.assignStudents', { busId: assigningBus.busId })}
                                 </h3>
                             </div>
                             <button onClick={() => setAssigningBus(null)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
@@ -324,7 +326,7 @@ const BusManagement = () => {
                         <div className="p-4 border-b border-gray-50 shrink-0">
                             <input
                                 type="text"
-                                placeholder="ابحث باسم الطالب أو رقمه..."
+                                placeholder={t('busManagement.searchStudents')}
                                 value={studentSearch}
                                 onChange={e => setStudentSearch(e.target.value)}
                                 className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-500 transition-all"
@@ -334,7 +336,7 @@ const BusManagement = () => {
                         {/* Student List */}
                         <div className="overflow-y-auto flex-grow p-4 space-y-2">
                             {filteredStudents.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400 text-sm">لا يوجد طلاب مطابقون</div>
+                                <div className="text-center py-8 text-gray-400 text-sm">{t('busManagement.noMatchingStudents')}</div>
                             ) : filteredStudents.map(student => {
                                 const isSelected = selectedStudents.has(student.id);
                                 const isOnOtherBus = student.assignedBus && student.assignedBus !== assigningBus.busId;
@@ -396,7 +398,7 @@ const BusManagement = () => {
                             )}
                             <div className="flex gap-3">
                                 <button onClick={() => setAssigningBus(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold text-sm transition">
-                                    إلغاء
+                                    {t('busManagement.cancelBtn')}
                                 </button>
                                 <button
                                     onClick={handleAssignSave}
@@ -404,7 +406,7 @@ const BusManagement = () => {
                                     className="flex-1 py-2.5 rounded-xl bg-primary-500 text-white font-bold text-sm hover:bg-primary-600 transition flex justify-center items-center gap-2 disabled:opacity-60"
                                 >
                                     {assignLoading ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={16} />}
-                                    حفظ ({selectedStudents.size} طالب)
+                                    {t('busManagement.saveAssign', { count: selectedStudents.size })}
                                 </button>
                             </div>
                         </div>
@@ -424,8 +426,8 @@ const BusManagement = () => {
                                     <Network size={20} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800">التوزيع التلقائي للطلاب</h3>
-                                    <p className="text-xs text-gray-500">توزيع ذكي حسب القرب الجغرافي واتجاه المسار نحو المدرسة</p>
+                                    <h3 className="text-lg font-bold text-gray-800">{t('busManagement.autoAssignTitle')}</h3>
+                                    <p className="text-xs text-gray-500">{t('busManagement.autoAssignSubtitle')}</p>
                                 </div>
                             </div>
                             <button onClick={() => !autoConfirming && setShowAutoAssign(false)} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
@@ -441,8 +443,8 @@ const BusManagement = () => {
                                 <div className="h-80 flex flex-col items-center justify-center gap-4">
                                     <Loader2 size={40} className="text-emerald-500 animate-spin" />
                                     <div className="text-center">
-                                        <p className="font-bold text-gray-700">جاري حساب التوزيع الأمثل...</p>
-                                        <p className="text-sm text-gray-400 mt-1">يتم الاستعلام عن مسارات OSRM لكل حافلة</p>
+                                        <p className="font-bold text-gray-700">{t('busManagement.calculating')}</p>
+                                        <p className="text-sm text-gray-400 mt-1">{t('busManagement.osrmQuery')}</p>
                                     </div>
                                 </div>
                             )}
@@ -465,16 +467,16 @@ const BusManagement = () => {
                                         {/* Stats bar */}
                                         <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 shrink-0">
                                             <div className="flex items-center justify-between text-sm mb-2">
-                                                <span className="text-gray-500">إجمالي الطلاب المؤهلين</span>
+                                                <span className="text-gray-500">{t('busManagement.eligibleStudents')}</span>
                                                 <span className="font-bold text-gray-800">{autoPreview.totalEligible}</span>
                                             </div>
                                             <div className="flex items-center justify-between text-sm mb-2">
-                                                <span className="text-gray-500">سيتم توزيعهم</span>
+                                                <span className="text-gray-500">{t('busManagement.willAssign')}</span>
                                                 <span className="font-bold text-emerald-600">{autoPreview.assignedCount}</span>
                                             </div>
                                             {autoPreview.unassigned.length > 0 && (
                                                 <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-500">لا تتسعهم الحافلات</span>
+                                                    <span className="text-gray-500">{t('busManagement.noCapacity')}</span>
                                                     <span className="font-bold text-amber-600">{autoPreview.unassigned.length}</span>
                                                 </div>
                                             )}
@@ -511,7 +513,7 @@ const BusManagement = () => {
                                                 <div className="p-3 rounded-xl border border-amber-100 bg-amber-50">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                                                        <span className="font-bold text-amber-700 text-sm">طلاب لم تتسعهم الحافلات</span>
+                                                        <span className="font-bold text-amber-700 text-sm">{t('busManagement.unassignedStudents')}</span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-1">
                                                         {autoPreview.unassigned.map(s => (
@@ -594,7 +596,7 @@ const BusManagement = () => {
                         {!autoLoading && autoPreview && (
                             <div className="px-6 py-4 border-t border-gray-100 shrink-0 flex items-center justify-between gap-4 bg-gray-50/50">
                                 <p className="text-xs text-gray-400">
-                                    سيتم إلغاء جميع التعيينات الحالية وإعادة توزيع الطلاب وفق هذا المقترح
+                                    {t('busManagement.autoAssignNote')}
                                 </p>
                                 <div className="flex gap-3 shrink-0">
                                     <button
@@ -602,7 +604,7 @@ const BusManagement = () => {
                                         disabled={autoConfirming}
                                         className="px-5 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
                                     >
-                                        إلغاء
+                                        {t('common.cancel')}
                                     </button>
                                     <button
                                         onClick={handleAutoConfirm}
@@ -610,7 +612,7 @@ const BusManagement = () => {
                                         className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all shadow shadow-emerald-500/25 text-sm disabled:opacity-60"
                                     >
                                         {autoConfirming ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                                        {autoConfirming ? 'جاري التطبيق...' : 'تأكيد التوزيع'}
+                                        {autoConfirming ? t('busManagement.applying') : t('busManagement.confirmAssign')}
                                     </button>
                                 </div>
                             </div>
@@ -625,7 +627,7 @@ const BusManagement = () => {
             ) : buses.length === 0 ? (
                 <div className="p-12 text-center text-gray-400 bg-white border border-gray-100 rounded-2xl">
                     <Bus size={48} className="mx-auto mb-4 opacity-30" />
-                    <p className="font-bold text-lg">لا توجد حافلات</p>
+                    <p className="font-bold text-lg">{t('busManagement.noBuses')}</p>
                 </div>
             ) : (
                 <>
@@ -704,11 +706,11 @@ const BusManagement = () => {
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-100">
                                 <tr className="text-gray-500 font-bold text-right">
-                                    <th className="px-6 py-4">رقم الحافلة</th>
-                                    <th className="px-6 py-4 text-center">السعة</th>
-                                    <th className="px-6 py-4">السائق</th>
-                                    <th className="px-6 py-4 text-center">الطلاب المربوطين</th>
-                                    <th className="px-6 py-4 text-center">إجراءات</th>
+                                    <th className="px-6 py-4">{t('busManagement.busId')}</th>
+                                    <th className="px-6 py-4 text-center">{t('busManagement.capacity')}</th>
+                                    <th className="px-6 py-4">{t('busManagement.driverCol')}</th>
+                                    <th className="px-6 py-4 text-center">{t('busManagement.linkedStudents')}</th>
+                                    <th className="px-6 py-4 text-center">{t('common.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">

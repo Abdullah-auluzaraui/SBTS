@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Check, X, Loader2, Navigation } from 'lucide-react';
 import api from '../../services/apiService';
+import { useTranslation } from 'react-i18next';
 
 // Fix for default Leaflet marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -49,6 +50,7 @@ const RecenterMap = ({ center }) => {
 };
 
 const LocationPicker = ({ student, onClose, onSaved }) => {
+  const { t } = useTranslation();
   const [position, setPosition] = useState(null);
   const [mapCenter, setMapCenter] = useState([24.7136, 46.6753]); // Default: Riyadh
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
     setGeoLoading(true);
     setError('');
     if (!navigator.geolocation) {
-      setError('متصفحك لا يدعم تحديد الموقع.');
+      setError(t('locationPicker.errors.noSupport'));
       setGeoLoading(false);
       return;
     }
@@ -98,11 +100,11 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
           (err) => {
             setGeoLoading(false);
             if (err.code === err.PERMISSION_DENIED) {
-              setError('تم رفض إذن الموقع. يرجى السماح للمتصفح باستخدام الموقع ثم المحاولة مجدداً.');
+              setError(t('locationPicker.errors.permissionDenied'));
             } else if (err.code === err.TIMEOUT) {
-              setError('انتهت مهلة تحديد الموقع. تأكد من تفعيل خدمة الموقع على جهازك وحاول مجدداً.');
+              setError(t('locationPicker.errors.timeout'));
             } else {
-              setError('تعذّر تحديد موقعك. يمكنك تحديد الموقع يدوياً على الخريطة.');
+              setError(t('locationPicker.errors.genericGeoError'));
             }
           },
           { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
@@ -114,7 +116,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
 
   const handleSave = async () => {
     if (!position) {
-      setError('يرجى تحديد موقع على الخريطة.');
+      setError(t('locationPicker.errors.selectLocation'));
       return;
     }
 
@@ -127,7 +129,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
       });
       onSaved(position);
     } catch (err) {
-      setError(err.response?.data?.message || 'حدث خطأ أثناء حفظ الموقع');
+      setError(err.response?.data?.message || t('locationPicker.errors.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -142,7 +144,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               <MapPin className="text-primary-500" />
-              تحديد موقع الطالب: {student?.name}
+              {t('locationPicker.title', { name: student?.name })}
             </h3>
 
           </div>
@@ -159,7 +161,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
             className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold transition-colors text-sm border border-blue-200"
           >
             {geoLoading ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
-            استخدام موقعي الحالي (GPS)
+            {t('locationPicker.useMyLocation')}
           </button>
         </div>
 
@@ -188,7 +190,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
               onClick={onClose}
               className="px-6 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors"
             >
-              إلغاء
+              {t('locationPicker.cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -200,7 +202,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
                 }`}
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-              حفظ الموقع
+              {t('locationPicker.saveLocation')}
             </button>
           </div>
         </div>

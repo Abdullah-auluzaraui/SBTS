@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
@@ -23,6 +24,13 @@ import ProfilePage from './pages/ProfilePage';
 
 function App() {
     useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
+    const { i18n } = useTranslation();
+
+    useEffect(() => {
+        const dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
+        document.documentElement.lang = i18n.language;
+        document.documentElement.dir = dir;
+    }, [i18n.language]);
 
     return (
         <Routes>

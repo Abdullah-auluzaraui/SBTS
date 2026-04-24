@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapPin, Plus, X, Loader2, AlertCircle, Pencil, Ban, Bus, Users, Route as RouteIcon, Navigation2, Check } from 'lucide-react';
 import api from '../../services/apiService';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 // Fix icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -56,6 +57,7 @@ const FitBounds = ({ path }) => {
 };
 
 const RouteManagement = () => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState('create'); // 'create' or 'manage'
     
     // Data
@@ -110,7 +112,7 @@ const RouteManagement = () => {
     // --- OSRM Auto Routing API ---
     const handleAutoRoute = async () => {
         if (selectedStudents.length < 2) {
-            setError('يجب اختيار طالبين على الأقل لرسم المسار');
+            setError(t('routeManagement.errors.minStudents'));
             return;
         }
         setError('');
@@ -147,11 +149,11 @@ const RouteManagement = () => {
                 });
                 // We'll skip reordering the UI array just to avoid complexity, OSRM draws the path optimally.
             } else {
-                setError('تعذر رسم المسار، يرجى المحاولة بوقت آخر.');
+                setError(t('routeManagement.errors.osrmFailed'));
             }
         } catch (err) {
             console.error('OSRM Error', err);
-            setError('تعذر الاتصال بخدمة رسم المسارات (OSRM).');
+            setError(t('routeManagement.errors.osrmConnection'));
         } finally {
             setOsrmLoading(false);
         }
@@ -160,15 +162,15 @@ const RouteManagement = () => {
     // --- Save Route to Backend ---
     const handleSaveRoute = async () => {
         if (!routeName) {
-            setError('يرجى إدخال اسم المسار');
+            setError(t('routeManagement.errors.noRouteName'));
             return;
         }
         if (selectedStudents.length < 2) {
-            setError('يحب أن يحتوي المسار على طالبين على الأقل');
+            setError(t('routeManagement.errors.minStudentsSave'));
             return;
         }
         if (routePathGeoJson.length === 0) {
-            setError('الرجاء الضغط على "رسم مسار ذكي" أولاً قبل الحفظ');
+            setError(t('routeManagement.errors.drawFirst'));
             return;
         }
 
@@ -185,7 +187,7 @@ const RouteManagement = () => {
                 estimatedDuration: osrmMeta ? osrmMeta.duration : null
             });
 
-            setSuccessMsg('تم حفظ المسار بنجاح!');
+            setSuccessMsg(t('routeManagement.saveSuccess'));
             
             // Reset state
             setSelectedStudents([]);
@@ -196,14 +198,14 @@ const RouteManagement = () => {
 
             setTimeout(() => setSuccessMsg(''), 3000);
         } catch (err) {
-            setError(err.response?.data?.message || 'حدث خطأ أثناء الحفظ');
+            setError(err.response?.data?.message || t('routeManagement.errors.saveFailed'));
         } finally {
             setSavingRoute(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('هل تريد تعطيل هذا المسار؟ سيتم إعادة الطلاب لقائمة غير المعينين.')) return;
+        if (!window.confirm(t('routeManagement.errors.deleteConfirm'))) return;
         try { 
             await api.delete(`/routes/${id}`); 
             fetchData(); 
@@ -215,20 +217,20 @@ const RouteManagement = () => {
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4 px-2">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                     <RouteIcon size={24} className="text-primary-500" />
-                    المسارات الذكية (Routing)
+                    {t('routeManagement.title')}
                 </h2>
                 <div className="flex bg-gray-100 p-1 rounded-xl">
                     <button 
                         onClick={() => setActiveTab('create')}
                         className={`px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-sm ${activeTab === 'create' ? 'bg-white text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        إنشاء مسار جديد
+                        {t('routeManagement.createRoute')}
                     </button>
                     <button 
                         onClick={() => setActiveTab('manage')}
                         className={`px-6 py-2 rounded-lg font-bold text-sm transition-all shadow-sm ${activeTab === 'manage' ? 'bg-white text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        إدارة المسارات
+                        {t('routeManagement.manageRoutes')}
                     </button>
                 </div>
             </div>
@@ -242,14 +244,14 @@ const RouteManagement = () => {
                     <div className="w-full lg:w-1/3 flex flex-col gap-4">
                         <div className="bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
                             <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-                                <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={18} className="text-primary-500"/> طلاب بدون حافلة ({unassignedStudents.length})</h3>
+                                <h3 className="font-bold flex items-center gap-2 text-gray-800"><Users size={18} className="text-primary-500"/> {t('routeManagement.unassignedStudents', { count: unassignedStudents.length })}</h3>
                             </div>
                             
                             <div className="flex-grow overflow-y-auto p-4 space-y-3">
                                 {loadingData ? (
                                     <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary-400" /></div>
                                 ) : unassignedStudents.length === 0 ? (
-                                    <div className="text-center p-6 text-gray-400 text-sm bg-gray-50 rounded-xl">جميع الطلاب مخصصين لحافلات.</div>
+                                    <div className="text-center p-6 text-gray-400 text-sm bg-gray-50 rounded-xl">{t('routeManagement.allAssigned')}</div>
                                 ) : (
                                     unassignedStudents.map(student => {
                                         const isSelected = selectedStudents.some(s => s._id === student._id);
@@ -278,7 +280,7 @@ const RouteManagement = () => {
                                 <div className="space-y-3">
                                     <input 
                                         type="text" 
-                                        placeholder="اسم المسار (مثال: محطة اليرموك)"
+                                        placeholder={t('routeManagement.routeNamePlaceholder')}
                                         value={routeName}
                                         onChange={e => setRouteName(e.target.value)}
                                         className="w-full text-sm px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500"
@@ -291,7 +293,7 @@ const RouteManagement = () => {
                                             className="px-3 py-2.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-xl hover:bg-blue-100 transition flex justify-center items-center gap-1.5 disabled:opacity-50"
                                         >
                                             {osrmLoading ? <Loader2 size={14} className="animate-spin"/> : <Navigation2 size={14}/>}
-                                            رسم مسار ذكي
+                                            {t('routeManagement.drawRoute')}
                                         </button>
                                         
                                         <button 
@@ -299,13 +301,13 @@ const RouteManagement = () => {
                                             disabled={selectedStudents.length < 2 || routePathGeoJson.length === 0 || savingRoute}
                                             className="px-3 py-2.5 bg-primary-500 text-white text-xs font-bold rounded-xl hover:bg-primary-600 transition flex justify-center items-center disabled:opacity-50"
                                         >
-                                            {savingRoute ? <Loader2 size={14} className="animate-spin"/> : 'حفظ المسار'}
+                                            {savingRoute ? <Loader2 size={14} className="animate-spin"/> : t('routeManagement.saveRoute')}
                                         </button>
                                     </div>
 
                                     {osrmMeta && (
                                         <div className="text-[11px] font-bold text-center text-gray-500 mt-2 bg-gray-50 rounded-lg py-1.5">
-                                            المدة: {osrmMeta.duration} دقيقة — المسافة: {osrmMeta.distance} كم
+                                            {t('routeManagement.duration', { duration: osrmMeta.duration, distance: osrmMeta.distance })}
                                         </div>
                                     )}
                                 </div>
@@ -339,7 +341,7 @@ const RouteManagement = () => {
                                 return (
                                     <Marker key={`sel-${s._id}`} position={[lat, lng]} icon={selectedIcon}>
                                         <Tooltip permanent direction="bottom" className="font-sans font-bold text-primary-600" opacity={0.9}>
-                                            المحطة
+                                            {t('routeManagement.stopLabel')}
                                         </Tooltip>
                                     </Marker>
                                 );
@@ -362,7 +364,7 @@ const RouteManagement = () => {
                     ) : routes.length === 0 ? (
                         <div className="p-12 text-center text-gray-400 bg-white">
                             <RouteIcon size={48} className="mx-auto mb-4 opacity-30" />
-                            <p className="font-bold text-lg">لا توجد مسارات محفوظة</p>
+                            <p className="font-bold text-lg">{t('routeManagement.noRoutes')}</p>
                         </div>
                     ) : (
                         <>
@@ -382,25 +384,25 @@ const RouteManagement = () => {
                                         <div className="grid grid-cols-2 gap-3 mb-3">
                                             <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg p-2.5 flex flex-col items-center justify-center">
                                                 <Users size={16} className="text-blue-500 mb-1" />
-                                                <span className="text-blue-700 font-bold text-sm">{route.students?.length || 0} طالباً</span>
+                                                <span className="text-blue-700 font-bold text-sm">{t('routeManagement.studentsCount', { count: route.students?.length || 0 })}</span>
                                             </div>
                                             <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5 flex flex-col items-center justify-center">
                                                 <Navigation2 size={16} className="text-gray-400 mb-1" />
                                                 <span className="text-gray-600 font-bold text-sm">
-                                                    {route.estimatedDuration ? `${route.estimatedDuration} دقيقة` : '—'}
+                                                    {route.estimatedDuration ? t('routeManagement.durationMin', { duration: route.estimatedDuration }) : '—'}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center justify-between pt-3 border-t border-gray-50 text-sm">
-                                            <span className="text-gray-500">السائق المخصص:</span>
+                                            <span className="text-gray-500">{t('routeManagement.assignedDriver')}</span>
                                             {route.driver ? (
                                                 <span className="font-bold text-gray-700 flex items-center gap-1.5">
                                                     <span className="text-blue-500">👤</span> {route.driver.name}
                                                 </span>
                                             ) : (
                                                 <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold border border-amber-100">
-                                                    غير معين
+                                                    {t('routeManagement.unassigned')}
                                                 </span>
                                             )}
                                         </div>
@@ -413,11 +415,11 @@ const RouteManagement = () => {
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gray-50 border-b border-gray-100">
                                         <tr className="text-gray-500 font-bold">
-                                            <th className="px-6 py-4">اسم المسار</th>
-                                            <th className="px-6 py-4 text-center">الطلاب</th>
-                                            <th className="px-6 py-4 text-center">المدة التقديرية</th>
-                                            <th className="px-6 py-4">السائق المخصص</th>
-                                            <th className="px-6 py-4 text-center">إجراءات</th>
+                                            <th className="px-6 py-4">{t('routeManagement.routeName')}</th>
+                                            <th className="px-6 py-4 text-center">{t('studentManagement.studentCol')}</th>
+                                            <th className="px-6 py-4 text-center">{t('routeManagement.estimatedDuration')}</th>
+                                            <th className="px-6 py-4">{t('routeManagement.assignedDriver')}</th>
+                                            <th className="px-6 py-4 text-center">{t('common.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
@@ -426,11 +428,11 @@ const RouteManagement = () => {
                                                 <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100">
-                                                        {route.students?.length || 0} طالباً
+                                                        {t('routeManagement.studentsCount', { count: route.students?.length || 0 })}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center text-gray-600">
-                                                    {route.estimatedDuration ? `${route.estimatedDuration} د` : '—'}
+                                                    {route.estimatedDuration ? t('routeManagement.durationMin', { duration: route.estimatedDuration }) : '—'}
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-600">
                                                     {route.driver ? (
@@ -438,12 +440,12 @@ const RouteManagement = () => {
                                                             <span className="text-blue-500 text-xs">👤</span> {route.driver.name}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs border border-amber-100 font-bold">غير معين</span>
+                                                        <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs border border-amber-100 font-bold">{t('routeManagement.unassigned')}</span>
                                                     )}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="إلغاء المسار">
+                                                        <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title={t('routeManagement.disableRoute')}>
                                                             <Ban size={16} />
                                                         </button>
                                                     </div>

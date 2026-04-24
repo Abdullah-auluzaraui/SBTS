@@ -48,13 +48,26 @@ router.put('/school/emergency-contacts', async (req, res) => {
     if (!Array.isArray(contacts)) {
       return res.status(400).json({ success: false, message: 'contacts must be an array' });
     }
+
+    // Strip any extra fields (e.g. _id from frontend) — keep only name and phone
+    const sanitized = contacts.map(({ name, phone }) => ({ name, phone }));
+
+    console.log(`[Emergency Contacts] School ${req.schoolId} — saving ${sanitized.length} contact(s):`, sanitized);
+
     const school = await School.findByIdAndUpdate(
       req.schoolId,
-      { emergencyContacts: contacts },
-      { new: true }
+      { $set: { emergencyContacts: sanitized } },
+      { new: true, runValidators: false }
     );
+
+    if (!school) {
+      return res.status(404).json({ success: false, message: 'School not found' });
+    }
+
+    console.log(`[Emergency Contacts] Saved successfully. DB now has ${school.emergencyContacts.length} contact(s).`);
     res.json({ success: true, message: 'Emergency contacts updated', emergencyContacts: school.emergencyContacts });
   } catch (err) {
+    console.error('[Emergency Contacts] Save error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

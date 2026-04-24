@@ -1,8 +1,10 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Task FE-S1-6: LogoutConfirmModal
 const LogoutConfirmModal = ({ isOpen, onClose, onConfirm }) => {
+    const { t } = useTranslation();
     if (!isOpen) return null;
 
     return (
@@ -13,10 +15,10 @@ const LogoutConfirmModal = ({ isOpen, onClose, onConfirm }) => {
                         <LogOut size={28} strokeWidth={2} className="text-red-500" />
                     </div>
                     <h2 className="text-2xl font-bold mb-2 text-gray-800">
-                        تسجيل الخروج
+                        {t('logout.title')}
                     </h2>
                     <p className="text-gray-500 mb-8 text-lg">
-                        هل أنت متأكد أنك تريد تسجيل الخروج من حسابك؟
+                        {t('logout.message')}
                     </p>
                 </div>
 
@@ -25,13 +27,13 @@ const LogoutConfirmModal = ({ isOpen, onClose, onConfirm }) => {
                         onClick={onClose}
                         className="flex-1 px-6 py-3 border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 font-bold transition-colors focus:ring-4 focus:ring-gray-100"
                     >
-                        إلغاء
+                        {t('logout.cancel')}
                     </button>
                     <button
                         onClick={onConfirm}
                         className="flex-1 px-6 py-3 bg-red-500 text-white rounded-xl hover:bg-red-600 font-bold shadow-md shadow-red-200 transition-colors focus:ring-4 focus:ring-red-200"
                     >
-                        تأكيد الخروج
+                        {t('logout.confirm')}
                     </button>
                 </div>
             </div>
