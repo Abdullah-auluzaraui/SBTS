@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
+import { useTranslation } from 'react-i18next';
 import {
     UserCog, Plus, X, Loader2, AlertCircle, Eye, EyeOff,
     Ban, CircleCheck, Phone, Check
 } from 'lucide-react';
 
 const DriverManagement = () => {
+    const { t } = useTranslation();
     const [showAll, setShowAll] = useState(false);
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Form state
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ name: '', username: '', password: '', phone: '' });
     const [showPassword, setShowPassword] = useState(false);
@@ -47,13 +48,11 @@ const DriverManagement = () => {
             setSuccessId(data.driver.id);
             setTimeout(() => setSuccessId(null), 3000);
         } catch (err) {
-            setFormError(err.response?.data?.message || 'حدث خطأ أثناء الإنشاء');
+            setFormError(err.response?.data?.message || t('driverManagement.errors.createError'));
         } finally { setFormLoading(false); }
     };
 
     const handleToggleStatus = async (driver) => {
-        const action = driver.isActive ? 'تعليق' : 'تفعيل';
-        if (!window.confirm(`هل تريد ${action} حساب السائق "${driver.name}"؟`)) return;
         try {
             await api.patch(`/users/drivers/${driver._id}/status`);
             fetchDrivers();
@@ -66,7 +65,7 @@ const DriverManagement = () => {
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-3">
                     <UserCog size={22} className="text-primary-500" />
-                    إدارة السائقين
+                    {t('driverManagement.title')}
                 </h2>
                 <div className="flex items-center gap-2">
                     <button
@@ -78,14 +77,14 @@ const DriverManagement = () => {
                         }`}
                     >
                         {showAll ? <Eye size={15} /> : <EyeOff size={15} />}
-                        <span className="hidden sm:inline">{showAll ? 'عرض النشطين فقط' : 'عرض الكل'}</span>
+                        <span className="hidden sm:inline">{showAll ? t('common.showActiveOnly') : t('common.showAll')}</span>
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowForm(true); }}
                         className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25 text-sm"
                     >
                         <Plus size={17} />
-                        <span>إضافة سائق</span>
+                        <span>{t('driverManagement.addDriver')}</span>
                     </button>
                 </div>
             </div>
@@ -101,13 +100,13 @@ const DriverManagement = () => {
                             <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mb-3">
                                 <UserCog size={28} className="text-primary-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-gray-800">إضافة سائق جديد</h3>
-                            <p className="text-gray-400 text-sm mt-1">سيُستخدم اسم المستخدم لتسجيل الدخول</p>
+                            <h3 className="text-xl font-bold text-gray-800">{t('driverManagement.addDriverTitle')}</h3>
+                            <p className="text-gray-400 text-sm mt-1">{t('driverManagement.addDriverSubtitle')}</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">الاسم الكامل</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('driverManagement.fullName')}</label>
                                 <input
                                     type="text" required
                                     value={form.name}
@@ -117,7 +116,7 @@ const DriverManagement = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('driverManagement.username')}</label>
                                 <input
                                     type="text" required dir="ltr"
                                     value={form.username}
@@ -128,7 +127,7 @@ const DriverManagement = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">كلمة المرور</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('driverManagement.password')}</label>
                                 <div className="relative">
                                     <input
                                         type={showPassword ? 'text' : 'password'} required dir="ltr"
@@ -145,7 +144,7 @@ const DriverManagement = () => {
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('driverManagement.phone')}</label>
                                 <input
                                     type="tel" dir="ltr" required
                                     value={form.phone}
@@ -159,7 +158,7 @@ const DriverManagement = () => {
                             <button type="submit" disabled={formLoading}
                                 className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 mt-2 ${formLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
                                 {formLoading ? <Loader2 size={20} className="animate-spin" /> : <Plus size={20} />}
-                                {formLoading ? 'جاري الإنشاء...' : 'إنشاء الحساب'}
+                                {formLoading ? t('driverManagement.creating') : t('driverManagement.createAccount')}
                             </button>
 
                             {formError && (
@@ -181,8 +180,8 @@ const DriverManagement = () => {
             ) : drivers.length === 0 ? (
                 <div className="p-12 text-center text-gray-400 bg-white border border-gray-100 rounded-2xl">
                     <UserCog size={48} className="mx-auto mb-4 opacity-30" />
-                    <p className="font-bold text-lg">لا يوجد سائقون</p>
-                    <p className="text-sm mt-1">قم بإضافة أول سائق لمدرستك</p>
+                    <p className="font-bold text-lg">{t('driverManagement.noDrivers')}</p>
+                    <p className="text-sm mt-1">{t('driverManagement.noDriversHint')}</p>
                 </div>
             ) : (
                 <>
@@ -210,11 +209,11 @@ const DriverManagement = () => {
                                     </div>
                                     {driver.isActive ? (
                                         <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[11px] font-bold px-2.5 py-1 rounded-full border border-green-100 shrink-0">
-                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />نشط
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />{t('driverManagement.active')}
                                         </span>
                                     ) : (
                                         <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[11px] font-bold px-2.5 py-1 rounded-full border border-red-100 shrink-0">
-                                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />معلّق
+                                            <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />{t('driverManagement.suspended')}
                                         </span>
                                     )}
                                 </div>
@@ -236,8 +235,8 @@ const DriverManagement = () => {
                                         }`}
                                     >
                                         {driver.isActive
-                                            ? <><Ban size={13} /> تعليق</>
-                                            : <><CircleCheck size={13} /> تفعيل</>}
+                                            ? <><Ban size={13} /> {t('common.suspend')}</>
+                                            : <><CircleCheck size={13} /> {t('common.enable')}</>}
                                     </button>
                                 </div>
                             </div>
@@ -249,11 +248,11 @@ const DriverManagement = () => {
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-100">
                                 <tr className="text-gray-500 font-bold text-right">
-                                    <th className="px-6 py-4">السائق</th>
-                                    <th className="px-6 py-4">اسم المستخدم</th>
-                                    <th className="px-6 py-4">الجوال</th>
-                                    <th className="px-6 py-4 text-center">الحالة</th>
-                                    <th className="px-6 py-4 text-center">إجراءات</th>
+                                    <th className="px-6 py-4">{t('roles.driver')}</th>
+                                    <th className="px-6 py-4">{t('driverManagement.usernameCol')}</th>
+                                    <th className="px-6 py-4">{t('driverManagement.phoneCol')}</th>
+                                    <th className="px-6 py-4 text-center">{t('driverManagement.statusCol')}</th>
+                                    <th className="px-6 py-4 text-center">{t('common.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
@@ -284,11 +283,11 @@ const DriverManagement = () => {
                                         <td className="px-6 py-4 text-center">
                                             {driver.isActive ? (
                                                 <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 text-xs font-bold px-3 py-1 rounded-full border border-green-100">
-                                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />نشط
+                                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />{t('driverManagement.active')}
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1 rounded-full border border-red-100">
-                                                    <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />معلّق
+                                                    <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />{t('driverManagement.suspended')}
                                                 </span>
                                             )}
                                         </td>
@@ -299,7 +298,7 @@ const DriverManagement = () => {
                                                     className={`p-2 rounded-lg transition-colors ${driver.isActive
                                                         ? 'hover:bg-red-50 text-gray-400 hover:text-red-500'
                                                         : 'hover:bg-green-50 text-gray-400 hover:text-green-500'}`}
-                                                    title={driver.isActive ? 'تعليق الحساب' : 'تفعيل الحساب'}
+                                                    title={driver.isActive ? t('common.suspend') : t('common.enable')}
                                                 >
                                                     {driver.isActive ? <Ban size={16} /> : <CircleCheck size={16} />}
                                                 </button>

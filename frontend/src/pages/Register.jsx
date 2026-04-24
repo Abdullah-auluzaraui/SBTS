@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { Users, AlertCircle, Eye, EyeOff, Loader2, Phone, CheckCircle, ShieldCheck } from 'lucide-react';
 
 const Register = () => {
-    // Step 1 Form Data
     const [formData, setFormData] = useState({
         name: '',
         username: '',
@@ -16,7 +16,6 @@ const Register = () => {
         dob: ''
     });
 
-    // Step 2 OTP Data
     const [step, setStep] = useState(1);
     const [otp, setOtp] = useState('');
     const [studentId, setStudentId] = useState(null);
@@ -25,27 +24,26 @@ const Register = () => {
     const [error, setError] = useState('');
     const { registerRequest, registerVerify, loading } = useAuth();
     const navigate = useNavigate();
+    const { t } = useTranslation();
 
-    // ─── Step 1: Request OTP ───────────────────────────────────────────
     const handleRequestOTP = async (e) => {
         e.preventDefault();
         setError('');
 
-        // Basic Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.email)) {
-            setError('يرجى إدخال بريد إلكتروني صحيح.');
+            setError(t('register.errors.invalidEmail'));
             return;
         }
 
         const usernameRegex = /^[a-zA-Z0-9_]+$/;
         if (!usernameRegex.test(formData.username)) {
-            setError('اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام فقط.');
+            setError(t('register.errors.invalidUsername'));
             return;
         }
 
         if (formData.password.length < 6) {
-            setError('كلمة المرور يجب أن تتكون من 6 أحرف على الأقل.');
+            setError(t('register.errors.shortPassword'));
             return;
         }
 
@@ -60,7 +58,6 @@ const Register = () => {
                 formData.dob
             );
 
-            // Success! Save studentId and move to step 2
             setStudentId(data.studentId);
             setStep(2);
             
@@ -71,22 +68,21 @@ const Register = () => {
             }
         } catch (err) {
             const errorMessages = {
-                USER_EXISTS: 'المستخدم مسجل مسبقاً. يرجى تسجيل الدخول أو استخدام بريد مختلف.',
-                STUDENT_ALREADY_LINKED: 'هذا الطالب مرتبط بالفعل بحساب ولي أمر. يرجى التواصل مع الإدارة.',
-                VALIDATION_ERROR: err.message || 'يرجى التحقق من البيانات المدخلة.',
-                NETWORK_ERROR: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
+                USER_EXISTS: t('register.errors.userExists'),
+                STUDENT_ALREADY_LINKED: t('register.errors.studentLinked'),
+                VALIDATION_ERROR: err.message || t('register.errors.validationError'),
+                NETWORK_ERROR: t('register.errors.networkError'),
             };
-            setError(errorMessages[err.errorCode] || err.message || 'فشل التحقق. تأكد من صحة بيانات الطالب.');
+            setError(errorMessages[err.errorCode] || err.message || t('register.errors.verifyFailed'));
         }
     };
 
-    // ─── Step 2: Verify OTP ────────────────────────────────────────────
     const handleVerifyOTP = async (e) => {
         e.preventDefault();
         setError('');
 
         if (otp.length !== 6) {
-            setError('يرجى إدخال رمز التحقق المكون من 6 أرقام');
+            setError(t('register.errors.invalidOtp'));
             return;
         }
 
@@ -100,39 +96,35 @@ const Register = () => {
                 otp,
                 studentId
             );
-            // registerVerify automatically persists session and navigates to /parent
         } catch (err) {
-            setError(err.message || 'رمز التحقق غير صحيح أو انتهت صلاحيته.');
+            setError(err.message || t('register.errors.wrongOtp'));
         }
     };
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden py-12 px-4">
-            {/* Decorative background blobs */}
             <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
 
             <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-lg relative z-10 border border-gray-100">
 
                 {step === 1 ? (
-                    // ─── Step 1 UI: Registration Form ────────────────────────────────
                     <>
                         <div className="text-center mb-8">
                             <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                                 <Users size={30} strokeWidth={1.75} className="text-primary-500" />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-800 mb-2">تسجيل حساب ولي أمر</h2>
-                            <p className="text-gray-500 font-medium text-sm">أدخل بياناتك وبيانات الطالب للتحقق</p>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('register.title')}</h2>
+                            <p className="text-gray-500 font-medium text-sm">{t('register.subtitle')}</p>
                         </div>
 
                         <form onSubmit={handleRequestOTP} className="space-y-6">
 
-                            {/* Parent Info Section */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">بيانات ولي الامر</h3>
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">{t('register.parentSection')}</h3>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">الاسم الكامل</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('register.fullName')}</label>
                                         <input
                                             type="text"
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
@@ -143,7 +135,7 @@ const Register = () => {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">اسم المستخدم</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('common.username')}</label>
                                         <input
                                             type="text"
                                             placeholder="user_name"
@@ -158,7 +150,7 @@ const Register = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">البريد الإلكتروني</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('common.email')}</label>
                                         <input
                                             type="email"
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left"
@@ -170,7 +162,7 @@ const Register = () => {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">رقم الجوال</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('common.phone')}</label>
                                         <input
                                             type="tel"
                                             placeholder="05xxxxxxxx"
@@ -184,7 +176,7 @@ const Register = () => {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">كلمة المرور</label>
+                                    <label className="block text-gray-700 font-bold text-sm px-1">{t('common.password')}</label>
                                     <div className="relative">
                                         <input
                                             type={showPassword ? "text" : "password"}
@@ -205,12 +197,11 @@ const Register = () => {
                                 </div>
                             </div>
 
-                            {/* Student Info Section */}
                             <div className="space-y-4 pt-2">
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">بيانات الطالب </h3>
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">{t('register.studentSection')}</h3>
 
                                 <div className="space-y-1.5">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">اسم الطالب (ثلاثي)</label>
+                                    <label className="block text-gray-700 font-bold text-sm px-1">{t('register.studentNameLabel')}</label>
                                     <input
                                         type="text"
                                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
@@ -222,7 +213,7 @@ const Register = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">الهوية الوطنية</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('register.nationalId')}</label>
                                         <input
                                             type="text"
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
@@ -234,7 +225,7 @@ const Register = () => {
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">تاريخ الميلاد</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('register.dob')}</label>
                                         <input
                                             type="date"
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
@@ -256,7 +247,7 @@ const Register = () => {
                                         }`}
                                 >
                                     {loading && <Loader2 size={20} className="animate-spin" />}
-                                    <span>{loading ? 'جاري المطابقة...' : 'مطابقة البيانات'}</span>
+                                    <span>{loading ? t('register.matching') : t('register.matchingData')}</span>
                                 </button>
                             </div>
 
@@ -267,7 +258,7 @@ const Register = () => {
                                         onClick={() => navigate('/login')}
                                         className="font-bold text-gray-500 hover:text-gray-800 transition-colors flex items-center justify-center gap-2 mx-auto"
                                     >
-                                        <span>العودة لتسجيل الدخول</span>
+                                        <span>{t('register.backToLogin')}</span>
                                         <span>→</span>
                                     </button>
                                 </p>
@@ -275,15 +266,14 @@ const Register = () => {
                         </form>
                     </>
                 ) : (
-                    // ─── Step 2 UI: OTP Verification ────────────────────────────────
                     <div className="text-center animate-fade-in-up">
                         <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-green-100">
                             <ShieldCheck size={40} strokeWidth={1.5} className="text-green-500" />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-800 mb-3">التحقق بخطوتين</h2>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-3">{t('register.otpTitle')}</h2>
                         <p className="text-gray-600 text-sm mb-6 leading-relaxed">
-                            تمت مطابقة بيانات الطالب بنجاح! <br />
-                            أرسلنا رمز تحقق (OTP) إلى جوالك <span className="font-bold text-gray-800" dir="ltr">{formData.phone}</span>
+                            {t('register.otpSubtitle')} <br />
+                            {t('register.otpSent')} <span className="font-bold text-gray-800" dir="ltr">{formData.phone}</span>
                         </p>
 
                         <form onSubmit={handleVerifyOTP} className="space-y-6">
@@ -314,7 +304,7 @@ const Register = () => {
                                 ) : (
                                     <CheckCircle size={20} />
                                 )}
-                                <span>{loading ? 'جاري التفعيل...' : 'تأكيد الحساب'}</span>
+                                <span>{loading ? t('register.activating') : t('register.confirmAccount')}</span>
                             </button>
 
                             <div className="pt-4">
@@ -323,7 +313,7 @@ const Register = () => {
                                     onClick={() => setStep(1)}
                                     className="text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors"
                                 >
-                                    تعديل البيانات
+                                    {t('register.editData')}
                                 </button>
                             </div>
                         </form>

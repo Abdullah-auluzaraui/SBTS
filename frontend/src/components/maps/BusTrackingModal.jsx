@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Navigation2, AlertTriangle, Loader2, MapPin } from 'lucide-react';
 import api from '../../services/apiService';
 import SharedBusMap from './SharedBusMap';
+import { useTranslation } from 'react-i18next';
 
 /**
  * BusTrackingModal — نافذة تتبع الحافلة لولي الأمر
@@ -16,6 +17,7 @@ import SharedBusMap from './SharedBusMap';
  *   onClose : Function
  */
 const BusTrackingModal = ({ busId, busName, onClose }) => {
+    const { t } = useTranslation();
     const [liveData, setLiveData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState('');
@@ -26,7 +28,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
             setLiveData(data);
             setError('');
         } catch (err) {
-            const msg = err.response?.data?.message || 'تعذر جلب بيانات التتبع';
+            const msg = err.response?.data?.message || t('busTracking.loadingData');
             setError(msg);
         } finally {
             setLoading(false);
@@ -64,7 +66,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                             <Navigation2 size={20} className="text-primary-600" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-800 text-lg">تتبع الحافلة</h3>
+                            <h3 className="font-bold text-gray-800 text-lg">{t('busTracking.title')}</h3>
                             <p className="text-sm text-gray-500">{busName || busId}</p>
                         </div>
                     </div>
@@ -84,7 +86,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                             : 'bg-amber-50 text-amber-700 border-b border-amber-100'
                     }`}>
                         <span className={`w-2 h-2 rounded-full ${liveData.tripActive ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`} />
-                        {liveData.tripActive ? 'الرحلة جارية الآن' : 'لا توجد رحلة نشطة حالياً'}
+                        {liveData.tripActive ? t('busTracking.tripActive') : t('busTracking.noActiveTrip')}
                     </div>
                 )}
 
@@ -94,7 +96,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                     {loading && (
                         <div className="h-80 flex flex-col items-center justify-center gap-3">
                             <Loader2 size={36} className="text-primary-500 animate-spin" />
-                            <p className="text-gray-500 font-medium">جاري تحميل بيانات التتبع...</p>
+                            <p className="text-gray-500 font-medium">{t('busTracking.loadingData')}</p>
                         </div>
                     )}
 
@@ -107,7 +109,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                                 onClick={fetchLiveData}
                                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-colors"
                             >
-                                إعادة المحاولة
+                                {t('busTracking.retry')}
                             </button>
                         </div>
                     )}
@@ -120,10 +122,10 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                                 <div className="h-full flex flex-col items-center justify-center gap-3 px-6 bg-gray-50">
                                     <MapPin size={40} className="text-gray-300" />
                                     <p className="text-gray-500 font-bold text-center">
-                                        الحافلة لم تبدأ رحلتها بعد
+                                        {t('busTracking.tripNotStarted')}
                                     </p>
                                     <p className="text-gray-400 text-sm text-center">
-                                        ستظهر الخريطة تلقائياً عند بدء السائق للرحلة
+                                        {t('busTracking.tripWillShow')}
                                     </p>
                                 </div>
                             ) : (
@@ -142,7 +144,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                 {/* ذيل الـ Modal — معلومات إضافية */}
                 {!loading && !error && liveData && liveData.myStudents?.length > 0 && (
                     <div className="px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50">
-                        <p className="text-xs text-gray-500 font-medium mb-2">أبناؤك في هذه الحافلة:</p>
+                        <p className="text-xs text-gray-500 font-medium mb-2">{t('busTracking.myStudents')}</p>
                         <div className="flex flex-wrap gap-2">
                             {liveData.myStudents.map((s, i) => (
                                 <span

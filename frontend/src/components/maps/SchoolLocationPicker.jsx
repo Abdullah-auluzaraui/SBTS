@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Check, X, Loader2, Navigation, School } from 'lucide-react';
 import api from '../../services/apiService';
+import { useTranslation } from 'react-i18next';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -44,6 +45,7 @@ const FlyTo = ({ center }) => {
 //   onClose()
 //   onSaved(position)
 const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }) => {
+    const { t } = useTranslation();
     const [position, setPosition] = useState(null);
     const [flyTarget, setFlyTarget] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
         setError('');
 
         if (!navigator.geolocation) {
-            setError('متصفحك لا يدعم تحديد الموقع.');
+            setError(t('schoolLocationPicker.errors.noSupport'));
             setGeoLoading(false);
             return;
         }
@@ -89,11 +91,11 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
                     (err) => {
                         setGeoLoading(false);
                         if (err.code === err.PERMISSION_DENIED) {
-                            setError('تم رفض إذن الموقع. يرجى السماح للمتصفح باستخدام الموقع ثم المحاولة مجدداً.');
+                            setError(t('schoolLocationPicker.errors.permissionDenied'));
                         } else if (err.code === err.TIMEOUT) {
-                            setError('انتهت مهلة تحديد الموقع. تأكد من تفعيل خدمة الموقع على جهازك وحاول مجدداً.');
+                            setError(t('schoolLocationPicker.errors.timeout'));
                         } else {
-                            setError('تعذّر تحديد موقعك. يمكنك تحديد الموقع يدوياً على الخريطة.');
+                            setError(t('schoolLocationPicker.errors.genericGeoError'));
                         }
                     },
                     { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
@@ -104,14 +106,14 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
     };
 
     const handleSave = async () => {
-        if (!position) { setError('يرجى تحديد موقع المدرسة على الخريطة.'); return; }
+        if (!position) { setError(t('schoolLocationPicker.errors.selectLocation')); return; }
         setLoading(true);
         setError('');
         try {
             await api.put('/admin/school/location', { lat: position.lat, lng: position.lng });
             onSaved(position);
         } catch (err) {
-            setError(err.response?.data?.message || 'حدث خطأ أثناء الحفظ');
+            setError(err.response?.data?.message || t('schoolLocationPicker.errors.saveFailed'));
         } finally {
             setLoading(false);
         }
@@ -128,7 +130,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
                             <School size={20} className="text-red-500" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800">تحديد موقع المدرسة</h3>
+                            <h3 className="text-lg font-bold text-gray-800">{t('schoolLocationPicker.title')}</h3>
                             <p className="text-sm text-gray-500">{schoolName}</p>
                         </div>
                     </div>
@@ -145,9 +147,9 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
                         className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl font-bold text-sm border border-blue-200 transition-colors disabled:opacity-60"
                     >
                         {geoLoading ? <Loader2 size={14} className="animate-spin" /> : <Navigation size={14} />}
-                        استخدام موقعي الحالي
+                        {t('schoolLocationPicker.useMyLocation')}
                     </button>
-                    <span className="text-xs text-gray-400">أو اضغط مباشرة على الخريطة لتحديد الموقع</span>
+                    <span className="text-xs text-gray-400">{t('schoolLocationPicker.mapHint')}</span>
                 </div>
 
                 {/* Map */}
@@ -172,7 +174,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
                     </div>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-5 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm">
-                            إلغاء
+                            {t('schoolLocationPicker.cancel')}
                         </button>
                         <button
                             onClick={handleSave}
@@ -181,7 +183,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
                                 ${loading || !position ? 'bg-gray-400 cursor-not-allowed shadow-none' : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'}`}
                         >
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                            حفظ موقع المدرسة
+                            {t('schoolLocationPicker.saveLocation')}
                         </button>
                     </div>
                 </div>

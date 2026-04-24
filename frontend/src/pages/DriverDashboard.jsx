@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
-import { Bus, Play, Map, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Bus, Play, Map, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
@@ -11,6 +12,7 @@ import SharedBusMap from '../components/maps/SharedBusMap';
 
 const DriverDashboard = () => {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -31,7 +33,7 @@ const DriverDashboard = () => {
                 setDashboardData(data.data);
             } catch (err) {
                 console.error(err);
-                setError('تعذر تحميل بيانات لوحة التحكم');
+                setError(t('common.loading'));
             } finally {
                 setLoading(false);
             }
@@ -151,10 +153,10 @@ const DriverDashboard = () => {
                         <Bus size={32} strokeWidth={1.75} className="text-primary-500" />
                     </div>
                     <div>
-                        <h2 className="text-3xl text-gray-800 font-bold">لوحة تحكم السائق — {user?.name}</h2>
+                                        <h2 className="text-3xl text-gray-800 font-bold">{t('driver.dashboardTitle', { name: user?.name })}</h2>
                         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-bold border border-gray-200">
                             <span className={`w-2 h-2 rounded-full ${bus ? 'bg-green-500' : 'bg-amber-400'}`}></span>
-                            {bus ? `رقم الحافلة: ${bus.busId}` : 'لا توجد حافلة مخصصة'}
+                            {bus ? t('driver.busNumber', { id: bus.busId }) : t('driver.noBus')}
                         </div>
                     </div>
                 </div>
@@ -176,7 +178,7 @@ const DriverDashboard = () => {
                                 className="w-full px-8 py-4 bg-primary-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:translate-y-0"
                             >
                                 <Play size={22} strokeWidth={2} className="text-white" />
-                                بدء الرحلة
+                                {t('driver.startTrip')}
                             </button>
                         </div>
 
@@ -184,10 +186,10 @@ const DriverDashboard = () => {
                 <div className="mb-10 relative z-10">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-xl text-gray-800">
-                            الطلاب على متن الحافلة
+                            {t('driver.students')}
                         </h3>
                         <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg font-bold">
-                            {boardedStudents.size} / {students?.length || 0} طالب
+                            {t('driver.studentCount', { boarded: boardedStudents.size, total: students?.length || 0 })}
                         </span>
                     </div>
                     
@@ -204,14 +206,14 @@ const DriverDashboard = () => {
                                             <div>
                                                 <p className="font-bold text-gray-800">{student.name}</p>
                                                 <p className="text-xs text-gray-500">
-                                                    {student.grade && `الصف: ${student.grade} - `} {student.studentId}
+                                                    {student.grade && `${t('driver.grade', { grade: student.grade })} - `} {student.studentId}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {isBoarded ? (
                                                 <span className="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
-                                                    تم صعوده
+                                                    {t('driver.boarded')}
                                                 </span>
                                             ) : (
                                                 <button 
@@ -219,7 +221,7 @@ const DriverDashboard = () => {
                                                     disabled={markingAttendance === student._id}
                                                     className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
                                                 >
-                                                    {markingAttendance === student._id ? <Loader2 size={12} className="animate-spin" /> : 'تسجيل صعود'}
+                                                    {markingAttendance === student._id ? <Loader2 size={12} className="animate-spin" /> : t('driver.markBoarding')}
                                                 </button>
                                             )}
                                         </div>
@@ -230,17 +232,20 @@ const DriverDashboard = () => {
                     ) : (
                         <div className="bg-gray-50 border border-gray-100 dashed rounded-2xl p-10 text-center flex flex-col items-center justify-center">
                             <Users size={40} strokeWidth={1.5} className="mb-3 text-gray-300" />
-                            <p className="text-gray-500 font-medium text-lg">لم يتم تخصيص طلاب لهذه الحافلة حتى الآن.</p>
+                            <p className="text-gray-500 font-medium text-lg">{t('driver.noStudents')}</p>
                         </div>
                     )}
                 </div>
 
-                {/* Emergency Alert */}
+                {/* Emergency Button */}
                 <div className="relative z-10 mt-6">
-                    <button className="flex items-center justify-center gap-3 px-6 py-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-xl w-full border border-red-100 text-lg group">
-                        <AlertTriangle size={22} strokeWidth={2} className="text-red-600 group-hover:text-white" />
-                        تنبيه حالة طوارئ
-                    </button>
+                    <a
+                        href="tel:911"
+                        className="flex items-center justify-center gap-2 px-4 py-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-xl border border-red-100 text-base w-full"
+                    >
+                        <PhoneCall size={20} strokeWidth={2} />
+                        {t('driver.callEmergency')}
+                    </a>
                 </div>
                 </>
                 ) : (
@@ -252,9 +257,9 @@ const DriverDashboard = () => {
                                     <Navigation2 size={20} className="animate-pulse" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-gray-800 text-lg">الرحلة جارية</p>
+                                    <p className="font-bold text-gray-800 text-lg">{t('driver.tripActive')}</p>
                                     <p className="text-sm text-gray-500">
-                                        {osrmMeta ? `المدة المتبقية: ${osrmMeta.duration} دقيقة (${osrmMeta.distance} كم)` : 'جاري حساب المسار الذكي...'}
+                                        {osrmMeta ? t('driver.remainingTime', { duration: osrmMeta.duration, distance: osrmMeta.distance }) : t('driver.calculatingRoute')}
                                     </p>
                                 </div>
                             </div>
@@ -266,7 +271,7 @@ const DriverDashboard = () => {
                                 }}
                                 className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors border border-red-100 text-sm"
                             >
-                                إنهاء الرحلة
+                                {t('driver.endTrip')}
                             </button>
                         </div>
 
@@ -283,6 +288,7 @@ const DriverDashboard = () => {
                     </div>
                 )}
             </div>
+
         </MainLayout>
     );
 };

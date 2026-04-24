@@ -8,6 +8,7 @@ import {
     Bus, MapPin, Navigation2, Loader2, AlertCircle,
     User, Users, Clock, Link
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import api from '../../services/apiService';
 import axios from 'axios';
 
@@ -46,6 +47,7 @@ const FitBounds = ({ path }) => {
 const DEFAULT_CENTER = [24.7136, 46.6753];
 
 const FleetMap = () => {
+    const { t } = useTranslation();
     const [buses, setBuses] = useState([]);
     const [schoolPos, setSchoolPos] = useState(null); // [lat, lng] from DB
     const [selectedBus, setSelectedBus] = useState(null);
@@ -87,7 +89,7 @@ const FleetMap = () => {
         setRouteLoading(true);
 
         if (!schoolPos) {
-            setError('يرجى تحديد موقع المدرسة أولاً من لوحة التحكم الرئيسية.');
+            setError(t('fleetMap.errors.noSchoolLocation'));
             setRouteLoading(false);
             return;
         }
@@ -100,7 +102,7 @@ const FleetMap = () => {
             setStudents(busStudents);
 
             if (busStudents.length === 0) {
-                setError('لا يوجد طلاب بمواقع منازل محددة مخصصون لهذه الحافلة.');
+                setError(t('fleetMap.errors.noStudentLocations'));
                 setRouteLoading(false);
                 return;
             }
@@ -125,11 +127,11 @@ const FleetMap = () => {
                     distance: (trip.distance / 1000).toFixed(1)
                 });
             } else {
-                setError('تعذّر حساب المسار من خدمة OSRM.');
+                setError(t('fleetMap.errors.osrmError'));
             }
         } catch (err) {
             console.error(err);
-            setError('حدث خطأ أثناء جلب بيانات المسار.');
+            setError(t('fleetMap.errors.fetchError'));
         } finally {
             setRouteLoading(false);
         }
@@ -150,9 +152,9 @@ const FleetMap = () => {
             <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-3">
                     <Bus size={22} className="text-primary-500" />
-                    متابعة الحافلات
+                    {t('fleetMap.title')}
                 </h2>
-                <p className="text-sm text-gray-500 hidden sm:block">اختر حافلة لعرض مسارها الذكي</p>
+                <p className="text-sm text-gray-500 hidden sm:block">{t('fleetMap.subtitle')}</p>
             </div>
 
             {/* Error */}
@@ -169,13 +171,13 @@ const FleetMap = () => {
                     onClick={() => setMobileView('list')}
                     className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mobileView === 'list' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'}`}
                 >
-                    قائمة الحافلات
+                    {t('fleetMap.busList')}
                 </button>
                 <button
                     onClick={() => setMobileView('map')}
                     className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mobileView === 'map' ? 'bg-white text-primary-600 shadow-sm' : 'text-gray-500'}`}
                 >
-                    الخريطة {selectedBus ? `· ${selectedBus.busId}` : ''}
+                    {t('fleetMap.map')} {selectedBus ? `· ${selectedBus.busId}` : ''}
                 </button>
             </div>
 
@@ -188,24 +190,24 @@ const FleetMap = () => {
                     </div>
                     <div className="flex items-center gap-1.5 text-gray-500">
                         <Users size={14} />
-                        <span>{students.length} طالب محدد الموقع</span>
+                        <span>{t('fleetMap.studentCount', { count: students.length })}</span>
                     </div>
                     {osrmMeta && (
                         <>
                             <div className="flex items-center gap-1.5 text-blue-600 font-bold">
                                 <Clock size={13} />
-                                <span>{osrmMeta.duration} دقيقة</span>
+                                <span>{t('fleetMap.durationMin', { duration: osrmMeta.duration })}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-blue-600 font-bold">
                                 <Navigation2 size={13} />
-                                <span>{osrmMeta.distance} كم</span>
+                                <span>{t('fleetMap.distanceKm', { distance: osrmMeta.distance })}</span>
                             </div>
                         </>
                     )}
                     {routeLoading && (
                         <div className="flex items-center gap-1.5 text-gray-400">
                             <Loader2 size={13} className="animate-spin" />
-                            <span>جاري حساب المسار...</span>
+                            <span>{t('fleetMap.calculating')}</span>
                         </div>
                     )}
                 </div>
@@ -222,7 +224,7 @@ const FleetMap = () => {
                         </div>
                     ) : buses.length === 0 ? (
                         <div className="text-center p-6 bg-gray-50 rounded-2xl border border-gray-100 text-gray-400 text-sm">
-                            لا توجد حافلات نشطة.
+                            {t('fleetMap.noBuses')}
                         </div>
                     ) : (
                         buses.map(bus => {
@@ -245,7 +247,7 @@ const FleetMap = () => {
                                             <p className={`font-bold text-sm ${isSelected ? 'text-primary-700' : 'text-gray-800'}`}>
                                                 {bus.busId}
                                             </p>
-                                            <p className="text-[11px] text-gray-400">سعة: {bus.capacity}</p>
+                                            <p className="text-[11px] text-gray-400">{t('fleetMap.capacity', { count: bus.capacity })}</p>
                                         </div>
                                         {isSelected && (
                                             <div className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
@@ -257,7 +259,7 @@ const FleetMap = () => {
                                             <span>{bus.driver.name}</span>
                                         </div>
                                     ) : (
-                                        <p className="text-[11px] text-amber-500 font-bold mt-2 pr-12">لا يوجد سائق معين</p>
+                                        <p className="text-[11px] text-amber-500 font-bold mt-2 pr-12">{t('fleetMap.noDriver')}</p>
                                     )}
                                 </button>
                             );
@@ -277,7 +279,7 @@ const FleetMap = () => {
                                     <Bus size={32} className="text-primary-400" />
                                 </div>
                                 <p className="text-gray-500 font-bold text-sm text-center px-8">
-                                    اختر حافلة من القائمة لعرض مسارها الذكي
+                                    {t('fleetMap.selectBusHint')}
                                 </p>
                             </div>
                         )}

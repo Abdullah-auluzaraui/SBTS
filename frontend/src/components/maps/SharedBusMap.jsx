@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'reac
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // ── Fix default Leaflet icons ─────────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -55,6 +56,7 @@ const DEFAULT_CENTER = [24.7136, 46.6753];
  *   routeLoading : Boolean
  */
 const SharedBusMap = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false }) => {
+    const { t } = useTranslation();
     // تحويل المسار من {lat,lng} إلى [lat,lng] المتوافق مع Leaflet
     const leafletPath = routePath.map(p => [p.lat, p.lng]);
 
@@ -64,7 +66,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
             {routeLoading && (
                 <div className="absolute inset-0 z-[1000] bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl">
                     <Loader2 size={40} className="text-primary-500 animate-spin mb-3" />
-                    <p className="font-bold text-gray-700">جاري رسم المسار الذكي...</p>
+                    <p className="font-bold text-gray-700">{t('fleetMap.calculating')}</p>
                 </div>
             )}
 
@@ -95,7 +97,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                     >
                         <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
                             <div className="font-bold text-gray-800 p-1 text-center">
-                                المدرسة: {school.name}
+                                {t('fleetMap.school')}: {school.name}
                             </div>
                         </Tooltip>
                     </Marker>
@@ -113,7 +115,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                         >
                             <Tooltip direction="top" offset={[0, -20]}>
                                 <div className="font-bold">{student.name}</div>
-                                <div className="text-xs text-gray-500">موقع المنزل</div>
+                                <div className="text-xs text-gray-500">{t('parent.homeLocation')}</div>
                             </Tooltip>
                         </Marker>
                     );
@@ -126,7 +128,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                         icon={busIcon}
                     >
                         <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
-                            <div className="font-bold text-blue-700 p-1">🚌 الحافلة</div>
+                            <div className="font-bold text-blue-700 p-1">🚌 {t('busTracking.title')}</div>
                         </Tooltip>
                     </Marker>
                 )}

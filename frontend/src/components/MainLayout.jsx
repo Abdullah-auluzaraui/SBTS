@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import LogoutConfirmModal from './LogoutConfirmModal';
+import LanguageSwitcher from './LanguageSwitcher';
 import { Bus, Bell, UserCircle } from 'lucide-react';
 
 const MainLayout = ({ children }) => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [isLogoutModalOpen, setLogoutModalOpen] = useState(false);
 
     const profilePath = { parent: '/parent/profile', driver: '/driver/profile', schooladmin: '/admin/profile' }[user?.role];
 
-    // Translate roles for display
     const roleDisplay = {
-        superadmin: 'مدير النظام العام',
-        schooladmin: 'مدير مدرسة',
-        driver: 'سائق',
-        parent: 'ولي أمر'
+        superadmin: t('roles.superadmin'),
+        schooladmin: t('roles.schooladmin'),
+        driver: t('roles.driver'),
+        parent: t('roles.parent')
     };
 
     return (
@@ -25,11 +27,14 @@ const MainLayout = ({ children }) => {
             <header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50">
                 <h1 className="text-2xl font-bold flex items-center gap-3">
                     <Bus size={28} strokeWidth={2} className="text-primary-500" />
-                    <span className="hidden sm:inline bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent">متتبع الحافلة المدرسية</span>
+                    <span className="hidden sm:inline bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent">
+                        {t('common.appName')}
+                    </span>
                 </h1>
 
                 {user && (
-                    <div className="flex items-center gap-4 text-sm font-semibold">
+                    <div className="flex items-center gap-3 text-sm font-semibold">
+                        <LanguageSwitcher />
                         <span className="text-primary-600 hidden sm:inline px-3 py-1 bg-primary-50 rounded-full border border-primary-100">
                             {roleDisplay[user.role]}
                         </span>
@@ -42,7 +47,7 @@ const MainLayout = ({ children }) => {
                         {['parent', 'driver', 'schooladmin'].includes(user.role) && (
                             <button
                                 onClick={() => navigate(profilePath)}
-                                title="الملف الشخصي"
+                                title={t('admin.profile')}
                                 className="hover:bg-gray-100 rounded-full p-2 transition shadow-sm border border-gray-100 bg-white flex items-center justify-center"
                             >
                                 <UserCircle size={18} strokeWidth={2} className="text-gray-500" />
@@ -52,7 +57,7 @@ const MainLayout = ({ children }) => {
                             onClick={() => setLogoutModalOpen(true)}
                             className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-bold border border-transparent hover:border-red-100"
                         >
-                            تسجيل خروج
+                            {t('common.logout')}
                         </button>
                     </div>
                 )}
