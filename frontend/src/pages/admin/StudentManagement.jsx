@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check } from 'lucide-react';
+import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check, Lock, Unlink } from 'lucide-react';
+import UnlinkParentModal from '../../components/UnlinkParentModal';
 
 // ─── Print Styles (injected once) ─────────────────────────────────────────
 const PRINT_STYLES = `
@@ -45,6 +46,9 @@ const StudentManagement = () => {
     const [editForm, setEditForm] = useState({ name: '', nationalId: '' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
+
+    // Unlink-parent confirmation modal
+    const [unlinkTarget, setUnlinkTarget] = useState(null);
 
     // CSV state
     const [csvLoading, setCsvLoading] = useState(false);
@@ -258,7 +262,7 @@ const StudentManagement = () => {
                         </div>
                         <form onSubmit={handleEditStudent} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.studentNameLabel')}</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1 text-start">{t('studentManagement.studentNameLabel')}</label>
                                 <input
                                     type="text" required autoFocus
                                     value={editForm.name}
@@ -267,21 +271,73 @@ const StudentManagement = () => {
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.nationalId')}</label>
-                                <input
-                                    type="text" dir="ltr"
-                                    value={editForm.nationalId}
-                                    onChange={e => setEditForm({ ...editForm, nationalId: e.target.value })}
-                                    placeholder="10xxxxxxxx"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                                />
-                                <p className="text-xs text-gray-400 px-1">{t('studentManagement.editNationalIdHint')}</p>
+                                <div className="flex items-center justify-between gap-2 px-1">
+                                    <label className="block text-gray-700 font-bold text-sm text-start">{t('studentManagement.nationalId')}</label>
+                                    {editStudent.parentLinked && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                                            <Lock size={11} />
+                                            {t('studentManagement.nationalIdLockedBadge')}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="text" 
+                                        value={editForm.nationalId}
+                                        onChange={e => setEditForm({ ...editForm, nationalId: e.target.value })}
+                                        placeholder="10xxxxxxxx"
+                                        disabled={editStudent.parentLinked}
+                                        readOnly={editStudent.parentLinked}
+                                        aria-describedby="edit-nationalid-hint"
+                                        title={editStudent.parentLinked ? t('studentManagement.nationalIdLockedHint') : undefined}
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-start ${editStudent.parentLinked
+                                            ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed pe-10'
+                                            : 'bg-gray-50 border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500'
+                                        }`}
+                                    />
+                                    {editStudent.parentLinked && (
+                                        <Lock
+                                            size={14}
+                                            className="absolute top-1/2 -translate-y-1/2 end-3 text-gray-400 pointer-events-none"
+                                        />
+                                    )}
+                                </div>
+                                <p
+                                    id="edit-nationalid-hint"
+                                    className={`text-xs px-1 text-start ${editStudent.parentLinked ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}
+                                >
+                                    {editStudent.parentLinked
+                                        ? t('studentManagement.nationalIdLockedHint')
+                                        : t('studentManagement.editNationalIdHint')}
+                                </p>
                             </div>
                             <button type="submit" disabled={editLoading}
                                 className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${editLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
                                 {editLoading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
                                 {editLoading ? t('common.saving') : t('common.save')}
                             </button>
+
+                            {/* Unlink Parent — appears only when the student is linked. */}
+                            {editStudent.parentLinked && (
+                                <div className="pt-2 border-t border-dashed border-gray-200">
+                                    <div className="flex items-center justify-between gap-3 mb-2 px-1">
+                                        <span className="text-xs font-bold text-gray-500 text-start">{t('studentManagement.linkedParentLabel')}</span>
+                                        {editStudent.parentName && (
+                                            <span className="text-xs font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded-lg border border-gray-200 truncate text-end">
+                                                {editStudent.parentName}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setUnlinkTarget(editStudent)}
+                                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-100 rounded-xl font-bold text-sm transition-colors"
+                                    >
+                                        <Unlink size={16} />
+                                        {t('studentManagement.unlinkParent')}
+                                    </button>
+                                </div>
+                            )}
                             {editError && (
                                 <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
                                     <p className="text-sm text-red-700 flex items-start gap-2">
@@ -293,6 +349,19 @@ const StudentManagement = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Unlink Parent Confirmation Modal */}
+            {unlinkTarget && (
+                <UnlinkParentModal
+                    student={unlinkTarget}
+                    onClose={() => setUnlinkTarget(null)}
+                    onSuccess={() => {
+                        setUnlinkTarget(null);
+                        setEditStudent(null);
+                        fetchStudents();
+                    }}
+                />
             )}
 
             {/* Table */}

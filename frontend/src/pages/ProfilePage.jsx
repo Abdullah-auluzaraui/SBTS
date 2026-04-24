@@ -5,7 +5,7 @@ import MainLayout from '../components/MainLayout';
 import api from '../services/apiService';
 import {
   User, Shield, Phone, Loader2, AlertCircle, CheckCircle2,
-  Eye, EyeOff, Info, X, Lock, ArrowRight
+  Eye, EyeOff, Info, X, Lock, ArrowLeft
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,10 +13,11 @@ import { useTranslation } from 'react-i18next';
 
 const TabButton = ({ active, onClick, icon: Icon, label }) => (
   <button
+    type="button"
     onClick={onClick}
     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${active
-      ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/25'
-      : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100'
+      ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-100'
+      : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-700'
       }`}
   >
     <Icon size={16} />
@@ -38,24 +39,51 @@ const ErrorAlert = ({ message }) => (
   </div>
 );
 
-const InputField = ({ label, type = 'text', value, onChange, disabled, placeholder, dir = 'rtl', hint, required }) => (
+const InputField = ({
+  label,
+  type = 'text',
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  dir,
+  hint,
+  required,
+  labelAction,
+  endAdornment,
+}) => (
   <div className="space-y-1.5">
-    <label className="block text-gray-700 font-bold text-sm px-1">{label}</label>
-    <input
-      type={type}
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-      placeholder={placeholder}
-      dir={dir}
-      required={required}
-      className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-sm
-        ${disabled
-          ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed'
-          : 'bg-gray-50 border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500'
-        }`}
-    />
-    {hint && <p className="text-xs text-gray-400 px-1">{hint}</p>}
+    {(label || labelAction) && (
+      <div className="flex items-center justify-between gap-2 px-1">
+        {label && (
+          <label className="block text-gray-700 font-bold text-sm text-start">{label}</label>
+        )}
+        {labelAction}
+      </div>
+    )}
+    <div className="relative">
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        placeholder={placeholder}
+        dir={dir}
+        required={required}
+        className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-sm text-start
+          ${endAdornment ? 'pe-24' : ''}
+          ${disabled
+            ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed'
+            : 'bg-gray-50 border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500'
+          }`}
+      />
+      {endAdornment && (
+        <div className="absolute inset-y-0 end-3 flex items-center pointer-events-none">
+          {endAdornment}
+        </div>
+      )}
+    </div>
+    {hint && <p className="text-xs text-gray-400 px-1 text-start">{hint}</p>}
   </div>
 );
 
@@ -104,9 +132,9 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7 relative">
-        <button onClick={onClose} className="absolute left-5 top-5 text-gray-400 hover:text-gray-700">
+        <button onClick={onClose} className="absolute end-5 top-5 text-gray-400 hover:text-gray-700">
           <X size={20} />
         </button>
 
@@ -274,18 +302,21 @@ const ProfilePage = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-2xl mx-auto" dir="rtl">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.05)] p-6 lg:p-8 mb-4">
 
-          {/* Back button */}
-          <button
-            onClick={() => navigate(dashboardPath)}
-            className="flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors mb-6"
-          >
-            <ArrowRight size={16} />
-            {t('common.back')}
-          </button>
+          {/* Back button — positioned at the start (left in LTR, right in RTL) */}
+          <div className="flex justify-start mb-6">
+            <button
+              type="button"
+              onClick={() => navigate(dashboardPath)}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft size={16} className="rtl:rotate-180" />
+              {t('common.back')}
+            </button>
+          </div>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-8">
@@ -313,7 +344,6 @@ const ProfilePage = () => {
                   label={t('profile.usernameLabel')}
                   value={username}
                   onChange={e => setUsername(e.target.value.trim())}
-                  dir="ltr"
                   placeholder="username"
                   hint={t('profile.usernameHint')}
                 />
@@ -326,26 +356,32 @@ const ProfilePage = () => {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  dir="ltr"
                 />
               )}
 
-              {/* Phone */}
+              {/* Phone — full width with verified badge as end-adornment and Change as label action */}
               <div className="space-y-1.5">
-                <label className="block text-gray-700 font-bold text-sm px-1">{t('profile.phoneLabel')}</label>
-                <div className="flex items-center gap-3">
-                  <div className={`flex-1 px-4 py-3 border rounded-xl text-sm text-left font-sans bg-gray-50 border-gray-100 ${profile?.phone ? 'text-gray-700' : 'text-gray-400'}`} dir="ltr">
-                    {profile?.phone || t('profile.noPhone')}
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <label className="block text-gray-700 font-bold text-sm text-start">{t('profile.phoneLabel')}</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPhoneModal(true)}
+                    className="text-sm font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+                  >
+                    {t('profile.changePhone')}
+                  </button>
+                </div>
+                <div className="relative">
+                  <div
+                    className={`w-full px-4 py-3 border rounded-xl text-sm font-sans bg-gray-50 border-gray-200 text-start ${profile?.isPhoneVerified ? 'pe-28' : ''} ${profile?.phone ? 'text-gray-700' : 'text-gray-400'}`}
+                  >
+                    <bdi dir="ltr">{profile?.phone || t('profile.noPhone')}</bdi>
                   </div>
                   {profile?.isPhoneVerified && (
-                    <span className="flex items-center gap-1 text-xs text-green-600 font-bold shrink-0">
+                    <span className="absolute inset-y-0 end-3 flex items-center gap-1 text-xs text-green-700 font-bold pointer-events-none">
                       <CheckCircle2 size={14} /> {t('profile.verified')}
                     </span>
                   )}
-                  <button type="button" onClick={() => setShowPhoneModal(true)}
-                    className="shrink-0 px-4 py-3 text-sm font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors border border-primary-100">
-                    {t('profile.changePhone')}
-                  </button>
                 </div>
               </div>
 
@@ -376,18 +412,17 @@ const ProfilePage = () => {
               <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">{t('profile.changePasswordTitle')}</h3>
 
               <div className="space-y-1.5">
-                <label className="block text-gray-700 font-bold text-sm px-1">{t('profile.currentPassword')}</label>
+                <label className="block text-gray-700 font-bold text-sm px-1 text-start">{t('profile.currentPassword')}</label>
                 <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'}
-                    dir="ltr"
-                    className="w-full px-4 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left text-sm"
+                    className="w-full px-4 py-3 pe-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-start text-sm"
                     value={currentPassword}
                     onChange={e => setCurrentPassword(e.target.value)}
                     required
                   />
                   <button type="button" onClick={() => setShowPwd(p => !p)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                     {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -398,7 +433,6 @@ const ProfilePage = () => {
                 type="password"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                dir="ltr"
                 required
               />
 
@@ -407,7 +441,6 @@ const ProfilePage = () => {
                 type="password"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                dir="ltr"
                 required
               />
 

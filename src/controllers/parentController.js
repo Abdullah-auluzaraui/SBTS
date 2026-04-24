@@ -127,7 +127,19 @@ exports.verifyLinking = async (req, res) => {
       return res.status(403).json({ success: false, message: 'هذا الطالب ينتمي لمدرسة أخرى.' });
     }
 
+    // Capture the previous ghost owner (if any) so we can refresh their
+    // deletion schedule after the link — a transfer should not accidentally
+    // keep the former parent marked as "0 active students" if this was their
+    // last ghost being cleared.
+    const priorGhostOwner = student.previousParentId;
+
     student.parentId = req.user._id;
+    // Any existing ghost is cleared whether we're re-linking the same parent
+    // or transferring to a different one. Re-link case: the ghost restores
+    // into a live link. Transfer case: the old parent hard-loses the ghost.
+    student.previousParentId = null;
+    student.unlinkedAt = null;
+    student.unlinkedBy = null;
     await student.save();
 
     // Update parent's phone if missing
@@ -136,6 +148,16 @@ exports.verifyLinking = async (req, res) => {
     if (!parent.phone) {
       parent.phone = phone;
       await parent.save();
+    }
+
+    // Cancel any pending deletion for the newly-linking parent — they now
+    // have at least one active linked student again.
+    const { refreshParentDeletionSchedule } = require('./studentController');
+    await refreshParentDeletionSchedule(req.user._id);
+    // If this was a transfer from a different ghost owner, re-evaluate their
+    // state too (e.g. they might still have other ghosts/active students).
+    if (priorGhostOwner && String(priorGhostOwner) !== String(req.user._id)) {
+      await refreshParentDeletionSchedule(priorGhostOwner);
     }
 
     // Delete all OTPs for this phone to prevent reuse
@@ -181,12 +203,91 @@ exports.updateLocation = async (req, res) => {
   }
 };
 
+// POST /api/parents/relink
+// Restore a previously-linked (now "ghost") student by re-verifying the
+// National ID. This is the "standard verification" path the product requires
+// for ghost restoration — single-tap re-link is explicitly disallowed, but a
+// parent that still knows the child's ID can restore the link without going
+// through another OTP cycle (they were already OTP-verified originally).
+exports.relink = async (req, res) => {
+  try {
+    const { studentId, nationalId } = req.body || {};
+    if (!studentId || !nationalId || !String(nationalId).trim()) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'MISSING_FIELDS',
+        message: 'بيانات غير مكتملة'
+      });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'الطالب غير موجود' });
+    }
+
+    // Must be this parent's ghost specifically — we never expose other parents'
+    // unlinked records, and we refuse to operate on a student that is already
+    // actively linked (to any parent, including this one).
+    const isMyGhost =
+      student.previousParentId &&
+      String(student.previousParentId) === String(req.user._id) &&
+      student.unlinkedAt &&
+      !student.parentId;
+    if (!isMyGhost) {
+      return res.status(403).json({
+        success: false,
+        errorCode: 'NOT_A_GHOST',
+        message: 'هذا الطالب غير متاح لإعادة الربط'
+      });
+    }
+
+    // Verify the decrypted National ID matches.
+    const { decrypt } = require('../utils/crypto');
+    const storedId = decrypt(student.nationalId);
+    if (storedId !== String(nationalId).trim()) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'WRONG_NATIONAL_ID',
+        message: 'الهوية الوطنية غير مطابقة'
+      });
+    }
+
+    // Restore the link + clear ghost metadata.
+    student.parentId = req.user._id;
+    student.previousParentId = null;
+    student.unlinkedAt = null;
+    student.unlinkedBy = null;
+    await student.save();
+
+    // Cancel any pending deletion now that the parent has an active link again.
+    const { refreshParentDeletionSchedule } = require('./studentController');
+    await refreshParentDeletionSchedule(req.user._id);
+
+    res.json({
+      success: true,
+      message: 'تم إعادة الربط بنجاح',
+      student: { id: student._id, name: student.name, studentId: student.studentId }
+    });
+  } catch (err) {
+    console.error('Relink Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // GET /api/parents/students
-// Get all students linked to the logged-in parent
+// Returns live-linked students AND soft-unlinked "ghost" students that used
+// to belong to this parent, each tagged with a `linkStatus`. Also returns the
+// parent's pending deletion schedule (if any) so the UI can render a
+// countdown banner when no active links remain.
 exports.getStudents = async (req, res) => {
   try {
-    const students = await Student.find({ parentId: req.user._id })
-      .populate('school', 'name contact.phone')
+    const students = await Student.find({
+      $or: [
+        { parentId: req.user._id },
+        { previousParentId: req.user._id, unlinkedAt: { $ne: null } }
+      ]
+    })
+      .populate('school', 'name contact.phone emergencyContacts')
       .populate({
         path: 'assignedBus',
         select: 'busId capacity',
@@ -194,8 +295,33 @@ exports.getStudents = async (req, res) => {
           path: 'driver',
           select: 'name phone'
         }
-      });
-    res.json({ success: true, students });
+      })
+      .sort({ createdAt: -1 });
+
+    // Tag each record so the frontend can visually separate live vs ghost.
+    const tagged = students.map(s => {
+      const isLinked = String(s.parentId || '') === String(req.user._id);
+      const obj = s.toObject();
+      obj.linkStatus = isLinked ? 'LINKED' : 'UNLINKED';
+      if (!isLinked) {
+        // Hide driver/bus details from ghosts — the parent should not retain
+        // operational access once unlinked.
+        obj.assignedBus = null;
+      }
+      return obj;
+    });
+
+    // Pull the parent's deletion schedule.
+    const User = require('../models/User');
+    const parent = await User.findById(req.user._id).select('accountDeletionScheduledAt');
+
+    res.json({
+      success: true,
+      students: tagged,
+      account: {
+        deletionScheduledAt: parent?.accountDeletionScheduledAt || null
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

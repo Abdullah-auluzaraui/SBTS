@@ -428,8 +428,10 @@ const BusManagement = () => {
                                     <Network size={20} className="text-emerald-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800">{t('busManagement.autoAssignTitle')}</h3>
-                                    <p className="text-xs text-gray-500">{t('busManagement.autoAssignSubtitle')}</p>
+                                    <div className="text-start">
+                                        <h3 className="text-lg font-bold text-gray-800">{t('busManagement.autoAssignTitle')}</h3>
+                                        <p className="text-xs text-gray-500">{t('busManagement.autoAssignSubtitle')}</p>
+                                    </div>
                                 </div>
                             </div>
                             <button onClick={() => !autoConfirming && setShowAutoAssign(false)} className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
@@ -468,18 +470,18 @@ const BusManagement = () => {
 
                                         {/* Stats bar */}
                                         <div className="px-5 py-4 bg-gray-50 border-b border-gray-100 shrink-0">
-                                            <div className="flex items-center justify-between text-sm mb-2">
-                                                <span className="text-gray-500">{t('busManagement.eligibleStudents')}</span>
-                                                <span className="font-bold text-gray-800">{autoPreview.totalEligible}</span>
+                                            <div className="flex items-center justify-between gap-3 text-sm mb-2">
+                                                <span className="text-gray-500 text-start">{t('busManagement.eligibleStudents')}</span>
+                                                <span className="font-bold text-gray-800 text-end">{autoPreview.totalEligible}</span>
                                             </div>
-                                            <div className="flex items-center justify-between text-sm mb-2">
-                                                <span className="text-gray-500">{t('busManagement.willAssign')}</span>
-                                                <span className="font-bold text-emerald-600">{autoPreview.assignedCount}</span>
+                                            <div className="flex items-center justify-between gap-3 text-sm mb-2">
+                                                <span className="text-gray-500 text-start">{t('busManagement.willAssign')}</span>
+                                                <span className="font-bold text-emerald-600 text-end">{autoPreview.assignedCount}</span>
                                             </div>
                                             {autoPreview.unassigned.length > 0 && (
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-500">{t('busManagement.noCapacity')}</span>
-                                                    <span className="font-bold text-amber-600">{autoPreview.unassigned.length}</span>
+                                                <div className="flex items-center justify-between gap-3 text-sm">
+                                                    <span className="text-gray-500 text-start">{t('busManagement.noCapacity')}</span>
+                                                    <span className="font-bold text-amber-600 text-end">{autoPreview.unassigned.length}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -490,12 +492,12 @@ const BusManagement = () => {
                                                 <div key={a.bus._id} className="p-3 rounded-xl border border-gray-100">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: BUS_COLORS[i % BUS_COLORS.length] }} />
-                                                        <span className="font-bold text-gray-800 text-sm">{a.bus.busId}</span>
-                                                        <span className="mr-auto text-xs text-gray-400">{a.students.length} / {a.bus.capacity}</span>
+                                                        <span className="font-bold text-gray-800 text-sm text-start">{a.bus.busId}</span>
+                                                        <span className="ms-auto text-xs text-gray-400 text-end">{a.students.length} / {a.bus.capacity}</span>
                                                     </div>
-                                                        {a.route && (
-                                                        <div className="flex gap-3 text-xs text-gray-500 mb-2 px-1">
-                                                            <span className="flex items-center gap-1"><Navigation2 size={10} className="text-blue-400" />{t('busManagement.durationMin', { duration: a.route.duration })}</span>
+                                                    {a.route && (
+                                                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 mb-2 px-1 text-start">
+                                                            <span className="inline-flex items-center gap-1"><Navigation2 size={10} className="text-blue-400" />{t('busManagement.durationMin', { duration: a.route.duration })}</span>
                                                             <span>{t('fleetMap.distanceKm', { distance: a.route.distance })}</span>
                                                         </div>
                                                     )}
@@ -515,7 +517,7 @@ const BusManagement = () => {
                                                 <div className="p-3 rounded-xl border border-amber-100 bg-amber-50">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <AlertCircle size={14} className="text-amber-500 shrink-0" />
-                                                        <span className="font-bold text-amber-700 text-sm">{t('busManagement.unassignedStudents')}</span>
+                                                        <span className="font-bold text-amber-700 text-sm text-start">{t('busManagement.unassignedStudents')}</span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-1">
                                                         {autoPreview.unassigned.map(s => (

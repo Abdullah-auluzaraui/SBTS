@@ -19,6 +19,14 @@ const studentSchema = new mongoose.Schema({
   normalizedName: { type: String, required: true }, // For fuzzy matching
   // 1-to-Many: parentId links to a single parent account (not unique — parent can have multiple children)
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, sparse: true, default: null },
+  // Soft-unlink tracking: when an admin unlinks a parent, the previous parent
+  // keeps a "ghost" reference so they still see the student grayed-out until
+  // the student is either re-linked (to them or a different parent) or until
+  // the parent account expires. If a different parent later claims the student
+  // we hard-remove these fields to drop the ghost from the old parent's view.
+  previousParentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
+  unlinkedAt:       { type: Date, default: null },
+  unlinkedBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   nfcTagId: { type: String, unique: true, sparse: true },
   assignedBus: { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', default: null },
   isActive: { type: Boolean, default: true }

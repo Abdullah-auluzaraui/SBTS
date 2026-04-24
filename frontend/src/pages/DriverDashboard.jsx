@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
-import { Bus, Play, Map, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall } from 'lucide-react';
+import { Bus, Play, Map, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
+import DriverContactsModal from '../components/DriverContactsModal';
 
 
 
@@ -25,6 +26,9 @@ const DriverDashboard = () => {
     // Track boarded status locally for the session
     const [boardedStudents, setBoardedStudents] = useState(new Set());
     const [markingAttendance, setMarkingAttendance] = useState(null);
+
+    // School contacts modal
+    const [showContacts, setShowContacts] = useState(false);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -237,14 +241,30 @@ const DriverDashboard = () => {
                     )}
                 </div>
 
-                {/* Emergency Button */}
-                <div className="relative z-10 mt-6">
+                {/* Emergency & School Contact Buttons */}
+                <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Contact School — calm / trustworthy blue */}
+                    <button
+                        type="button"
+                        onClick={() => setShowContacts(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-all font-bold rounded-xl border border-blue-100 text-base w-full"
+                    >
+                        <Phone size={20} strokeWidth={2} />
+                        <span>{t('driver.contactSchool')}</span>
+                        {(dashboardData?.school?.emergencyContacts?.length || 0) > 0 && (
+                            <span className="ms-1 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold bg-white text-blue-600 rounded-full border border-blue-200 group-hover:bg-blue-100">
+                                {dashboardData.school.emergencyContacts.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* 911 — high-danger red, visually distinct */}
                     <a
                         href="tel:911"
                         className="flex items-center justify-center gap-2 px-4 py-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-xl border border-red-100 text-base w-full"
                     >
                         <PhoneCall size={20} strokeWidth={2} />
-                        {t('driver.callEmergency')}
+                        <span>{t('driver.callEmergency')}</span>
                     </a>
                 </div>
                 </>
@@ -288,6 +308,13 @@ const DriverDashboard = () => {
                     </div>
                 )}
             </div>
+
+            {showContacts && (
+                <DriverContactsModal
+                    contacts={dashboardData?.school?.emergencyContacts || []}
+                    onClose={() => setShowContacts(false)}
+                />
+            )}
 
         </MainLayout>
     );

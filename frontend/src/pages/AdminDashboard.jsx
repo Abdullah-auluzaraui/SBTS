@@ -3,8 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
-import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2, School, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2, School, CheckCircle2, AlertTriangle, Users, ChevronRight } from 'lucide-react';
 import SchoolLocationPicker from '../components/maps/SchoolLocationPicker';
+import SchoolContactsManager from '../components/SchoolContactsManager';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
@@ -13,6 +14,7 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [schoolInfo, setSchoolInfo] = useState(null);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
+    const [showContactsManager, setShowContactsManager] = useState(false);
 
     const fetchSchoolInfo = async () => {
         try {
@@ -47,6 +49,7 @@ const AdminDashboard = () => {
     }, []);
 
     const schoolHasLocation = schoolInfo?.location?.coordinates?.[0] !== 0;
+    const contactsCount = schoolInfo?.emergencyContacts?.length || 0;
 
     const cards = [
         { title: t('admin.statBuses'), count: stats.buses, icon: Bus, color: 'blue', link: '/admin/buses' },
@@ -80,12 +83,12 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* School Location Banner */}
-                <div className={`mb-6 flex items-center justify-between px-5 py-4 rounded-2xl border ${schoolHasLocation ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${schoolHasLocation ? 'bg-green-100' : 'bg-amber-100'}`}>
+                <div className={`mb-6 flex items-center justify-between gap-4 px-5 py-4 rounded-2xl border ${schoolHasLocation ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${schoolHasLocation ? 'bg-green-100' : 'bg-amber-100'}`}>
                             {schoolHasLocation ? <CheckCircle2 size={18} className="text-green-600" /> : <AlertTriangle size={18} className="text-amber-600" />}
                         </div>
-                        <div>
+                        <div className="min-w-0 text-start">
                             <p className={`font-bold text-sm ${schoolHasLocation ? 'text-green-700' : 'text-amber-700'}`}>
                                 {schoolHasLocation ? t('admin.schoolLocationSet') : t('admin.schoolLocationNotSet')}
                             </p>
@@ -96,10 +99,35 @@ const AdminDashboard = () => {
                     </div>
                     <button
                         onClick={() => setShowLocationPicker(true)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${schoolHasLocation ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' : 'bg-amber-500 text-white border-transparent hover:bg-amber-600 shadow-md shadow-amber-500/25'}`}
+                        className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition-all ${schoolHasLocation ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' : 'bg-amber-500 text-white border-transparent hover:bg-amber-600 shadow-md shadow-amber-500/25'}`}
                     >
                         <MapPin size={14} />
                         {schoolHasLocation ? t('admin.updateLocation') : t('admin.setLocation')}
+                    </button>
+                </div>
+
+                {/* School Contacts Banner */}
+                <div className="mb-6 flex items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-blue-50/60 border-blue-100">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 shrink-0 rounded-xl bg-blue-100 flex items-center justify-center">
+                            <Users size={18} className="text-blue-600" />
+                        </div>
+                        <div className="min-w-0 text-start">
+                            <p className="font-bold text-sm text-blue-700">{t('admin.manageContacts')}</p>
+                            <p className="text-xs text-blue-600/80">
+                                {contactsCount > 0
+                                    ? t('admin.contactCount', { count: contactsCount })
+                                    : t('admin.noEmergency')}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowContactsManager(true)}
+                        className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border bg-blue-600 text-white border-transparent hover:bg-blue-700 shadow-md shadow-blue-600/20 transition-all"
+                    >
+                        <ChevronRight size={14} className="rtl:rotate-180" />
+                        {t('common.edit')}
                     </button>
                 </div>
 
@@ -113,14 +141,14 @@ const AdminDashboard = () => {
                             return (
                                 <Link key={card.title} to={card.link}
                                     className={`bg-gradient-to-br ${c.bg} border ${c.border} p-6 rounded-2xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all hover:-translate-y-0.5`}>
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-current opacity-[0.03] rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-150"></div>
+                                    <div className="absolute top-0 end-0 w-24 h-24 bg-current opacity-[0.03] rounded-full -me-10 -mt-10 transition-transform group-hover:scale-150"></div>
                                     <div className="flex justify-between items-start mb-4">
-                                        <div className="text-gray-600 font-bold z-10 relative">{card.title}</div>
-                                        <div className={`w-10 h-10 ${c.icon} rounded-xl flex items-center justify-center z-10`}>
+                                        <div className="text-gray-600 font-bold z-10 relative text-start">{card.title}</div>
+                                        <div className={`w-10 h-10 ${c.icon} rounded-xl flex items-center justify-center z-10 shrink-0`}>
                                             <card.icon size={20} strokeWidth={2} />
                                         </div>
                                     </div>
-                                    <div className={`text-4xl font-black ${c.number} z-10 relative`}>{card.count}</div>
+                                    <div className={`text-4xl font-black ${c.number} z-10 relative text-start`}>{card.count}</div>
                                 </Link>
                             );
                         })}
@@ -135,6 +163,14 @@ const AdminDashboard = () => {
                     existingLocation={schoolInfo?.location}
                     onClose={() => setShowLocationPicker(false)}
                     onSaved={() => { setShowLocationPicker(false); fetchSchoolInfo(); }}
+                />
+            )}
+
+            {/* School Contacts Manager Modal */}
+            {showContactsManager && (
+                <SchoolContactsManager
+                    onClose={() => setShowContactsManager(false)}
+                    onSaved={(contacts) => setSchoolInfo(prev => ({ ...(prev || {}), emergencyContacts: contacts }))}
                 />
             )}
         </>

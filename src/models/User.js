@@ -17,7 +17,12 @@ const userSchema = new mongoose.Schema({
   },
   phone:            { type: String },
   isPhoneVerified:  { type: Boolean, default: false },
-  isActive:         { type: Boolean, default: true }
+  isActive:         { type: Boolean, default: true },
+  // Grace-period deletion: when a parent drops to zero active linked students
+  // this is set to (now + 30 days). If they regain a link before the timer
+  // expires, it is cleared. A scheduled job / manual review would hard-delete
+  // the account after the timer lapses.
+  accountDeletionScheduledAt: { type: Date, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
