@@ -1,6 +1,42 @@
 const Student = require('../models/Student');
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 const { encrypt, decrypt, maskData } = require('../utils/crypto');
 const { normalizeArabicName } = require('../utils/textUtils');
+
+// Grace period (in days) applied to parent accounts that drop to zero
+// active linked students. Centralized so changing the policy touches one spot.
+const PARENT_DELETION_GRACE_DAYS = 30;
+
+// Update a parent's deletion schedule based on how many active linked students
+// they currently have. Idempotent — safe to call from multiple code paths.
+const refreshParentDeletionSchedule = async (parentId) => {
+  if (!parentId) return;
+  const activeLinkedCount = await Student.countDocuments({
+    parentId,
+    isActive: { $ne: false }
+  });
+
+  const parent = await User.findById(parentId);
+  if (!parent || parent.role !== 'parent') return;
+
+  if (activeLinkedCount === 0) {
+    // Only (re-)arm the timer if it isn't already armed — we don't want to push
+    // the deletion date forward every time the count is re-checked at zero.
+    if (!parent.accountDeletionScheduledAt) {
+      const deletionDate = new Date(Date.now() + PARENT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
+      parent.accountDeletionScheduledAt = deletionDate;
+      await parent.save();
+    }
+  } else if (parent.accountDeletionScheduledAt) {
+    // Any active linked student cancels a pending deletion.
+    parent.accountDeletionScheduledAt = null;
+    await parent.save();
+  }
+};
+
+module.exports.PARENT_DELETION_GRACE_DAYS = PARENT_DELETION_GRACE_DAYS;
+module.exports.refreshParentDeletionSchedule = refreshParentDeletionSchedule;
 
 // ─── Helper: Generate Next Sequential Student ID (e.g. S260000001) ──
 const generateNextStudentId = async (yearStr) => {
@@ -137,12 +173,93 @@ exports.update = async (req, res) => {
     }
 
     if (nationalId && nationalId.trim() !== '') {
+      // Business rule: once a student is linked to a parent, the national ID
+      // becomes immutable. The parent must be unlinked first before any
+      // identity changes are allowed. This guard prevents bypassing the
+      // disabled UI (e.g. via direct API calls or tampered requests).
+      if (student.parentId) {
+        return res.status(403).json({
+          success: false,
+          errorCode: 'NATIONAL_ID_LOCKED',
+          message: 'لا يمكن تعديل الهوية الوطنية بعد ربط الطالب بولي الأمر. يُرجى فك الربط أولاً.'
+        });
+      }
       student.nationalId = encrypt(nationalId.trim());
     }
 
     await student.save();
     res.json({ success: true, message: `تم تحديث بيانات "${student.name}" بنجاح` });
   } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/students/:id/unlink-parent
+// Admin-initiated soft unlink. Requires the admin's current password as an
+// extra confirmation step. The student's parentId is cleared but the previous
+// parent is remembered on `previousParentId` so the parent UI can keep showing
+// a "Unlinked by Admin" ghost card. If the parent ends up with zero active
+// linked students, a 30-day deletion grace period is scheduled.
+exports.unlinkParent = async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'PASSWORD_REQUIRED',
+        message: 'كلمة المرور مطلوبة لتأكيد فك الربط'
+      });
+    }
+
+    // 1. Verify admin password (fetch with +password since it's select:false)
+    const admin = await User.findById(req.user._id).select('+password');
+    if (!admin) {
+      return res.status(401).json({ success: false, errorCode: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+    const passwordMatch = await bcrypt.compare(password, admin.password);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        errorCode: 'WRONG_PASSWORD',
+        message: 'كلمة المرور غير صحيحة'
+      });
+    }
+
+    // 2. Locate the student (scoped to this admin's school)
+    const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!student) {
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'الطالب غير موجود' });
+    }
+    if (!student.parentId) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'NOT_LINKED',
+        message: 'هذا الطالب غير مرتبط بأي ولي أمر'
+      });
+    }
+
+    // 3. Soft unlink
+    const formerParentId = student.parentId;
+    student.previousParentId = formerParentId;
+    student.parentId = null;
+    student.unlinkedAt = new Date();
+    student.unlinkedBy = admin._id;
+    await student.save();
+
+    // 4. Re-evaluate the former parent's deletion schedule.
+    await refreshParentDeletionSchedule(formerParentId);
+
+    res.json({
+      success: true,
+      message: `تم فك الربط مع ولي الأمر بنجاح`,
+      student: {
+        id: student._id,
+        name: student.name,
+        unlinkedAt: student.unlinkedAt
+      }
+    });
+  } catch (err) {
+    console.error('Unlink Parent Error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };

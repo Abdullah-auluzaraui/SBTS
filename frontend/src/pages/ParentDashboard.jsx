@@ -3,13 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
-import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin } from 'lucide-react';
+import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin, UserX, CalendarClock, Info, Link2, HelpCircle } from 'lucide-react';
 import LocationPicker from '../components/maps/LocationPicker';
 import BusTrackingModal from '../components/maps/BusTrackingModal';
+import DriverContactsModal from '../components/DriverContactsModal';
 
 const ParentDashboard = () => {
     const { user, updateUser } = useAuth();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [showToast, setShowToast] = useState(false);
 
     // ─── FE-S1-9: Add Another Child Modal State ────────────────────────
@@ -24,20 +25,76 @@ const ParentDashboard = () => {
     const [students, setStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(true);
     const [pickingLocationFor, setPickingLocationFor] = useState(null);
+    const [deletionScheduledAt, setDeletionScheduledAt] = useState(null);
 
     // tracking: { busId, busName } | null — يفتح Modal التتبع
     const [tracking, setTracking] = useState(null);
+
+    // ─── Ghost re-link / Contact-School state ──────────────────────────
+    // Keyed by student._id so multiple ghosts each have independent input
+    // state (value, loading flag, inline error/success).
+    const [relinkInputs, setRelinkInputs] = useState({});
+    const [relinkBusyId, setRelinkBusyId] = useState(null);
+    const [relinkErrors, setRelinkErrors] = useState({});
+    const [relinkSuccessId, setRelinkSuccessId] = useState(null);
+    // Contacts modal receives the full contacts array of the clicked ghost's
+    // school. We keep it as null when closed, an array when open.
+    const [contactsModal, setContactsModal] = useState(null);
+
+    const handleRelink = async (student) => {
+        const id = student._id;
+        const value = (relinkInputs[id] || '').trim();
+        if (!value) return;
+        setRelinkBusyId(id);
+        setRelinkErrors(prev => ({ ...prev, [id]: '' }));
+        try {
+            await api.post('/parents/relink', { studentId: id, nationalId: value });
+            setRelinkSuccessId(id);
+            // Small delay so the parent sees the success state before the
+            // card morphs back into a live one.
+            setTimeout(() => {
+                setRelinkSuccessId(null);
+                setRelinkInputs(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
+                fetchStudents();
+            }, 900);
+        } catch (err) {
+            const code = err.response?.data?.errorCode;
+            const msg = code === 'WRONG_NATIONAL_ID'
+                ? t('parent.relinkWrongId')
+                : err.response?.data?.message || t('parent.errors.generic');
+            setRelinkErrors(prev => ({ ...prev, [id]: msg }));
+        } finally {
+            setRelinkBusyId(null);
+        }
+    };
 
     const fetchStudents = async () => {
         try {
             const { data } = await api.get('/parents/students');
             setStudents(data.students);
+            setDeletionScheduledAt(data.account?.deletionScheduledAt || null);
         } catch (err) {
             console.error('Failed to fetch students:', err);
         } finally {
             setStudentsLoading(false);
         }
     };
+
+    // Days-until helper used by the deletion countdown banner.
+    // Returns 0 for "today", negative when the deadline has already passed.
+    const daysUntil = (isoDate) => {
+        if (!isoDate) return null;
+        const ms = new Date(isoDate).getTime() - Date.now();
+        return Math.ceil(ms / (24 * 60 * 60 * 1000));
+    };
+
+    const deletionDaysLeft = deletionScheduledAt ? daysUntil(deletionScheduledAt) : null;
+    const deletionDateFormatted = deletionScheduledAt
+        ? new Date(deletionScheduledAt).toLocaleDateString(
+            (i18n.language || 'en').startsWith('ar') ? 'ar' : 'en',
+            { year: 'numeric', month: 'long', day: 'numeric' }
+          )
+        : '';
 
     useEffect(() => { fetchStudents(); }, []);
 
@@ -156,6 +213,27 @@ const ParentDashboard = () => {
                     </div>
                 </div>
 
+                {/* Account Deletion Countdown Banner */}
+                {deletionScheduledAt && deletionDaysLeft !== null && (
+                    <div className="mb-6 relative z-10 p-5 rounded-2xl border bg-red-50 border-red-100 flex items-start gap-4">
+                        <div className="w-11 h-11 shrink-0 rounded-xl bg-red-100 flex items-center justify-center">
+                            <CalendarClock size={22} className="text-red-600" />
+                        </div>
+                        <div className="min-w-0 flex-1 text-start">
+                            <p className="font-bold text-red-800 text-sm">{t('parent.deletionScheduledTitle')}</p>
+                            <p className="text-sm text-red-700 mt-1">
+                                {deletionDaysLeft <= 0
+                                    ? t('parent.deletionScheduledToday', { date: deletionDateFormatted })
+                                    : t('parent.deletionScheduledMessage', { count: deletionDaysLeft, days: deletionDaysLeft, date: deletionDateFormatted })}
+                            </p>
+                            <p className="text-xs text-red-600/80 mt-2 flex items-start gap-1.5">
+                                <Info size={12} className="mt-0.5 shrink-0" />
+                                <span>{t('parent.deletionCancelHint')}</span>
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* ETA Panel (Prioritized) */}
                 <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow mb-8 relative z-10 overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110 pointer-events-none"></div>
@@ -209,26 +287,124 @@ const ParentDashboard = () => {
                                     {t('parent.noStudentsLinked')}
                                 </div>
                             ) : (
-                                students.map(student => (
-                                    <div key={student._id} className="flex flex-col gap-3 bg-gray-50 px-5 py-5 border border-gray-100 rounded-2xl">
+                                students.map(student => {
+                                    const isGhost = student.linkStatus === 'UNLINKED';
+                                    return (
+                                    <div
+                                        key={student._id}
+                                        className={`flex flex-col gap-3 px-5 py-5 border rounded-2xl transition-colors ${isGhost
+                                            ? 'bg-gray-100/70 border-gray-200'
+                                            : 'bg-gray-50 border-gray-100'
+                                        }`}
+                                        title={isGhost ? t('parent.ghostTitle') : undefined}
+                                    >
                                         <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm shrink-0">
-                                                    <span className="text-gray-500 font-bold text-lg">{student.name.charAt(0)}</span>
+                                                <div className={`w-12 h-12 border rounded-full flex items-center justify-center shadow-sm shrink-0 ${isGhost ? 'bg-gray-200 border-gray-300' : 'bg-white border-gray-200'}`}>
+                                                    {isGhost
+                                                        ? <UserX size={18} className="text-gray-400" />
+                                                        : <span className="text-gray-500 font-bold text-lg">{student.name.charAt(0)}</span>
+                                                    }
                                                 </div>
-                                                <div>
-                                                    <span className="block font-bold text-gray-800 text-lg mb-1">{student.name}</span>
-                                                    <span className="text-xs text-gray-500 font-medium bg-white px-2 py-0.5 rounded border border-gray-200">
-                                                        {student.assignedBus ? t('parent.busAssigned', { busId: student.assignedBus.busId }) : t('parent.notAssigned')}
-                                                    </span>
+                                                <div className="text-start">
+                                                    <span className={`block font-bold text-lg mb-1 ${isGhost ? 'text-gray-500' : 'text-gray-800'}`}>{student.name}</span>
+                                                    {isGhost ? (
+                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-600 bg-gray-200 border border-gray-300 rounded-full px-2 py-0.5">
+                                                            <UserX size={10} />
+                                                            {t('parent.ghostBadge')}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-500 font-medium bg-white px-2 py-0.5 rounded border border-gray-200">
+                                                            {student.assignedBus ? t('parent.busAssigned', { busId: student.assignedBus.busId }) : t('parent.notAssigned')}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center justify-center sm:justify-start gap-2 bg-green-50 text-green-700 px-4 py-2.5 rounded-xl border border-green-200 shadow-sm font-bold text-sm">
-                                                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]"></span>
-                                                {student.assignedBus ? t('parent.onBus') : t('parent.atHome')}
-                                            </div>
+                                            {!isGhost && (
+                                                <div className="flex items-center justify-center sm:justify-start gap-2 bg-green-50 text-green-700 px-4 py-2.5 rounded-xl border border-green-200 shadow-sm font-bold text-sm">
+                                                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]"></span>
+                                                    {student.assignedBus ? t('parent.onBus') : t('parent.atHome')}
+                                                </div>
+                                            )}
                                         </div>
 
+                                        {/* Ghost card interactive content replaces the live operational sections */}
+                                        {isGhost ? (
+                                            <div className="mt-1 p-4 rounded-xl bg-white border border-dashed border-gray-300 space-y-3">
+                                                {/* Re-link verification form */}
+                                                <div className="space-y-1.5">
+                                                    <label
+                                                        htmlFor={`relink-${student._id}`}
+                                                        className="block text-gray-600 font-bold text-xs text-start px-0.5"
+                                                    >
+                                                        {t('parent.relinkInputLabel')}
+                                                    </label>
+                                                    <div className="flex flex-col sm:flex-row gap-2">
+                                                        <input
+                                                            id={`relink-${student._id}`}
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            dir="ltr"
+                                                            placeholder={t('parent.relinkPlaceholder')}
+                                                            value={relinkInputs[student._id] || ''}
+                                                            onChange={e => {
+                                                                const v = e.target.value.replace(/\D/g, '');
+                                                                setRelinkInputs(prev => ({ ...prev, [student._id]: v }));
+                                                                setRelinkErrors(prev => ({ ...prev, [student._id]: '' }));
+                                                            }}
+                                                            disabled={relinkBusyId === student._id}
+                                                            className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRelink(student)}
+                                                            disabled={relinkBusyId === student._id || !(relinkInputs[student._id] || '').trim()}
+                                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-colors disabled:opacity-60 disabled:shadow-none sm:shrink-0"
+                                                        >
+                                                            {relinkBusyId === student._id
+                                                                ? <Loader2 size={16} className="animate-spin" />
+                                                                : relinkSuccessId === student._id
+                                                                    ? <CheckCircle2 size={16} />
+                                                                    : <Link2 size={16} />
+                                                            }
+                                                            <span className="whitespace-nowrap">
+                                                                {relinkBusyId === student._id
+                                                                    ? t('parent.relinking')
+                                                                    : relinkSuccessId === student._id
+                                                                        ? t('parent.relinkSuccess')
+                                                                        : t('parent.relinkButton')
+                                                                }
+                                                            </span>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Per-ghost inline error */}
+                                                    {relinkErrors[student._id] && (
+                                                        <p className="flex items-start gap-1.5 text-xs text-red-600 font-semibold text-start pt-1">
+                                                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                                                            <span>{relinkErrors[student._id]}</span>
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Fallback: Contact School */}
+                                                <div className="pt-3 border-t border-dashed border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                    <span className="text-[11px] text-gray-500 inline-flex items-center gap-1.5 text-start">
+                                                        <HelpCircle size={12} />
+                                                        {t('parent.havingTrouble')}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setContactsModal(student.school?.emergencyContacts || [])}
+                                                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 transition-colors self-start sm:self-auto"
+                                                    >
+                                                        <Phone size={12} />
+                                                        {t('parent.contactSchool')}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                        <>
                                         {/* Driver Info */}
                                         {student.assignedBus?.driver && (
                                             <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl border border-gray-100 shadow-sm">
@@ -285,8 +461,11 @@ const ParentDashboard = () => {
                                                 {student.location && student.location.coordinates[0] !== 0 ? t('parent.updateHome') : t('parent.homeLocation')}
                                             </button>
                                         </div>
+                                        </>
+                                        )}
                                     </div>
-                                ))
+                                    );
+                                })
                             )}
 
                             {/* FE-S1-9: Add Another Child Button */}
@@ -488,6 +667,14 @@ const ParentDashboard = () => {
                     busId={tracking.busId}
                     busName={tracking.busName}
                     onClose={() => setTracking(null)}
+                />
+            )}
+
+            {/* ─── Internal School Contacts (reused from Driver Dashboard) ─── */}
+            {contactsModal !== null && (
+                <DriverContactsModal
+                    contacts={contactsModal}
+                    onClose={() => setContactsModal(null)}
                 />
             )}
         </MainLayout>

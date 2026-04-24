@@ -1,7 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
-const { requestLinking, verifyLinking, updateLocation, getStudents, getBusLive } = require('../controllers/parentController');
+const { requestLinking, verifyLinking, updateLocation, getStudents, getBusLive, relink } = require('../controllers/parentController');
 
 const router = express.Router();
 
@@ -13,6 +13,11 @@ router.post('/link-request', authMiddleware, roleMiddleware(['parent']), request
 
 // POST /api/parents/link-verify — Verify OTP and link the child
 router.post('/link-verify', authMiddleware, roleMiddleware(['parent']), verifyLinking);
+
+// POST /api/parents/relink — Restore a previously-linked (ghost) student
+// by re-verifying the National ID. No OTP is required since the parent has
+// already been OTP-verified for this student previously.
+router.post('/relink', authMiddleware, roleMiddleware(['parent']), relink);
 
 // PUT /api/parents/students/:id/location — Update student home location (Maps Feature)
 router.put('/students/:id/location', authMiddleware, roleMiddleware(['parent']), updateLocation);
