@@ -94,8 +94,8 @@ const AttendanceRecords = () => {
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50/50">
                                 <tr className="text-gray-500 font-bold">
-                                    <th className="px-6 py-3 text-right">{t('attendance.studentCol')}</th>
-                                    <th className="px-6 py-3 text-right">{t('attendance.studentIdCol')}</th>
+                                    <th className="px-6 py-3 text-start">{t('attendance.studentCol')}</th>
+                                    <th className="px-6 py-3 text-start">{t('attendance.studentIdCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.busCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.eventCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.methodCol')}</th>
@@ -105,8 +105,8 @@ const AttendanceRecords = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {records.map(r => (
                                     <tr key={r._id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-gray-800">{r.student?.name || '—'}</td>
-                                        <td className="px-6 py-4 text-xs font-mono text-gray-500">{r.student?.studentId || '—'}</td>
+                                        <td className="px-6 py-4 font-bold text-gray-800 text-start">{r.student?.name || '—'}</td>
+                                        <td className="px-6 py-4 text-xs font-mono text-gray-500 text-start" dir="ltr">{r.student?.studentId || '—'}</td>
                                         <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">{r.bus?.busId || '—'}</span></td>
                                         <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${eventClass[r.event] || ''}`}>{eventLabel[r.event] || r.event}</span></td>
                                         <td className="px-6 py-4 text-center text-xs text-gray-500">{r.recordedBy}</td>

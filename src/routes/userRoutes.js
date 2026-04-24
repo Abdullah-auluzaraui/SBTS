@@ -82,6 +82,25 @@ router.get('/drivers', async (req, res) => {
   }
 });
 
+// PATCH /api/users/drivers/:id — Update driver name
+router.patch('/drivers/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'الاسم مطلوب' });
+    }
+    const driver = await User.findOne({ _id: req.params.id, school: req.schoolId, role: 'driver' });
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'السائق غير موجود' });
+    }
+    driver.name = name.trim();
+    await driver.save();
+    res.json({ success: true, message: 'تم تحديث اسم السائق بنجاح', driver: { id: driver._id, name: driver.name } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // PATCH /api/users/drivers/:id/status — Toggle driver active/suspended
 router.patch('/drivers/:id/status', async (req, res) => {
   try {

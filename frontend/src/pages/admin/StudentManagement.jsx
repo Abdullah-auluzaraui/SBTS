@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square } from 'lucide-react';
+import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check } from 'lucide-react';
 
 // ─── Print Styles (injected once) ─────────────────────────────────────────
 const PRINT_STYLES = `
@@ -40,6 +40,11 @@ const StudentManagement = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [togglingId, setTogglingId] = useState(null);
+
+    const [editStudent, setEditStudent] = useState(null);
+    const [editForm, setEditForm] = useState({ name: '', nationalId: '' });
+    const [editLoading, setEditLoading] = useState(false);
+    const [editError, setEditError] = useState('');
 
     // CSV state
     const [csvLoading, setCsvLoading] = useState(false);
@@ -81,6 +86,29 @@ const StudentManagement = () => {
         } catch (err) {
             console.error(err);
         } finally { setTogglingId(null); }
+    };
+
+    // ─── Edit Student ─────────────────────────────────────────────────
+    const openEditStudent = (s) => {
+        setEditStudent(s);
+        setEditForm({ name: s.name, nationalId: '' });
+        setEditError('');
+    };
+
+    const handleEditStudent = async (e) => {
+        e.preventDefault();
+        setEditError('');
+        setEditLoading(true);
+        try {
+            await api.patch(`/students/${editStudent.id}`, {
+                name: editForm.name,
+                nationalId: editForm.nationalId
+            });
+            setEditStudent(null);
+            fetchStudents();
+        } catch (err) {
+            setEditError(err.response?.data?.message || t('studentManagement.errors.updateError'));
+        } finally { setEditLoading(false); }
     };
 
     // ─── CSV Bulk Upload ───────────────────────────────────────────────
@@ -181,7 +209,7 @@ const StudentManagement = () => {
             {showForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowForm(false)} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"><X size={18} /></button>
+                        <button onClick={() => setShowForm(false)} className="absolute top-4 start-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400"><X size={18} /></button>
                         <h3 className="text-xl font-bold text-gray-800 mb-2 text-center">{t('studentManagement.addStudentTitle')}</h3>
                         <p className="text-xs text-gray-400 text-center mb-6">{t('studentManagement.addStudentHint')}</p>
                         <form onSubmit={handleCreate} className="space-y-4">
@@ -209,6 +237,59 @@ const StudentManagement = () => {
                             </button>
                             {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl"><p className="text-sm text-red-700 flex items-center gap-2"><AlertCircle size={16} className="text-red-500 shrink-0" /><span className="font-semibold">{error}</span></p></div>}
                             {success && <div className="p-3 bg-green-50 border border-green-100 rounded-xl"><p className="text-sm text-green-700 flex items-center gap-2"><CheckCircle2 size={16} className="text-green-500 shrink-0" /><span className="font-semibold">{success}</span></p></div>}
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Student Modal */}
+            {editStudent && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditStudent(null)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setEditStudent(null)} className="absolute top-4 start-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
+                            <X size={18} />
+                        </button>
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center mb-3">
+                                <Pencil size={24} className="text-primary-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-800 text-center">{t('studentManagement.editStudentTitle')}</h3>
+                            <p className="text-gray-400 text-sm mt-1 font-mono">{editStudent.studentId}</p>
+                        </div>
+                        <form onSubmit={handleEditStudent} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.studentNameLabel')}</label>
+                                <input
+                                    type="text" required autoFocus
+                                    value={editForm.name}
+                                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.nationalId')}</label>
+                                <input
+                                    type="text" dir="ltr"
+                                    value={editForm.nationalId}
+                                    onChange={e => setEditForm({ ...editForm, nationalId: e.target.value })}
+                                    placeholder="10xxxxxxxx"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                                />
+                                <p className="text-xs text-gray-400 px-1">{t('studentManagement.editNationalIdHint')}</p>
+                            </div>
+                            <button type="submit" disabled={editLoading}
+                                className={`w-full bg-primary-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2 ${editLoading ? 'opacity-70' : 'hover:bg-primary-600 shadow-primary-500/30'}`}>
+                                {editLoading ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+                                {editLoading ? t('common.saving') : t('common.save')}
+                            </button>
+                            {editError && (
+                                <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+                                    <p className="text-sm text-red-700 flex items-start gap-2">
+                                        <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                                        <span className="font-semibold">{editError}</span>
+                                    </p>
+                                </div>
+                            )}
                         </form>
                     </div>
                 </div>
@@ -264,23 +345,31 @@ const StudentManagement = () => {
                                     </div>
                                 </div>
 
-                                <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+                                <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between gap-2">
                                     <div>
-                                        <span className="text-[10px] text-gray-400 block mb-0.5">الهوية الوطنية:</span>
+                                        <span className="text-[10px] text-gray-400 block mb-0.5">{t('studentManagement.nationalId')}:</span>
                                         <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[11px] font-bold border border-blue-200 font-mono" dir="ltr">
                                             {s.nationalId}
                                         </span>
                                     </div>
-                                    <button
-                                        onClick={() => handleToggleStatus(s)}
-                                        disabled={togglingId === s.id}
-                                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${s.isActive
-                                            ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                            : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
-                                    >
-                                        {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
-                                        {s.isActive ? 'تعطيل' : 'تفعيل'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => openEditStudent(s)}
+                                            className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg border bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 transition-all"
+                                        >
+                                            <Pencil size={12} /> {t('common.edit')}
+                                        </button>
+                                        <button
+                                            onClick={() => handleToggleStatus(s)}
+                                            disabled={togglingId === s.id}
+                                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${s.isActive
+                                                ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
+                                        >
+                                            {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
+                                            {s.isActive ? t('studentManagement.disable') : t('studentManagement.enable')}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -291,8 +380,8 @@ const StudentManagement = () => {
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50/50">
                                 <tr className="text-gray-500 font-bold">
-                                    <th className="px-6 py-3 text-right">{t('studentManagement.studentCol')}</th>
-                                    <th className="px-6 py-3 text-right">{t('studentManagement.studentIdCol')}</th>
+                                    <th className="px-6 py-3 text-start">{t('studentManagement.studentCol')}</th>
+                                    <th className="px-6 py-3 text-start">{t('studentManagement.studentIdCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('common.status')}</th>
                                     <th className="px-6 py-3 text-center">{t('studentManagement.nationalIdCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('studentManagement.parentCol')}</th>
@@ -302,8 +391,8 @@ const StudentManagement = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {filteredStudents.map(s => (
                                     <tr key={s.id} className={`hover:bg-gray-50/50 transition-colors ${!s.isActive ? 'opacity-60 bg-gray-50/30' : ''}`}>
-                                        <td className="px-6 py-4 font-bold text-gray-800">{s.name}</td>
-                                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg text-xs font-mono" dir="ltr">{s.studentId}</span></td>
+                                        <td className="px-6 py-4 font-bold text-gray-800 text-start">{s.name}</td>
+                                        <td className="px-6 py-4 text-start"><span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg text-xs font-mono" dir="ltr">{s.studentId}</span></td>
                                         <td className="px-6 py-4 text-center">
                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${s.isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-500 border-red-200'}`}>
                                                 <span className={`w-2 h-2 rounded-full ${s.isActive ? 'bg-green-500' : 'bg-red-400'}`}></span>
@@ -327,16 +416,25 @@ const StudentManagement = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={() => handleToggleStatus(s)}
-                                                disabled={togglingId === s.id}
-                                                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all mx-auto ${s.isActive
-                                                    ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                                                    : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
-                                            >
-                                                {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
-                                                {s.isActive ? 'تعطيل' : 'تفعيل'}
-                                            </button>
+                                            <div className="inline-flex items-center gap-2">
+                                                <button
+                                                    onClick={() => openEditStudent(s)}
+                                                    className="p-2 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-500 transition-colors"
+                                                    title={t('common.edit')}
+                                                >
+                                                    <Pencil size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleToggleStatus(s)}
+                                                    disabled={togglingId === s.id}
+                                                    className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${s.isActive
+                                                        ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                                                        : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}
+                                                >
+                                                    {togglingId === s.id ? <Loader2 size={12} className="animate-spin" /> : s.isActive ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
+                                                    {s.isActive ? t('studentManagement.disable') : t('studentManagement.enable')}
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

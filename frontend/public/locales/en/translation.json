@@ -331,7 +331,9 @@
     "driverCol": "Driver",
     "linkedStudents": "Linked Students",
     "durationMin": "{{duration}} min",
-    "others": "+{{count}} more"
+    "others": "+{{count}} more",
+    "disableConfirm": "Disable bus \"{{busId}}\"?",
+    "enableConfirm": "Enable bus \"{{busId}}\"?"
   },
   "studentManagement": {
     "title": "Student Management",
@@ -359,7 +361,12 @@
     "notLinked": "Not Linked",
     "enable": "Enable",
     "disable": "Disable",
-    "csvFailed": "File upload failed"
+    "csvFailed": "File upload failed",
+    "editStudentTitle": "Edit Student",
+    "editNationalIdHint": "Leave empty to keep the current ID",
+    "errors": {
+      "updateError": "An error occurred while updating"
+    }
   },
   "driverManagement": {
     "title": "Driver Management",
@@ -379,8 +386,10 @@
     "usernameCol": "Username",
     "phoneCol": "Phone",
     "statusCol": "Status",
+    "editNameTitle": "Edit Driver Name",
     "errors": {
-      "createError": "An error occurred while creating"
+      "createError": "An error occurred while creating",
+      "updateError": "An error occurred while updating"
     }
   },
   "fleetMap": {

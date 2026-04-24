@@ -331,7 +331,9 @@
     "driverCol": "السائق",
     "linkedStudents": "الطلاب المربوطين",
     "durationMin": "{{duration}} دقيقة",
-    "others": "+{{count}} آخرون"
+    "others": "+{{count}} آخرون",
+    "disableConfirm": "هل تريد تعطيل الحافلة \"{{busId}}\"؟",
+    "enableConfirm": "هل تريد تفعيل الحافلة \"{{busId}}\"؟"
   },
   "studentManagement": {
     "title": "إدارة الطلاب",
@@ -359,7 +361,12 @@
     "notLinked": "غير مرتبط",
     "enable": "تفعيل",
     "disable": "تعطيل",
-    "csvFailed": "فشل رفع الملف"
+    "csvFailed": "فشل رفع الملف",
+    "editStudentTitle": "تعديل بيانات الطالب",
+    "editNationalIdHint": "اتركه فارغاً للإبقاء على الهوية الحالية",
+    "errors": {
+      "updateError": "حدث خطأ أثناء التحديث"
+    }
   },
   "driverManagement": {
     "title": "إدارة السائقين",
@@ -379,8 +386,10 @@
     "usernameCol": "اسم المستخدم",
     "phoneCol": "الجوال",
     "statusCol": "الحالة",
+    "editNameTitle": "تعديل اسم السائق",
     "errors": {
-      "createError": "حدث خطأ أثناء الإنشاء"
+      "createError": "حدث خطأ أثناء الإنشاء",
+      "updateError": "حدث خطأ أثناء التحديث"
     }
   },
   "fleetMap": {
