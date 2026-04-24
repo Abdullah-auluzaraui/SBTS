@@ -111,7 +111,7 @@ const SuperAdminDashboard = () => {
 
     return (
         <MainLayout>
-            <div className="bg-white border text-right border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10">
+            <div className="bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10">
 
                 {/* Header */}
                 <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
@@ -192,8 +192,8 @@ const SuperAdminDashboard = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50/50">
                                     <tr className="text-gray-500 font-bold">
-                                        <th className="px-6 py-3 text-right">{t('superadmin.schoolName')}</th>
-                                        <th className="px-6 py-3 text-right">{t('superadmin.schoolId')}</th>
+                                        <th className="px-6 py-3 text-start">{t('superadmin.schoolName')}</th>
+                                        <th className="px-6 py-3 text-start">{t('superadmin.schoolId')}</th>
                                         <th className="px-6 py-3 text-center">{t('superadmin.studentsCol')}</th>
                                         <th className="px-6 py-3 text-center">{t('superadmin.busesCol')}</th>
                                         <th className="px-6 py-3 text-center">{t('superadmin.invitationStatus')}</th>
@@ -204,11 +204,11 @@ const SuperAdminDashboard = () => {
                                 <tbody className="divide-y divide-gray-100">
                                     {schools.map((s) => (
                                         <tr key={s._id} className={`hover:bg-gray-50/50 transition-colors ${!s.isActive ? 'opacity-60' : ''}`}>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-start">
                                                 <div className="font-bold text-gray-800">{s.name}</div>
                                                 {s.admin && <div className="text-xs text-gray-400 mt-0.5">{t('superadmin.adminCol', { name: s.admin.name })}</div>}
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-start">
                                                 <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg text-xs font-bold border border-indigo-100">{s.schoolId}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-bold text-gray-700">{s.studentCount}</td>
@@ -223,8 +223,8 @@ const SuperAdminDashboard = () => {
                                                     {s.isActive ? t('superadmin.schoolActive') : t('superadmin.schoolInactive')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2">
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="inline-flex items-center gap-2">
                                                     <button
                                                         onClick={() => handleToggle(s._id)}
                                                         title={s.isActive ? t('common.disable') : t('common.enable')}
@@ -259,7 +259,7 @@ const SuperAdminDashboard = () => {
             {showInviteModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowInviteModal(false)} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                        <button onClick={() => setShowInviteModal(false)} className="absolute top-4 start-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
                             <X size={18} />
                         </button>
 
@@ -306,7 +306,7 @@ const SuperAdminDashboard = () => {
                                 <div className="space-y-1.5">
                                     <label className="block text-gray-700 font-bold text-sm px-1">{t('superadmin.adminEmailLabel')}</label>
                                     <input type="email" required value={inviteForm.contactEmail} onChange={e => setInviteForm({ ...inviteForm, contactEmail: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="admin@school.edu.sa" />
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" dir="ltr" placeholder="admin@school.edu.sa" />
                                 </div>
 
                                 <button type="submit" disabled={inviteLoading}
@@ -333,7 +333,7 @@ const SuperAdminDashboard = () => {
             {resendModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setResendModal(null)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 relative text-center" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setResendModal(null)} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                        <button onClick={() => setResendModal(null)} className="absolute top-4 start-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
                             <X size={18} />
                         </button>
                         <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">

@@ -99,8 +99,10 @@ const BusManagement = () => {
     };
 
     const handleToggleStatus = async (bus) => {
-        const action = bus.isActive ? 'تعطيل' : 'تفعيل';
-        if (!window.confirm(`هل تريد ${action} الحافلة "${bus.busId}"?`)) return;
+        const msg = bus.isActive
+            ? t('busManagement.disableConfirm', { busId: bus.busId })
+            : t('busManagement.enableConfirm', { busId: bus.busId });
+        if (!window.confirm(msg)) return;
         try {
             await api.patch(`/buses/${bus._id}/status`);
             fetchAll();
@@ -234,7 +236,7 @@ const BusManagement = () => {
             {showForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
-                        <button onClick={resetForm} className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
+                        <button onClick={resetForm} className="absolute top-4 start-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
                             <X size={18} />
                         </button>
                         <h3 className="text-xl font-bold text-gray-800 mb-6 text-center">
@@ -280,7 +282,7 @@ const BusManagement = () => {
                                     ))}
                                 </select>
                                 {drivers.length === 0 && (
-                                    <p className="text-xs text-amber-500 px-1">لا يوجد سائقون نشطون في النظام حالياً.</p>
+                                    <p className="text-xs text-amber-500 px-1">{t('busManagement.noActiveDrivers')}</p>
                                 )}
                             </div>
 
@@ -357,10 +359,10 @@ const BusManagement = () => {
                                             </p>
                                             <p className="text-xs text-gray-400">{student.studentId}</p>
                                             {isOnOtherBus && !isSelected && (
-                                                <p className="text-xs text-amber-500 mt-0.5">مخصص لحافلة: {student.assignedBus}</p>
+                                                <p className="text-xs text-amber-500 mt-0.5">{t('busManagement.assignedOtherBus', { busId: student.assignedBus })}</p>
                                             )}
-                                            {noParent && <p className="text-[10px] text-red-500 font-bold mt-0.5">⚠️ لم يرتبط بولي أمر</p>}
-                                            {!noParent && noLocation && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ لم يتم تحديد موقع المنزل</p>}
+                                            {noParent && <p className="text-[10px] text-red-500 font-bold mt-0.5">{t('busManagement.noParent')}</p>}
+                                            {!noParent && noLocation && <p className="text-[10px] text-amber-600 font-bold mt-0.5">{t('busManagement.noLocation')}</p>}
                                         </div>
                                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 mr-3
                                             ${isBlocked ? 'border-gray-200 bg-gray-100' : isSelected ? 'bg-primary-500 border-primary-500' : 'border-gray-300'}`}>
@@ -491,10 +493,10 @@ const BusManagement = () => {
                                                         <span className="font-bold text-gray-800 text-sm">{a.bus.busId}</span>
                                                         <span className="mr-auto text-xs text-gray-400">{a.students.length} / {a.bus.capacity}</span>
                                                     </div>
-                                                    {a.route && (
+                                                        {a.route && (
                                                         <div className="flex gap-3 text-xs text-gray-500 mb-2 px-1">
-                                                            <span className="flex items-center gap-1"><Navigation2 size={10} className="text-blue-400" />{a.route.duration} دقيقة</span>
-                                                            <span>{a.route.distance} كم</span>
+                                                            <span className="flex items-center gap-1"><Navigation2 size={10} className="text-blue-400" />{t('busManagement.durationMin', { duration: a.route.duration })}</span>
+                                                            <span>{t('fleetMap.distanceKm', { distance: a.route.distance })}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex flex-wrap gap-1">
@@ -502,7 +504,7 @@ const BusManagement = () => {
                                                             <span key={s._id} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium">{s.name}</span>
                                                         ))}
                                                         {a.students.length > 5 && (
-                                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-[10px]">+{a.students.length - 5} آخرون</span>
+                                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-[10px]">{t('busManagement.others', { count: a.students.length - 5 })}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -549,7 +551,7 @@ const BusManagement = () => {
                                                     icon={schoolIcon}
                                                 >
                                                     <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
-                                                        🏫 {autoPreview.school.name || 'المدرسة'}
+                                                        🏫 {autoPreview.school.name || t('fleetMap.school')}
                                                     </Tooltip>
                                                 </Marker>
                                             )}
@@ -651,10 +653,10 @@ const BusManagement = () => {
                                                 <p className="font-bold text-gray-800 text-sm flex items-center gap-2">
                                                     {bus.busId}
                                                     {!bus.isActive && (
-                                                        <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-full">معطّلة</span>
+                                                        <span className="text-[10px] bg-red-50 text-red-500 border border-red-100 px-1.5 py-0.5 rounded-full">{t('busManagement.disabled')}</span>
                                                     )}
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-0.5">سعة: {bus.capacity} مقعد</p>
+                                                <p className="text-xs text-gray-500 mt-0.5">{t('busManagement.seatCount', { count: bus.capacity })}</p>
                                             </div>
                                         </div>
                                         {/* Assign Students Button */}
@@ -663,7 +665,7 @@ const BusManagement = () => {
                                             className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2.5 py-1.5 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition shrink-0"
                                         >
                                             <Users size={12} />
-                                            {studentCount} طالب
+                                            {t('busManagement.studentCount', { count: studentCount })}
                                         </button>
                                     </div>
 
@@ -675,13 +677,13 @@ const BusManagement = () => {
                                                     <span className="text-blue-500">👤</span> {bus.driver.name}
                                                 </span>
                                             ) : (
-                                                <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">بدون سائق</span>
+                                                <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">{t('busManagement.noDriver')}</span>
                                             )}
                                         </div>
 
                                         <div className="flex items-center gap-2">
                                             {bus.isActive && (
-                                                <button onClick={() => startEdit(bus)} className="p-1.5 rounded-lg bg-blue-50 text-blue-500 border border-blue-100 hover:bg-blue-100 transition-colors" title="تعديل">
+                                                <button onClick={() => startEdit(bus)} className="p-1.5 rounded-lg bg-blue-50 text-blue-500 border border-blue-100 hover:bg-blue-100 transition-colors" title={t('common.edit')}>
                                                     <Pencil size={14} />
                                                 </button>
                                             )}
@@ -705,10 +707,10 @@ const BusManagement = () => {
                     <div className="hidden md:block bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-100">
-                                <tr className="text-gray-500 font-bold text-right">
-                                    <th className="px-6 py-4">{t('busManagement.busId')}</th>
+                                <tr className="text-gray-500 font-bold">
+                                    <th className="px-6 py-4 text-start">{t('busManagement.busId')}</th>
                                     <th className="px-6 py-4 text-center">{t('busManagement.capacity')}</th>
-                                    <th className="px-6 py-4">{t('busManagement.driverCol')}</th>
+                                    <th className="px-6 py-4 text-start">{t('busManagement.driverCol')}</th>
                                     <th className="px-6 py-4 text-center">{t('busManagement.linkedStudents')}</th>
                                     <th className="px-6 py-4 text-center">{t('common.actions')}</th>
                                 </tr>
@@ -718,7 +720,7 @@ const BusManagement = () => {
                                     const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
                                     return (
                                         <tr key={bus._id} className={`hover:bg-gray-50/50 transition-colors group ${!bus.isActive ? 'opacity-60' : ''}`}>
-                                            <td className="px-6 py-4 font-bold text-gray-800">
+                                            <td className="px-6 py-4 font-bold text-gray-800 text-start">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center shrink-0">
                                                         <Bus size={16} className="text-primary-500" />
@@ -726,7 +728,7 @@ const BusManagement = () => {
                                                     <div className="flex items-center gap-2">
                                                         {bus.busId}
                                                         {!bus.isActive && (
-                                                            <span className="text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">معطّلة</span>
+                                                            <span className="text-[10px] font-bold bg-red-50 text-red-500 border border-red-100 px-2 py-0.5 rounded-full">{t('busManagement.disabled')}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -734,14 +736,14 @@ const BusManagement = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-bold">{bus.capacity}</span>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-start">
                                                 {bus.driver ? (
-                                                    <span className="flex items-center gap-1.5 text-gray-700 font-medium text-sm">
+                                                    <span className="inline-flex items-center gap-1.5 text-gray-700 font-medium text-sm">
                                                         <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">👤</span>
                                                         {bus.driver.name}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 inline-block">غير معين</span>
+                                                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100 inline-block">{t('common.notAssigned')}</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -750,22 +752,22 @@ const BusManagement = () => {
                                                     className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-100 hover:bg-blue-100 transition"
                                                 >
                                                     <Users size={14} />
-                                                    {studentCount} طالب
+                                                    {t('busManagement.studentCount', { count: studentCount })}
                                                 </button>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="inline-flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     {bus.isActive && (
-                                                        <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title="تعديل">
+                                                        <button onClick={() => startEdit(bus)} className="p-2 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition-colors" title={t('common.edit')}>
                                                             <Pencil size={16} />
                                                         </button>
                                                     )}
                                                     {bus.isActive ? (
-                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="تعطيل الحافلة">
+                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title={t('busManagement.disableBus')}>
                                                             <Ban size={16} />
                                                         </button>
                                                     ) : (
-                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors" title="إعادة تفعيل الحافلة">
+                                                        <button onClick={() => handleToggleStatus(bus)} className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-500 transition-colors" title={t('busManagement.enableBus')}>
                                                             <CircleCheck size={16} />
                                                         </button>
                                                     )}

@@ -116,6 +116,37 @@ exports.list = async (req, res) => {
   }
 };
 
+// PATCH /api/students/:id — Update student name and/or national ID
+exports.update = async (req, res) => {
+  try {
+    const { name, nationalId } = req.body;
+    const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!student) return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
+
+    if (name && name.trim() !== '') {
+      const nameParts = name.trim().split(/\s+/);
+      if (nameParts.length < 3) {
+        return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'يجب أن يكون الاسم ثلاثياً كحد أدنى (الاسم الأول واسم الأب واسم العائلة)' });
+      }
+      const duplicate = await Student.findOne({ school: req.schoolId, name: name.trim(), _id: { $ne: req.params.id } });
+      if (duplicate) {
+        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_NAME', message: 'يوجد طالب مسجل مسبقاً بنفس الاسم. يرجى إضافة اسم الجد أو العائلة للتمييز.' });
+      }
+      student.name = name.trim();
+      student.normalizedName = normalizeArabicName(name);
+    }
+
+    if (nationalId && nationalId.trim() !== '') {
+      student.nationalId = encrypt(nationalId.trim());
+    }
+
+    await student.save();
+    res.json({ success: true, message: `تم تحديث بيانات "${student.name}" بنجاح` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // PATCH /api/students/:id/status — Toggle isActive (identical to driver/bus pattern)
 exports.toggleStatus = async (req, res) => {
   try {

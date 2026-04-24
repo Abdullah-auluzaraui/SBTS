@@ -374,12 +374,12 @@ const RouteManagement = () => {
                                     <div key={route._id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative">
                                         <button 
                                             onClick={() => handleDelete(route._id)} 
-                                            className="absolute top-3 left-3 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                                            className="absolute top-3 start-3 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
                                         >
                                             <Ban size={16} />
                                         </button>
                                         
-                                        <h4 className="font-bold text-gray-800 text-base mb-3 pr-2">{route.name}</h4>
+                                        <h4 className="font-bold text-gray-800 text-base mb-3 pe-2">{route.name}</h4>
                                         
                                         <div className="grid grid-cols-2 gap-3 mb-3">
                                             <div className="bg-blue-50/50 border border-blue-100/50 rounded-lg p-2.5 flex flex-col items-center justify-center">
@@ -412,20 +412,20 @@ const RouteManagement = () => {
 
                             {/* ── Desktop: Table (>= md) ─────────────────── */}
                             <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-sm text-right">
+                                <table className="w-full text-sm">
                                     <thead className="bg-gray-50 border-b border-gray-100">
                                         <tr className="text-gray-500 font-bold">
-                                            <th className="px-6 py-4">{t('routeManagement.routeName')}</th>
+                                            <th className="px-6 py-4 text-start">{t('routeManagement.routeName')}</th>
                                             <th className="px-6 py-4 text-center">{t('studentManagement.studentCol')}</th>
                                             <th className="px-6 py-4 text-center">{t('routeManagement.estimatedDuration')}</th>
-                                            <th className="px-6 py-4">{t('routeManagement.assignedDriver')}</th>
+                                            <th className="px-6 py-4 text-start">{t('routeManagement.assignedDriver')}</th>
                                             <th className="px-6 py-4 text-center">{t('common.actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {routes.map(route => (
                                             <tr key={route._id} className="hover:bg-gray-50/50 transition-colors group">
-                                                <td className="px-6 py-4 font-bold text-gray-800">{route.name}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-800 text-start">{route.name}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-bold border border-blue-100">
                                                         {t('routeManagement.studentsCount', { count: route.students?.length || 0 })}
@@ -434,17 +434,17 @@ const RouteManagement = () => {
                                                 <td className="px-6 py-4 text-center text-gray-600">
                                                     {route.estimatedDuration ? t('routeManagement.durationMin', { duration: route.estimatedDuration }) : '—'}
                                                 </td>
-                                                <td className="px-6 py-4 text-gray-600">
+                                                <td className="px-6 py-4 text-gray-600 text-start">
                                                     {route.driver ? (
-                                                        <span className="flex items-center gap-1.5 font-medium text-sm">
+                                                        <span className="inline-flex items-center gap-1.5 font-medium text-sm">
                                                             <span className="text-blue-500 text-xs">👤</span> {route.driver.name}
                                                         </span>
                                                     ) : (
                                                         <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs border border-amber-100 font-bold">{t('routeManagement.unassigned')}</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="inline-flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button onClick={() => handleDelete(route._id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title={t('routeManagement.disableRoute')}>
                                                             <Ban size={16} />
                                                         </button>
