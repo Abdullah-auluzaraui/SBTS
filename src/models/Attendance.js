@@ -6,7 +6,11 @@ const attendanceSchema = new mongoose.Schema({
   student:    { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   bus:        { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true },
   trip:       { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: null },
-  event:      { type: String, enum: ['boarding', 'exit'], required: true },
+  event:      { type: String, enum: ['boarding', 'exit', 'absent', 'arrived_home', 'no_board', 'no_receiver'], required: true },
+  // Direction of the trip this event belongs to. Optional so legacy rows
+  // and any non-driver writers (e.g. future NFC ingestion) keep working;
+  // the driver manual endpoint validates it at the controller level.
+  tripType:   { type: String, enum: ['to_school', 'to_home'], default: null },
   timestamp:  { type: Date, default: Date.now },
   recordedBy: { type: String, enum: ['NFC', 'manual'], default: 'NFC' }
 }, { timestamps: true });
@@ -19,6 +23,10 @@ attendanceSchema.index({ school: 1, timestamp: -1 });
 
 // Secondary compound index for the common "filter by bus within a school" query
 attendanceSchema.index({ school: 1, bus: 1, timestamp: -1 });
+
+// Compound index for "today's events for this bus + direction" hydration
+// query used by the driver dashboard.
+attendanceSchema.index({ school: 1, bus: 1, tripType: 1, timestamp: -1 });
 
 // Secondary compound index for "filter by student within a school" query
 attendanceSchema.index({ school: 1, student: 1, timestamp: -1 });

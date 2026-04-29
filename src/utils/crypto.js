@@ -1,7 +1,11 @@
 const crypto = require('crypto');
 
 const ALGORITHM = 'aes-256-cbc';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'a3f9b2c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0'; // Must be 256 bits (32 characters)
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+if (!ENCRYPTION_KEY) {
+  throw new Error('ENCRYPTION_KEY must be defined in the environment variables.');
+}
 const IV_LENGTH = 16; // For AES, this is always 16
 
 // Ensure the key is exactly 32 bytes
