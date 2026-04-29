@@ -10,7 +10,7 @@ const AttendanceRecords = () => {
     const [loading, setLoading] = useState(true);
 
     // Filters
-    const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', busId: '', studentId: '' });
+    const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', busId: '', studentId: '', tripType: '' });
     const [buses, setBuses] = useState([]);
 
     const fetchData = async (page = 1) => {
@@ -21,6 +21,7 @@ const AttendanceRecords = () => {
             if (filters.dateTo) params.append('dateTo', filters.dateTo);
             if (filters.busId) params.append('busId', filters.busId);
             if (filters.studentId) params.append('studentId', filters.studentId);
+            if (filters.tripType) params.append('tripType', filters.tripType);
 
             const { data } = await api.get(`/attendance?${params}`);
             setRecords(data.attendance);
@@ -40,8 +41,33 @@ const AttendanceRecords = () => {
         fetchData(1);
     };
 
-    const eventLabel = { boarding: t('attendance.boarding'), exit: t('attendance.exit') };
-    const eventClass = { boarding: 'bg-green-50 text-green-700 border-green-200', exit: 'bg-orange-50 text-orange-700 border-orange-200' };
+    // Translated labels + colored pill styles for every Attendance.event
+    // enum value the backend can emit. Falls back to the raw value if the
+    // backend ever introduces a new event we haven't translated yet.
+    const eventLabel = {
+        boarding:     t('attendance.boarding'),
+        exit:         t('attendance.exit'),
+        absent:       t('attendance.absent'),
+        arrived_home: t('attendance.arrived_home'),
+        no_board:     t('attendance.no_board'),
+        no_receiver:  t('attendance.no_receiver')
+    };
+    const eventClass = {
+        boarding:     'bg-green-50 text-green-700 border-green-200',
+        exit:         'bg-orange-50 text-orange-700 border-orange-200',
+        absent:       'bg-gray-100 text-gray-700 border-gray-200',
+        arrived_home: 'bg-green-50 text-green-700 border-green-200',
+        no_board:     'bg-amber-50 text-amber-700 border-amber-200',
+        no_receiver:  'bg-red-50 text-red-700 border-red-200'
+    };
+    // recordedBy enum: 'manual' | 'NFC' (case-sensitive in DB).
+    const methodLabel = { manual: t('attendance.methodManual'), NFC: t('attendance.methodNfc') };
+    // tripType badge styles + labels. Legacy rows without tripType render as —.
+    const tripTypeLabel = { to_school: t('attendance.tripToSchool'), to_home: t('attendance.tripToHome') };
+    const tripTypeClass = {
+        to_school: 'bg-sky-50 text-sky-700 border-sky-200',
+        to_home:   'bg-violet-50 text-violet-700 border-violet-200'
+    };
 
     return (
         <div>
@@ -68,6 +94,15 @@ const AttendanceRecords = () => {
                         className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
                         <option value="">{t('attendance.allBuses')}</option>
                         {buses.map(b => <option key={b._id} value={b._id}>{b.busId}</option>)}
+                    </select>
+                </div>
+                <div className="flex-1 min-w-[150px] space-y-1">
+                    <label className="block text-gray-600 text-xs font-bold">{t('attendance.tripTypeFilter')}</label>
+                    <select value={filters.tripType} onChange={e => setFilters({ ...filters, tripType: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                        <option value="">{t('attendance.allTrips')}</option>
+                        <option value="to_school">{t('attendance.tripToSchool')}</option>
+                        <option value="to_home">{t('attendance.tripToHome')}</option>
                     </select>
                 </div>
                 <button type="submit" className="px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all flex items-center gap-2 shadow-sm">
@@ -97,6 +132,7 @@ const AttendanceRecords = () => {
                                     <th className="px-6 py-3 text-start">{t('attendance.studentCol')}</th>
                                     <th className="px-6 py-3 text-start">{t('attendance.studentIdCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.busCol')}</th>
+                                    <th className="px-6 py-3 text-center">{t('attendance.tripTypeCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.eventCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.methodCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.timestampCol')}</th>
@@ -108,8 +144,15 @@ const AttendanceRecords = () => {
                                         <td className="px-6 py-4 font-bold text-gray-800 text-start">{r.student?.name || '—'}</td>
                                         <td className="px-6 py-4 text-xs font-mono text-gray-500 text-start" dir="ltr">{r.student?.studentId || '—'}</td>
                                         <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">{r.bus?.busId || '—'}</span></td>
+                                        <td className="px-6 py-4 text-center">
+                                            {r.tripType ? (
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${tripTypeClass[r.tripType] || ''}`}>{tripTypeLabel[r.tripType]}</span>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs">—</span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${eventClass[r.event] || ''}`}>{eventLabel[r.event] || r.event}</span></td>
-                                        <td className="px-6 py-4 text-center text-xs text-gray-500">{r.recordedBy}</td>
+                                        <td className="px-6 py-4 text-center text-xs text-gray-500">{methodLabel[r.recordedBy] || r.recordedBy}</td>
                                         <td className="px-6 py-4 text-center text-xs text-gray-600" dir="ltr">{new Date(r.timestamp).toLocaleString('ar-SA')}</td>
                                     </tr>
                                 ))}

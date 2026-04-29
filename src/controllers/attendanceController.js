@@ -3,13 +3,16 @@ const Attendance = require('../models/Attendance');
 // BE-S2-8: GET /api/attendance — List attendance records (scoped, filtered, paginated)
 exports.list = async (req, res) => {
   try {
-    const { busId, studentId, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
+    const { busId, studentId, dateFrom, dateTo, tripType, page = 1, limit = 50 } = req.query;
 
     // Build query — always scoped to school
     const query = { school: req.schoolId };
 
     if (busId) query.bus = busId;
     if (studentId) query.student = studentId;
+    if (tripType && ['to_school', 'to_home'].includes(tripType)) {
+      query.tripType = tripType;
+    }
 
     // Date range filter
     if (dateFrom || dateTo) {
