@@ -11,10 +11,10 @@ const generateToken = require('../utils/generateToken');
 // REGISTER REQUEST (Step 1: Validate Parent, Find Student, Send OTP)
 exports.registerRequest = async (req, res) => {
   try {
-    const { username, email, name, phone, studentName, nationalId, dob } = req.body;
+    const { username, email, name, phone, nationalId, dob } = req.body;
 
     // 1. Basic validation
-    if (!username || !email || !name || !phone || !studentName || !nationalId || !dob) {
+    if (!username || !email || !name || !phone || !nationalId || !dob) {
       return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة' });
     }
 
@@ -24,16 +24,10 @@ exports.registerRequest = async (req, res) => {
       return res.status(400).json({ success: false, errorCode: 'USER_EXISTS', message: 'اسم المستخدم أو البريد الإلكتروني مسجل مسبقاً' });
     }
 
-    // 3. Find the student
-    const normalized = normalizeArabicName(studentName);
-    const students = await Student.find({ normalizedName: normalized });
-
-    if (students.length === 0) {
-      return res.status(404).json({ success: false, message: 'لم يتم العثور على طالب بهذه البيانات' });
-    }
-
+    // 3. Find the student by nationalId + dob (no name required)
     const inputDate = new Date(dob).toISOString().split('T')[0];
-    const student = students.find(s => {
+    const allStudents = await Student.find({});
+    const student = allStudents.find(s => {
       const dbDate = new Date(s.dob).toISOString().split('T')[0];
       const dbNationalId = decrypt(s.nationalId);
       return dbDate === inputDate && dbNationalId === nationalId.trim();

@@ -196,6 +196,9 @@
   },
   "driver": {
     "dashboardTitle": "Driver Dashboard — {{name}}",
+    "dashboardTitleShort": "Driver Dashboard",
+    "welcomeTitle": "Welcome, {{name}}",
+    "welcomeSubtitle": "Please select a trip route to start working.",
     "noBus": "No assigned bus",
     "busNumber": "Bus Number: {{id}}",
     "startTrip": "Start Trip",
@@ -205,6 +208,7 @@
     "chooseTripTypeSubtitle": "Pick the direction so the right actions show on each student card.",
     "tripToSchool": "Trip to School",
     "tripToHome": "Trip Back Home",
+    "driverCol": "Driver",
     "markAbsent": "Absent",
     "statusAbsent": "Absent",
     "markArrivedHome": "Arrived Home",
@@ -233,7 +237,27 @@
     "emergencyContactsSubtitle": "Tap a number to call directly",
     "noEmergency": "No emergency numbers added yet",
     "noEmergencyHint": "Contact the school admin to add them",
-    "grade": "Grade: {{grade}}"
+    "grade": "Grade: {{grade}}",
+    "undoNoBoard": "Cancel",
+    "unresolved": "unresolved",
+    "returnConfirmTitle": "Students who did not board in the morning trip",
+    "returnConfirmSubtitle": "Select students who arrived at school later and will ride the return bus",
+    "returnConfirmButton": "Confirm & Start Return Trip",
+    "phaseCheckin": "School Gate Check-in",
+    "phaseCheckinSubtitle": "Mark every student before starting the route",
+    "startRoute": "Start Route",
+    "morningAbsentBadge": "⚠️ Absent in Morning",
+    "markDroppedOff": "Dropped Off",
+    "noReceiverModalTitle": "Confirm — No Receiver",
+    "noReceiverModalSubtitle": "You must attempt to contact the parent before confirming",
+    "callParent": "Call Parent",
+    "noParentPhone": "No phone on file",
+    "schoolEmergencyContacts": "School Emergency Contacts",
+    "noReceiverAck": "I confirm I attempted to contact the parent or school",
+    "confirmNoReceiver": "Confirm No Receiver",
+    "phaseSummary": "{{boarded}} Boarded · {{didNotBoard}} Did Not Board",
+    "parent": "Parent",
+    "confirmBoardingMorningAbsent": "This student missed the morning trip. Are you sure they are present and boarding now?"
   },
   "parent": {
     "welcome": "Welcome, {{name}}",
@@ -281,8 +305,8 @@
     "relinking": "Verifying...",
     "relinkSuccess": "Student re-linked successfully",
     "relinkWrongId": "The National ID doesn't match our records",
-    "havingTrouble": "Having trouble?",
-    "contactSchool": "Contact School",
+    "unlinkContactAdmin": "Unlinked by admin. Contact them to relink.",
+    "contactAdmin": "Contact Admin",
     "deletionScheduledTitle": "Account scheduled for deletion",
     "deletionScheduledMessage": "Your account is scheduled for deletion in {{days}} day (on {{date}}).",
     "deletionScheduledMessage_plural": "Your account is scheduled for deletion in {{days}} days (on {{date}}).",
@@ -430,6 +454,13 @@
     "unlinkingButton": "Unlinking...",
     "unlinkSuccess": "Parent unlinked successfully",
     "wrongPassword": "The password is incorrect",
+    "unlinkedParentLabel": "Previous parent (unlinked)",
+    "relinkParent": "Relink Parent",
+    "relinkConfirmTitle": "Confirm Relink",
+    "relinkConfirmSubtitle": "The previously unlinked parent will be re-linked to this student",
+    "relinkInfo": "Relinking will cancel any pending deletion schedule for the parent's account",
+    "relinkCtaButton": "Confirm Relink",
+    "relinkingButton": "Relinking...",
     "errors": {
       "updateError": "An error occurred while updating"
     }
@@ -508,7 +539,8 @@
     "tripTypeFilter": "Trip Type",
     "allTrips": "All Trips",
     "tripToSchool": "Trip to School",
-    "tripToHome": "Trip Back Home"
+    "tripToHome": "Trip Back Home",
+    "driverCol": "Driver"
   },
   "routeManagement": {
     "title": "Smart Routes (Routing)",

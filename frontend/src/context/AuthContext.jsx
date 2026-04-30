@@ -76,11 +76,11 @@ export const AuthProvider = ({ children }) => {
     // ─── NEW: OTP-Based Registration ─────────────────────────────────────────
     
     // Step 1: Request OTP
-    const registerRequest = async (name, username, email, phone, studentName, nationalId, dob) => {
+    const registerRequest = async (name, username, email, phone, nationalId, dob) => {
         setLoading(true);
         try {
             const { data } = await api.post('/auth/register-request', { 
-                name, username, email, phone, studentName, nationalId, dob 
+                name, username, email, phone, nationalId, dob 
             });
             return data;
         } catch (err) {

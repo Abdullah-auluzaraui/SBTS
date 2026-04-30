@@ -30,6 +30,7 @@ exports.list = async (req, res) => {
       Attendance.find(query)
         .populate('student', 'name studentId')
         .populate('bus', 'busId')
+        .populate('driver', 'name')
         .sort({ timestamp: -1 })
         .skip(skip)
         .limit(parseInt(limit)),

@@ -2,7 +2,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { getDriverDashboardData, markManualAttendance, startTrip, endTrip } = require('../controllers/driverController');
+const { getDriverDashboardData, markManualAttendance, undoManualAttendance, startTrip, endTrip } = require('../controllers/driverController');
 
 const router = express.Router();
 
@@ -14,6 +14,9 @@ router.get('/me', getDriverDashboardData);
 
 // POST /api/driver/attendance/manual - Mark student attendance manually
 router.post('/attendance/manual', markManualAttendance);
+
+// DELETE /api/driver/attendance/manual - Undo morning no_board status
+router.delete('/attendance/manual', undoManualAttendance);
 
 // POST /api/driver/trip/start - Save active trip route to DB
 router.post('/trip/start', startTrip);

@@ -5,6 +5,7 @@ const attendanceSchema = new mongoose.Schema({
   school:     { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   student:    { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   bus:        { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true },
+  driver:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   trip:       { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', default: null },
   event:      { type: String, enum: ['boarding', 'exit', 'absent', 'arrived_home', 'no_board', 'no_receiver'], required: true },
   // Direction of the trip this event belongs to. Optional so legacy rows

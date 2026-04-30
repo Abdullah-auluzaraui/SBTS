@@ -38,7 +38,7 @@ const MainLayout = ({ children }) => {
                         <span className="text-primary-600 hidden sm:inline px-3 py-1 bg-primary-50 rounded-full border border-primary-100">
                             {roleDisplay[user.role]}
                         </span>
-                        <span className="text-gray-700">{user.name}</span>
+                        <span className="text-gray-700 hidden sm:inline">{user.name}</span>
                         {user.role === 'parent' && (
                             <button className="hover:bg-gray-100 rounded-full p-2 transition shadow-sm border border-gray-100 bg-white flex items-center justify-center">
                                 <Bell size={18} strokeWidth={2} className="text-primary-500" />

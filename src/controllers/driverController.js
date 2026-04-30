@@ -9,6 +9,8 @@ const Attendance = require('../models/Attendance');
 // Optional query: ?tripType=return | to_home | to_school — drives the
 //   return-trip absent filter and is mirrored back as `tripType` in the
 //   response so the client can hydrate state per direction.
+// Optional query: ?phase=checkin | route — when phase=checkin with to_home,
+//   skip the morning no_board filter so all students are shown for check-in.
 // The response also includes `todayEvents`: every attendance record for
 //   this bus today (any direction) so the driver dashboard can rebuild
 //   resolved-student state after a page refresh.
@@ -24,6 +26,9 @@ exports.getDriverDashboardData = async (req, res) => {
       : rawTripType === 'to_school' ? 'to_school'
       : null;
 
+    // Phase param for two-phase return trip workflow
+    const phase = req.query?.phase === 'checkin' ? 'checkin' : req.query?.phase === 'route' ? 'route' : null;
+
     // 1. Get the assigned bus — scoped to driver's own school
     const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId })
       .select('busId capacity school')
@@ -34,7 +39,8 @@ exports.getDriverDashboardData = async (req, res) => {
     let todayEvents = [];
     if (bus) {
       students = await Student.find({ assignedBus: bus._id, school: req.schoolId })
-        .select('name studentId grade location parentLinked parentName');
+        .populate('parentId', 'name phone')
+        .select('name studentId grade location parentId');
 
       // Single query for *all* today's events on this bus. Used both for
       // the return-trip absent filter and for client-side hydration.
@@ -51,11 +57,13 @@ exports.getDriverDashboardData = async (req, res) => {
         .select('student tripType event timestamp')
         .lean();
 
-      // 3. Return-trip filter: drop students with an 'absent' event today.
-      if (tripType === 'to_home') {
+      // 3. Return-trip filter: drop students with a morning 'no_board' event.
+      //    Legacy 'absent' events are also excluded for backward compat.
+      //    Skip this filter when phase=checkin so all students are shown for check-in.
+      if (tripType === 'to_home' && phase !== 'checkin') {
         const absentSet = new Set(
           todayEvents
-            .filter(e => e.event === 'absent')
+            .filter(e => (e.event === 'no_board' && e.tripType === 'to_school') || e.event === 'absent')
             .map(e => String(e.student))
         );
         if (absentSet.size > 0) {
@@ -191,7 +199,7 @@ exports.markManualAttendance = async (req, res) => {
     };
 
     const update = {
-      $set: { timestamp: new Date(), recordedBy: 'manual' },
+      $set: { timestamp: new Date(), recordedBy: 'manual', driver: req.user._id },
       $setOnInsert: {
         school: req.schoolId,
         bus: bus._id,
@@ -211,5 +219,48 @@ exports.markManualAttendance = async (req, res) => {
   } catch (err) {
     console.error('Manual Attendance Error:', err);
     res.status(500).json({ success: false, message: 'فشل تسجيل الحالة' });
+  }
+};
+
+// DELETE /api/driver/attendance/manual
+// Undo a morning "no_board" record. Deletes today's no_board attendance row
+// for the given student + bus + tripType so the student returns to the
+// pending list.
+exports.undoManualAttendance = async (req, res) => {
+  try {
+    const { studentId, busId, tripType } = req.body;
+
+    if (!studentId || !busId || !tripType) {
+      return res.status(400).json({ success: false, message: 'بيانات غير مكتملة لإلغاء الحالة' });
+    }
+
+    // Verify the bus belongs to this driver
+    const bus = await Bus.findOne({ _id: busId, driver: req.user._id, school: req.schoolId });
+    if (!bus) {
+      return res.status(403).json({ success: false, message: 'الحافلة غير صالحة أو لا تخصك' });
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const result = await Attendance.deleteOne({
+      school: req.schoolId,
+      bus: bus._id,
+      student: studentId,
+      tripType,
+      event: 'no_board',
+      timestamp: { $gte: startOfToday, $lte: endOfToday }
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ success: false, message: 'لم يتم العثور على سجل عدم الصعود لهذا الطالب اليوم' });
+    }
+
+    res.json({ success: true, message: 'تم إلغاء حالة عدم الصعود بنجاح' });
+  } catch (err) {
+    console.error('Undo Manual Attendance Error:', err);
+    res.status(500).json({ success: false, message: 'فشل إلغاء الحالة' });
   }
 };

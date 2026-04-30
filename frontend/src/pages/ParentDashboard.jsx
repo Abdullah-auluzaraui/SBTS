@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
-import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin, UserX, CalendarClock, Info, Link2, HelpCircle } from 'lucide-react';
+import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin, UserX, CalendarClock, Info, HelpCircle } from 'lucide-react';
 import LocationPicker from '../components/maps/LocationPicker';
 import BusTrackingModal from '../components/maps/BusTrackingModal';
 import DriverContactsModal from '../components/DriverContactsModal';
@@ -16,7 +16,7 @@ const ParentDashboard = () => {
     // ─── FE-S1-9: Add Another Child Modal State ────────────────────────
     const [showAddChildModal, setShowAddChildModal] = useState(false);
     const [linkStep, setLinkStep] = useState(1);
-    const [childForm, setChildForm] = useState({ studentName: '', nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
+    const [childForm, setChildForm] = useState({ nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
     const [childLoading, setChildLoading] = useState(false);
     const [childError, setChildError] = useState('');
     const [childSuccess, setChildSuccess] = useState('');
@@ -30,43 +30,10 @@ const ParentDashboard = () => {
     // tracking: { busId, busName } | null — يفتح Modal التتبع
     const [tracking, setTracking] = useState(null);
 
-    // ─── Ghost re-link / Contact-School state ──────────────────────────
-    // Keyed by student._id so multiple ghosts each have independent input
-    // state (value, loading flag, inline error/success).
-    const [relinkInputs, setRelinkInputs] = useState({});
-    const [relinkBusyId, setRelinkBusyId] = useState(null);
-    const [relinkErrors, setRelinkErrors] = useState({});
-    const [relinkSuccessId, setRelinkSuccessId] = useState(null);
+    // ─── Contact-School state ──────────────────────────────────────────
     // Contacts modal receives the full contacts array of the clicked ghost's
     // school. We keep it as null when closed, an array when open.
     const [contactsModal, setContactsModal] = useState(null);
-
-    const handleRelink = async (student) => {
-        const id = student._id;
-        const value = (relinkInputs[id] || '').trim();
-        if (!value) return;
-        setRelinkBusyId(id);
-        setRelinkErrors(prev => ({ ...prev, [id]: '' }));
-        try {
-            await api.post('/parents/relink', { studentId: id, nationalId: value });
-            setRelinkSuccessId(id);
-            // Small delay so the parent sees the success state before the
-            // card morphs back into a live one.
-            setTimeout(() => {
-                setRelinkSuccessId(null);
-                setRelinkInputs(prev => { const copy = { ...prev }; delete copy[id]; return copy; });
-                fetchStudents();
-            }, 900);
-        } catch (err) {
-            const code = err.response?.data?.errorCode;
-            const msg = code === 'WRONG_NATIONAL_ID'
-                ? t('parent.relinkWrongId')
-                : err.response?.data?.message || t('parent.errors.generic');
-            setRelinkErrors(prev => ({ ...prev, [id]: msg }));
-        } finally {
-            setRelinkBusyId(null);
-        }
-    };
 
     const fetchStudents = async () => {
         try {
@@ -121,7 +88,6 @@ const ParentDashboard = () => {
         setChildError(''); setChildSuccess(''); setChildLoading(true);
         try {
             const { data } = await api.post('/parents/link-request', {
-                studentName: childForm.studentName,
                 nationalId: childForm.nationalId,
                 dob: childForm.dob,
                 phone: childForm.phone
@@ -151,7 +117,7 @@ const ParentDashboard = () => {
             setTimeout(() => {
                 setShowAddChildModal(false);
                 setLinkStep(1);
-                setChildForm({ studentName: '', nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
+                setChildForm({ nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
                 setChildSuccess('');
             }, 2000);
         } catch (err) {
@@ -331,75 +297,19 @@ const ParentDashboard = () => {
                                         {/* Ghost card interactive content replaces the live operational sections */}
                                         {isGhost ? (
                                             <div className="mt-1 p-4 rounded-xl bg-white border border-dashed border-gray-300 space-y-3">
-                                                {/* Re-link verification form */}
-                                                <div className="space-y-1.5">
-                                                    <label
-                                                        htmlFor={`relink-${student._id}`}
-                                                        className="block text-gray-600 font-bold text-xs text-start px-0.5"
-                                                    >
-                                                        {t('parent.relinkInputLabel')}
-                                                    </label>
-                                                    <div className="flex flex-col sm:flex-row gap-2">
-                                                        <input
-                                                            id={`relink-${student._id}`}
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            dir="ltr"
-                                                            placeholder={t('parent.relinkPlaceholder')}
-                                                            value={relinkInputs[student._id] || ''}
-                                                            onChange={e => {
-                                                                const v = e.target.value.replace(/\D/g, '');
-                                                                setRelinkInputs(prev => ({ ...prev, [student._id]: v }));
-                                                                setRelinkErrors(prev => ({ ...prev, [student._id]: '' }));
-                                                            }}
-                                                            disabled={relinkBusyId === student._id}
-                                                            className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRelink(student)}
-                                                            disabled={relinkBusyId === student._id || !(relinkInputs[student._id] || '').trim()}
-                                                            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-md shadow-primary-500/20 transition-colors disabled:opacity-60 disabled:shadow-none sm:shrink-0"
-                                                        >
-                                                            {relinkBusyId === student._id
-                                                                ? <Loader2 size={16} className="animate-spin" />
-                                                                : relinkSuccessId === student._id
-                                                                    ? <CheckCircle2 size={16} />
-                                                                    : <Link2 size={16} />
-                                                            }
-                                                            <span className="whitespace-nowrap">
-                                                                {relinkBusyId === student._id
-                                                                    ? t('parent.relinking')
-                                                                    : relinkSuccessId === student._id
-                                                                        ? t('parent.relinkSuccess')
-                                                                        : t('parent.relinkButton')
-                                                                }
-                                                            </span>
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Per-ghost inline error */}
-                                                    {relinkErrors[student._id] && (
-                                                        <p className="flex items-start gap-1.5 text-xs text-red-600 font-semibold text-start pt-1">
-                                                            <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                                                            <span>{relinkErrors[student._id]}</span>
-                                                        </p>
-                                                    )}
-                                                </div>
-
-                                                {/* Fallback: Contact School */}
-                                                <div className="pt-3 border-t border-dashed border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                                {/* Contact Admin — replaces self-service relink */}
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                                     <span className="text-[11px] text-gray-500 inline-flex items-center gap-1.5 text-start">
                                                         <HelpCircle size={12} />
-                                                        {t('parent.havingTrouble')}
+                                                        {t('parent.unlinkContactAdmin')}
                                                     </span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setContactsModal(student.school?.emergencyContacts || [])}
-                                                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 transition-colors self-start sm:self-auto"
+                                                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-100 transition-colors self-start sm:self-auto"
                                                     >
-                                                        <Phone size={12} />
-                                                        {t('parent.contactSchool')}
+                                                        <Phone size={14} />
+                                                        {t('parent.contactAdmin')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -510,17 +420,6 @@ const ParentDashboard = () => {
                                 </div>
 
                                 <form onSubmit={handleRequestLinking} className="space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('parent.studentName')}</label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-                                            value={childForm.studentName}
-                                            onChange={(e) => setChildForm({ ...childForm, studentName: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
                                             <label className="block text-gray-700 font-bold text-sm px-1">{t('parent.nationalId')}</label>

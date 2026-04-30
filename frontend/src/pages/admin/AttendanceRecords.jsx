@@ -132,6 +132,7 @@ const AttendanceRecords = () => {
                                     <th className="px-6 py-3 text-start">{t('attendance.studentCol')}</th>
                                     <th className="px-6 py-3 text-start">{t('attendance.studentIdCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.busCol')}</th>
+                                    <th className="px-6 py-3 text-center">{t('attendance.driverCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.tripTypeCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.eventCol')}</th>
                                     <th className="px-6 py-3 text-center">{t('attendance.methodCol')}</th>
@@ -144,6 +145,7 @@ const AttendanceRecords = () => {
                                         <td className="px-6 py-4 font-bold text-gray-800 text-start">{r.student?.name || '—'}</td>
                                         <td className="px-6 py-4 text-xs font-mono text-gray-500 text-start" dir="ltr">{r.student?.studentId || '—'}</td>
                                         <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">{r.bus?.busId || '—'}</span></td>
+                                        <td className="px-6 py-4 text-center text-xs text-gray-700 font-bold">{r.driver?.name || '—'}</td>
                                         <td className="px-6 py-4 text-center">
                                             {r.tripType ? (
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold border ${tripTypeClass[r.tripType] || ''}`}>{tripTypeLabel[r.tripType]}</span>
