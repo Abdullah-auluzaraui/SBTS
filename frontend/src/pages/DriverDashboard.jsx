@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
-import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone, UserX, Home, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles } from 'lucide-react';
+import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone, UserX, Home, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
 import DriverContactsModal from '../components/DriverContactsModal';
 import TripTypeModal from '../components/TripTypeModal';
+import NoReceiverModal from '../components/NoReceiverModal';
 
 
 
@@ -38,6 +39,10 @@ const DriverDashboard = () => {
     const [tripType, setTripType] = useState(null); // 'to_school' | 'to_home' | null
     const [showTripTypeModal, setShowTripTypeModal] = useState(false);
 
+    // ─── Return trip two-phase state machine ─────────────────────────────
+    // returnPhase: null (no trip selected) | 'checkin' (school gate boarding) | 'route' (drop-offs)
+    const [returnPhase, setReturnPhase] = useState(null);
+
     // Session-local mirror of server-side absent records (also written to DB).
     const [absentStudents, setAbsentStudents] = useState(new Set());
     // studentStatuses maps student._id -> the latest action taken on the card
@@ -52,6 +57,14 @@ const DriverDashboard = () => {
 
     // Completed section is collapsed by default to keep the screen calm.
     const [showCompleted, setShowCompleted] = useState(false);
+
+    // ─── No Receiver Modal state ─────────────────────────────────────────
+    const [noReceiverTarget, setNoReceiverTarget] = useState(null); // student object
+    const [noReceiverAcknowledged, setNoReceiverAcknowledged] = useState(false);
+
+    // ─── Boarding Confirmation Modal state ────────────────────────────────
+    const [boardingConfirmOpen, setBoardingConfirmOpen] = useState(false);
+    const [boardingConfirmStudent, setBoardingConfirmStudent] = useState(null);
 
     // ─── Notification stubs (no API calls yet) ───────────────────────────
     // Real notification delivery isn't built yet — these stubs keep the
@@ -86,19 +99,23 @@ const DriverDashboard = () => {
     // (e.g., when the driver selects "Trip Back Home", we re-fetch with
     // ?tripType=to_home so absent students are stripped out server-side).
     //
+    // Accepts optional phase parameter for two-phase return trip workflow.
+    //
     // The response now includes `todayEvents` — every attendance row for
     // this bus today — so we can rebuild the resolved-student state for
     // the active direction (used by the Completed section + active pin).
-    const fetchDashboardData = async (selectedTripType = null) => {
+    const fetchDashboardData = async (selectedTripType = null, selectedPhase = null) => {
         try {
-            const url = selectedTripType === 'to_home'
-                ? '/driver/me?tripType=to_home'
-                : selectedTripType === 'to_school'
-                    ? '/driver/me?tripType=to_school'
-                    : '/driver/me';
+            const params = new URLSearchParams();
+            if (selectedTripType === 'to_home') params.append('tripType', 'to_home');
+            if (selectedTripType === 'to_school') params.append('tripType', 'to_school');
+            if (selectedPhase === 'checkin') params.append('phase', 'checkin');
+            if (selectedPhase === 'route') params.append('phase', 'route');
+
+            const url = params.toString() ? `/driver/me?${params.toString()}` : '/driver/me';
             const { data } = await api.get(url);
             setDashboardData(data.data);
-            hydrateFromTodayEvents(data.data?.todayEvents, selectedTripType);
+            hydrateFromTodayEvents(data.data?.todayEvents, selectedTripType, selectedPhase);
         } catch (err) {
             console.error(err);
             setError(t('common.loading'));
@@ -112,7 +129,10 @@ const DriverDashboard = () => {
     // section in sync. We only consider events tagged with the current
     // direction (or untagged legacy rows when in the morning) and pick
     // the latest one per student by timestamp.
-    const hydrateFromTodayEvents = (todayEvents, selectedTripType) => {
+    //
+    // For return trips with Phase 2 auto-restore: if all students have
+    // to_home events (boarding or no_board), auto-set returnPhase='route'.
+    const hydrateFromTodayEvents = (todayEvents, selectedTripType, selectedPhase) => {
         const directionForHydration = selectedTripType || 'to_school';
 
         const boarded = new Set();
@@ -151,11 +171,18 @@ const DriverDashboard = () => {
                     statuses.set(sid, 'boarded');
                     break;
                 case 'absent':
+                    // Legacy 'absent' events still hydrate for backward compat.
                     absent.add(sid);
                     statuses.set(sid, 'absent');
                     break;
-                case 'arrived_home':
                 case 'no_board':
+                    // Morning 'no_board' is treated as absent for filtering.
+                    if (e.tripType === 'to_school') {
+                        absent.add(sid);
+                    }
+                    statuses.set(sid, 'no_board');
+                    break;
+                case 'arrived_home':
                 case 'no_receiver':
                     statuses.set(sid, e.event);
                     break;
@@ -169,6 +196,18 @@ const DriverDashboard = () => {
         setBoardedStudents(boarded);
         setAbsentStudents(absent);
         setStudentStatuses(statuses);
+
+        // Phase 2 auto-restore for return trips: if all students have to_home
+        // events (boarding or no_board), skip to route phase.
+        if (selectedTripType === 'to_home' && selectedPhase !== 'route') {
+            const allStudentIds = new Set((dashboardData?.students || []).map(s => String(s._id)));
+            const allResolved = allStudentIds.size > 0 && [...allStudentIds].every(id => statuses.has(id));
+            if (allResolved) {
+                setReturnPhase('route');
+            } else if (selectedPhase === null) {
+                setReturnPhase('checkin');
+            }
+        }
     };
 
     useEffect(() => {
@@ -186,24 +225,158 @@ const DriverDashboard = () => {
     };
 
     // Driver picked a direction. We close the modal, persist the choice, and
-    // (for return trips) re-fetch the dashboard with ?tripType=return so the
-    // server strips today's absent students. After the data is settled we kick
-    // off the existing OSRM/start-trip flow.
+    // (for return trips) enter Phase 1 (checkin) without OSRM yet.
+    // Morning trips use the existing flow with immediate OSRM.
     const handleSelectTripType = async (selected) => {
         setShowTripTypeModal(false);
         setTripType(selected);
-
-        // Route order is OSRM-specific and must be recomputed for the new
-        // trip; everything else (boarded/absent/statuses) is rehydrated
-        // from `todayEvents` inside fetchDashboardData() below.
         setRouteOrder(new Map());
         setShowCompleted(false);
 
-        // Always re-fetch so the server can apply the absent filter for
-        // return trips and so todayEvents is scoped to the chosen direction.
-        await fetchDashboardData(selected);
+        if (selected === 'to_home') {
+            // Return trip: enter Phase 1 (checkin) — fetch all students
+            setReturnPhase('checkin');
+            setTripStarted(true); // Trip is "started" but in checkin mode
+            await fetchDashboardData('to_home', 'checkin');
+        } else {
+            // Morning trip: use existing flow with immediate OSRM
+            setReturnPhase(null);
+            await fetchDashboardData(selected);
+            await handleStartTrip();
+        }
+    };
 
-        await handleStartTrip();
+    // Helper: did this student miss the morning trip?
+    const hasMorningAbsence = (studentId) => {
+        return (dashboardData?.todayEvents || []).some(
+            e => e.event === 'no_board' && e.tripType === 'to_school' && String(e.student) === String(studentId)
+        );
+    };
+
+    // Phase 1 → Phase 2 transition: start the route with boarded students only
+    const handleStartRoute = async () => {
+        if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
+            return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+        }
+
+        setRouteLoading(true);
+
+        try {
+            // ─── Auto-resolve: bulk-mark unresolved morning-absent students as no_board ───
+            const allStudents = dashboardData.students || [];
+            const isResolved = (id) => studentStatuses.has(id);
+            const pendingMorningAbsentees = allStudents.filter(
+                s => !isResolved(s._id) && hasMorningAbsence(s._id)
+            );
+
+            if (pendingMorningAbsentees.length > 0) {
+                const busId = dashboardData.bus._id;
+                const results = await Promise.allSettled(
+                    pendingMorningAbsentees.map(s =>
+                        api.post('/driver/attendance/manual', {
+                            studentId: s._id,
+                            busId,
+                            event: 'no_board',
+                            tripType: 'to_home'
+                        })
+                    )
+                );
+                // Update local state for those that succeeded
+                setStudentStatuses(prev => {
+                    const next = new Map(prev);
+                    pendingMorningAbsentees.forEach((s, i) => {
+                        if (results[i].status === 'fulfilled') {
+                            next.set(s._id, 'no_board');
+                        }
+                    });
+                    return next;
+                });
+                setAbsentStudents(prev => {
+                    const next = new Set(prev);
+                    pendingMorningAbsentees.forEach((s, i) => {
+                        if (results[i].status === 'fulfilled') next.add(s._id);
+                    });
+                    return next;
+                });
+            }
+
+            setReturnPhase('route');
+
+            // Filter to only boarded students for OSRM
+            const boardedIds = [...studentStatuses.entries()]
+                .filter(([_, status]) => status === 'boarded')
+                .map(([id]) => id);
+            const boardedStudents = (dashboardData.students || []).filter(s => boardedIds.includes(String(s._id)));
+
+            if (boardedStudents.length === 0) {
+                setError('لا يوجد طلاب صعدوا الحافلة لبدء الرحلة.');
+                setRouteLoading(false);
+                setReturnPhase('checkin');
+                return;
+            }
+
+            // Only consider boarded students with valid coordinates
+            const validStudents = boardedStudents.filter(s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0);
+
+            if (validStudents.length === 0) {
+                setError('لا يوجد طلاب بمواقع جغرافية محددة. يرجى توجيه أولياء الأمور لتحديد مواقعهم.');
+                setRouteLoading(false);
+                setReturnPhase('checkin');
+                return;
+            }
+
+            // ─── Build OSRM coordinate array for return trip ─────────
+            // to_home: [school, ...studentHomes] (last student = destination)
+            const fmt = ([lng, lat]) => `${lng},${lat}`;
+            const school = dashboardData.school;
+            const schoolLngLat  = school.location.coordinates;        // [lng, lat]
+            const studentLngLat = validStudents.map(s => s.location.coordinates);
+
+            const orderedCoords = [schoolLngLat, ...studentLngLat];
+            const studentIndexOffset = 1; // students start at coord index 1
+            const coordsString = orderedCoords.map(fmt).join(';');
+            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson`;
+
+            const { data: osrmData } = await axios.get(osrmUrl);
+
+            if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
+                const trip = osrmData.trips[0];
+                const pathForMap    = trip.geometry.coordinates.map(c => [c[1], c[0]]);
+                const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+
+                setRoutePath(pathForMap);
+                setOsrmMeta({
+                    duration: Math.ceil(trip.duration / 60),
+                    distance: (trip.distance / 1000).toFixed(1)
+                });
+
+                const orderMap = new Map();
+                if (Array.isArray(osrmData.waypoints)) {
+                    validStudents.forEach((s, i) => {
+                        const wp = osrmData.waypoints[i + studentIndexOffset];
+                        if (wp && typeof wp.waypoint_index === 'number') {
+                            orderMap.set(s._id, wp.waypoint_index);
+                        }
+                    });
+                }
+                setRouteOrder(orderMap);
+
+                try {
+                    await api.post('/driver/trip/start', { routePath: pathForBackend });
+                } catch (saveErr) {
+                    console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
+                }
+            } else {
+                setError('تعذّر حساب المسار من خدمة الخرائط.');
+                setReturnPhase('checkin');
+            }
+        } catch (err) {
+            console.error('OSRM Route Error:', err);
+            setError('حدث خطأ أثناء رسم المسار الذكي.');
+            setReturnPhase('checkin');
+        } finally {
+            setRouteLoading(false);
+        }
     };
 
     const handleStartTrip = async () => {
@@ -216,10 +389,10 @@ const DriverDashboard = () => {
 
         try {
             const { students, school } = dashboardData;
-            
+
             // Only consider students with valid coordinates
             const validStudents = students.filter(s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0);
-            
+
             if (validStudents.length === 0) {
                 setError('لا يوجد طلاب بمواقع جغرافية محددة. يرجى توجيه أولياء الأمور لتحديد مواقعهم.');
                 setRouteLoading(false);
@@ -227,33 +400,19 @@ const DriverDashboard = () => {
             }
 
             // ─── Build OSRM coordinate array per trip direction ─────────
-            // OSRM expects "lng,lat" pairs joined by ';'. We always pass
-            //   source=first & destination=last
-            // so OSRM treats the FIRST and LAST coordinates as fixed
-            // geographical anchors and only optimises the middle stops.
-            //
-            //   to_school : [driverGPS, ...studentHomes, school]
-            //   to_home   : [school,    ...studentHomes]   (last student = destination)
-            //
-            // In both layouts students live at indices 1..N, so the offset
-            // used later when mapping waypoint_index -> student is the same.
             const fmt = ([lng, lat]) => `${lng},${lat}`;
-            const schoolLngLat  = school.location.coordinates;        // [lng, lat]
+            const schoolLngLat  = school.location.coordinates;
             const studentLngLat = validStudents.map(s => s.location.coordinates);
 
             let orderedCoords;
             if (tripType === 'to_home') {
                 orderedCoords = [schoolLngLat, ...studentLngLat];
             } else {
-                // 'to_school' or null (pre-trip default behaves as morning).
-                // The driver's live GPS is the origin; if the browser denies
-                // geolocation we transparently fall back to the school so a
-                // route can still be drawn.
                 const driverLngLat = await getDriverCoordinate(schoolLngLat);
                 orderedCoords = [driverLngLat, ...studentLngLat, schoolLngLat];
             }
 
-            const studentIndexOffset = 1; // students start at coord index 1 in both layouts
+            const studentIndexOffset = 1;
             const coordsString = orderedCoords.map(fmt).join(';');
             const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson`;
 
@@ -261,7 +420,6 @@ const DriverDashboard = () => {
 
             if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
                 const trip = osrmData.trips[0];
-                // GeoJSON [lng, lat] -> Leaflet/SharedBusMap {lat, lng}
                 const pathForMap    = trip.geometry.coordinates.map(c => [c[1], c[0]]);
                 const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
 
@@ -271,14 +429,9 @@ const DriverDashboard = () => {
                     distance: (trip.distance / 1000).toFixed(1)
                 });
 
-                // OSRM /trip preserves input order in `waypoints[i]` and assigns
-                // each one a `waypoint_index` reflecting its visit order in the
-                // optimized trip. We use that to pin the next-stop student.
                 const orderMap = new Map();
                 if (Array.isArray(osrmData.waypoints)) {
                     validStudents.forEach((s, i) => {
-                        // Students live at coord indices 1..N because index 0
-                        // is the driver (morning) or the school (return).
                         const wp = osrmData.waypoints[i + studentIndexOffset];
                         if (wp && typeof wp.waypoint_index === 'number') {
                             orderMap.set(s._id, wp.waypoint_index);
@@ -287,7 +440,6 @@ const DriverDashboard = () => {
                 }
                 setRouteOrder(orderMap);
 
-                // حفظ المسار في الباكند ليتمكن ولي الأمر من جلبه مشتركاً
                 try {
                     await api.post('/driver/trip/start', { routePath: pathForBackend });
                 } catch (saveErr) {
@@ -336,9 +488,10 @@ const DriverDashboard = () => {
         }
     };
 
-    // Mark a student as absent (morning trip only). Persists via the existing
-    // attendance endpoint so the return-trip refetch can filter them out.
-    const handleMarkAbsent = async (student) => {
+    // Mark a student as "did not board" (morning trip only). Persists via the
+    // attendance endpoint as 'no_board' so the return-trip refetch can filter
+    // them out. Replaces the old 'absent' event for to_school trips.
+    const handleMarkNoBoard = async (student) => {
         if (!dashboardData?.bus?._id || !student?._id) return;
         const studentId = student._id;
 
@@ -347,7 +500,7 @@ const DriverDashboard = () => {
             await api.post('/driver/attendance/manual', {
                 studentId,
                 busId: dashboardData.bus._id,
-                event: 'absent',
+                event: 'no_board',
                 tripType: tripType || 'to_school'
             });
             setAbsentStudents(prev => {
@@ -357,14 +510,48 @@ const DriverDashboard = () => {
             });
             setStudentStatuses(prev => {
                 const next = new Map(prev);
-                next.set(studentId, 'absent');
+                next.set(studentId, 'no_board');
                 return next;
             });
             // Notification side-effect (stub).
             notifyAbsent(student);
         } catch (err) {
-            console.error('Mark absent error:', err);
-            setError('تعذر تسجيل غياب الطالب.');
+            console.error('Mark no-board error:', err);
+            setError('تعذر تسجيل عدم صعود الطالب.');
+        } finally {
+            setMarkingAttendance(null);
+        }
+    };
+
+    // Undo a morning "did not board" status — deletes the no_board record
+    // from the DB and removes the student from local resolved state so the
+    // card returns to the pending list.
+    const handleUndoNoBoard = async (student) => {
+        if (!dashboardData?.bus?._id || !student?._id) return;
+        const studentId = student._id;
+
+        setMarkingAttendance(studentId);
+        try {
+            await api.delete('/driver/attendance/manual', {
+                data: {
+                    studentId,
+                    busId: dashboardData.bus._id,
+                    tripType: tripType || 'to_school'
+                }
+            });
+            setAbsentStudents(prev => {
+                const next = new Set(prev);
+                next.delete(studentId);
+                return next;
+            });
+            setStudentStatuses(prev => {
+                const next = new Map(prev);
+                next.delete(studentId);
+                return next;
+            });
+        } catch (err) {
+            console.error('Undo no-board error:', err);
+            setError('تعذر إلغاء حالة عدم الصعود.');
         } finally {
             setMarkingAttendance(null);
         }
@@ -407,8 +594,29 @@ const DriverDashboard = () => {
     // Hook is declared BEFORE the early loading return to keep call order
     // stable across renders (Rules of Hooks).
     const { activeStudent, pendingList, completedList } = useMemo(() => {
-        const list = dashboardData?.students || [];
-        const isResolved = (id) => studentStatuses.has(id) || boardedStudents.has(id) || absentStudents.has(id);
+        const allStudents = dashboardData?.students || [];
+
+        // Phase-aware "resolved" check:
+        //  - Phase 2 (route/drop-off): a `boarded` student is NOT resolved — they
+        //    still need a drop-off action. Only arrived_home / no_receiver / no_board
+        //    count as completed.
+        //  - Phase 1 (checkin) and morning trip: any status counts as resolved.
+        const isResolved = (id) => {
+            const status = studentStatuses.get(id);
+            if (returnPhase === 'route') {
+                return status === 'arrived_home' || status === 'no_receiver' || status === 'no_board';
+            }
+            return studentStatuses.has(id) || boardedStudents.has(id) || absentStudents.has(id);
+        };
+
+        // Phase 2: hide students who never boarded — they don't appear in the
+        // drop-off view at all (neither pending nor completed columns).
+        const list = returnPhase === 'route'
+            ? allStudents.filter(s => {
+                const st = studentStatuses.get(s._id);
+                return st === 'boarded' || st === 'arrived_home' || st === 'no_receiver';
+            })
+            : allStudents;
 
         const pending = list.filter(s => !isResolved(s._id));
         const completed = list.filter(s => isResolved(s._id));
@@ -422,7 +630,7 @@ const DriverDashboard = () => {
 
         const [active, ...rest] = pending;
         return { activeStudent: active || null, pendingList: rest, completedList: completed };
-    }, [dashboardData, studentStatuses, boardedStudents, absentStudents, routeOrder]);
+    }, [dashboardData, studentStatuses, boardedStudents, absentStudents, routeOrder, returnPhase]);
 
     if (loading) {
         return (
@@ -458,16 +666,22 @@ const DriverDashboard = () => {
         const status = studentStatuses.get(id);
         const pill = status ? STATUS_PILL[status] : null;
 
-        // Container styling per mode. Active gets a primary ring + soft tint
-        // so the driver can pick out the next stop at a glance. Completed
-        // cards are dimmed so the eye skips over them.
-        const containerCls = isActive
+        // Check for morning no_board for warning badge in Phase 1
+        const hasMorningNoBoard = (dashboardData?.todayEvents || []).some(
+            e => e.event === 'no_board' && e.tripType === 'to_school' && String(e.student) === id
+        );
+
+        // In Phase 1 (checkin), suppress the "Active" highlight — all cards look the same.
+        const suppressActive = returnPhase === 'checkin';
+
+        // Container styling per mode
+        const containerCls = isActive && !suppressActive
             ? 'border-2 border-primary-400 bg-primary-50/60 shadow-md ring-2 ring-primary-200 ring-offset-1'
             : isCompleted
                 ? 'border border-gray-100 bg-white opacity-60'
                 : 'border border-gray-100 bg-white shadow-sm';
 
-        const indexBadgeCls = isActive
+        const indexBadgeCls = isActive && !suppressActive
             ? 'bg-primary-500 text-white'
             : isCompleted
                 ? 'bg-gray-100 text-gray-400'
@@ -475,7 +689,6 @@ const DriverDashboard = () => {
 
         return (
             <div key={id} className={`rounded-xl p-3 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${containerCls}`}>
-                {/* Identity block — basic structure preserved */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center font-bold ${indexBadgeCls}`}>
                         {isCompleted
@@ -485,7 +698,7 @@ const DriverDashboard = () => {
                     <div className="min-w-0 text-start">
                         <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-800 truncate">{student.name}</p>
-                            {isActive && (
+                            {isActive && !suppressActive && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-700 bg-white border border-primary-200 rounded-full px-2 py-0.5">
                                     <Sparkles size={10} />
                                     {t('driver.activeStudent')}
@@ -495,18 +708,49 @@ const DriverDashboard = () => {
                         <p className="text-xs text-gray-500 truncate">
                             {student.grade && `${t('driver.grade', { grade: student.grade })} - `}{student.studentId}
                         </p>
+                        {hasMorningNoBoard && returnPhase === 'checkin' && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-yellow-800 bg-yellow-100 rounded-md px-2 py-0.5 mt-1">
+                                <AlertTriangle size={11} />
+                                {t('driver.morningAbsentBadge')}
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                {/* Action area */}
                 <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
                     {isCompleted && pill && (
                         <span className={`text-xs px-3 py-1.5 rounded-lg font-bold ${pill.cls}`}>{pill.label}</span>
                     )}
 
-                    {!isCompleted && tripType !== 'to_home' && (
+                    {/* Undo no_board for morning trip */}
+                    {isCompleted && tripType === 'to_school' && status === 'no_board' && tripStarted && (
+                        <button
+                            type="button"
+                            onClick={() => handleUndoNoBoard(student)}
+                            disabled={isMarking}
+                            className="text-xs bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-500 px-2 py-1 rounded-lg font-bold inline-flex items-center gap-1 transition-colors disabled:opacity-50 border border-gray-200"
+                        >
+                            {isMarking ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                            {t('driver.undoNoBoard')}
+                        </button>
+                    )}
+
+                    {/* Undo no_board for Phase 1 return trip */}
+                    {isCompleted && returnPhase === 'checkin' && status === 'no_board' && tripStarted && (
+                        <button
+                            type="button"
+                            onClick={() => handleUndoNoBoard(student)}
+                            disabled={isMarking}
+                            className="text-xs bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-500 px-2 py-1 rounded-lg font-bold inline-flex items-center gap-1 transition-colors disabled:opacity-50 border border-gray-200"
+                        >
+                            {isMarking ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                            {t('driver.undoNoBoard')}
+                        </button>
+                    )}
+
+                    {/* Morning trip actions */}
+                    {tripStarted && !isCompleted && tripType === 'to_school' && (
                         <>
-                            {/* Manual Boarding (morning + pre-trip default) */}
                             <button
                                 type="button"
                                 onClick={() => handleManualBoarding(id)}
@@ -516,23 +760,55 @@ const DriverDashboard = () => {
                                 {isMarking ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
                                 {t('driver.markBoarding')}
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => handleMarkNoBoard(student)}
+                                disabled={isMarking}
+                                className="text-xs bg-gray-50 hover:bg-amber-50 hover:text-amber-700 text-gray-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-gray-200"
+                            >
+                                <UserX size={12} />
+                                {t('driver.markNoBoard')}
+                            </button>
+                        </>
+                    )}
 
-                            {/* Absent — only meaningful once a trip-type is chosen */}
-                            {tripType === 'to_school' && (
+                    {/* Phase 1 return trip actions (checkin) */}
+                    {tripStarted && !isCompleted && returnPhase === 'checkin' && tripType === 'to_home' && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    // If the student missed the morning trip, ask for explicit confirmation via modal.
+                                    if (hasMorningNoBoard) {
+                                        setBoardingConfirmStudent(student);
+                                        setBoardingConfirmOpen(true);
+                                    } else {
+                                        handleManualBoarding(id);
+                                    }
+                                }}
+                                disabled={isMarking}
+                                className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-gray-200"
+                            >
+                                {isMarking ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                                {t('driver.markBoarding')}
+                            </button>
+                            {/* Hide [Did Not Board] for morning absentees — they're auto-resolved on phase transition */}
+                            {!hasMorningNoBoard && (
                                 <button
                                     type="button"
-                                    onClick={() => handleMarkAbsent(student)}
+                                    onClick={() => handleMarkNoBoard(student)}
                                     disabled={isMarking}
-                                    className="text-xs bg-gray-50 hover:bg-red-50 hover:text-red-600 text-gray-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-gray-200"
+                                    className="text-xs bg-gray-50 hover:bg-amber-50 hover:text-amber-700 text-gray-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-gray-200"
                                 >
                                     <UserX size={12} />
-                                    {t('driver.markAbsent')}
+                                    {t('driver.markNoBoard')}
                                 </button>
                             )}
                         </>
                     )}
 
-                    {!isCompleted && tripType === 'to_home' && (
+                    {/* Phase 2 return trip actions (route) */}
+                    {tripStarted && !isCompleted && returnPhase === 'route' && tripType === 'to_home' && (
                         <>
                             <button
                                 type="button"
@@ -541,20 +817,11 @@ const DriverDashboard = () => {
                                 className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-green-100"
                             >
                                 <Home size={12} />
-                                {t('driver.markArrivedHome')}
+                                {t('driver.markDroppedOff')}
                             </button>
                             <button
                                 type="button"
-                                onClick={() => handleReturnStatus(student, 'no_board')}
-                                disabled={isMarking}
-                                className="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-amber-100"
-                            >
-                                <XCircle size={12} />
-                                {t('driver.markNoBoard')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleReturnStatus(student, 'no_receiver')}
+                                onClick={() => { setNoReceiverTarget(student); setNoReceiverAcknowledged(false); }}
                                 disabled={isMarking}
                                 className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-red-100"
                             >
@@ -582,7 +849,7 @@ const DriverDashboard = () => {
             </div>
 
             {students?.length > 0 ? (
-                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col gap-3">
+                <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pb-4">
                     {/* Active student — pinned to the top */}
                     {activeStudent && renderStudentCard(activeStudent, 'active', 1)}
 
@@ -629,18 +896,18 @@ const DriverDashboard = () => {
 
     return (
         <MainLayout>
-            <div className="max-w-3xl mx-auto bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10 overflow-hidden relative">
+            <div className="max-w-3xl mx-auto bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10 overflow-hidden relative pb-28">
 
                 {/* Background accent */}
                 <div className="absolute top-0 right-0 w-full h-32 bg-gradient-to-b from-primary-50/50 to-transparent"></div>
 
                 {/* Header */}
-                <div className="mb-8 border-b border-gray-100 pb-6 relative z-10 flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm">
-                        <Bus size={32} strokeWidth={1.75} className="text-primary-500" />
+                <div className="mb-8 border-b border-gray-100 pb-6 relative z-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
+                        <Bus size={28} strokeWidth={1.75} className="text-primary-500 sm:w-8 sm:h-8" />
                     </div>
-                    <div>
-                                        <h2 className="text-3xl text-gray-800 font-bold">{t('driver.dashboardTitle', { name: user?.name })}</h2>
+                    <div className="text-center sm:text-start">
+                        <h2 className="text-xl md:text-2xl text-gray-800 font-bold">{t('driver.dashboardTitleShort')}</h2>
                         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-bold border border-gray-200">
                             <span className={`w-2 h-2 rounded-full ${bus ? 'bg-green-500' : 'bg-amber-400'}`}></span>
                             {bus ? t('driver.busNumber', { id: bus.busId }) : t('driver.noBus')}
@@ -655,11 +922,30 @@ const DriverDashboard = () => {
                     </div>
                 )}
 
-                {!tripStarted ? (
+                {!tripType ? (
+                    /* ─── Zero State: no trip selected yet ─── */
+                    <div className="relative z-10 flex flex-col items-center justify-center py-16 gap-6">
+                        <div className="w-20 h-20 bg-primary-50 text-primary-500 rounded-full flex items-center justify-center shadow-sm">
+                            <Bus size={40} strokeWidth={1.5} />
+                        </div>
+                        <div className="text-center max-w-sm">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">{t('driver.welcomeTitle', { name: user?.name || '' })}</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">{t('driver.welcomeSubtitle')}</p>
+                        </div>
+                        <button
+                            onClick={handleOpenTripTypeChooser}
+                            disabled={!bus || !students?.length}
+                            className="w-full max-w-xs px-8 py-4 bg-primary-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:translate-y-0"
+                        >
+                            <Play size={22} strokeWidth={2} className="text-white" />
+                            {t('driver.startTrip')}
+                        </button>
+                    </div>
+                ) : !tripStarted ? (
+                    /* ─── Trip type selected but not started yet ─── */
                     <>
-                        {/* Start Trip Section */}
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 mb-8 border-b border-gray-100 relative z-10 w-full">
-                            <button 
+                            <button
                                 onClick={handleOpenTripTypeChooser}
                                 disabled={!bus || !students?.length}
                                 className="w-full px-8 py-4 bg-primary-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:translate-y-0"
@@ -668,77 +954,92 @@ const DriverDashboard = () => {
                                 {t('driver.startTrip')}
                             </button>
                         </div>
-
-                {/* Student list (active pin + pending + collapsible Completed) */}
-                {studentListSection}
-
-                {/* Emergency & School Contact Buttons */}
-                <div className="relative z-10 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Contact School — calm / trustworthy blue */}
-                    <button
-                        type="button"
-                        onClick={() => setShowContacts(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-4 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-all font-bold rounded-xl border border-blue-100 text-base w-full"
-                    >
-                        <Phone size={20} strokeWidth={2} />
-                        <span>{t('driver.contactSchool')}</span>
-                        {(dashboardData?.school?.emergencyContacts?.length || 0) > 0 && (
-                            <span className="ms-1 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-[11px] font-bold bg-white text-blue-600 rounded-full border border-blue-200 group-hover:bg-blue-100">
-                                {dashboardData.school.emergencyContacts.length}
-                            </span>
-                        )}
-                    </button>
-
-                    {/* 911 — high-danger red, visually distinct */}
-                    <a
-                        href="tel:911"
-                        className="flex items-center justify-center gap-2 px-4 py-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-xl border border-red-100 text-base w-full"
-                    >
-                        <PhoneCall size={20} strokeWidth={2} />
-                        <span>{t('driver.callEmergency')}</span>
-                    </a>
-                </div>
-                </>
+                        {studentListSection}
+                    </>
                 ) : (
                     <div className="flex flex-col relative z-10 mt-8">
-                        {/* In-Trip Header */}
-                        <div className="flex items-center justify-between mb-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-full flex items-center justify-center">
-                                    <Navigation2 size={20} className="animate-pulse" />
+                        {/* Phase 1: Check-in Header (return trip only) */}
+                        {returnPhase === 'checkin' && (
+                            <div className="mb-6 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-12 h-12 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center">
+                                        <Users size={24} strokeWidth={1.75} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-800 text-lg">{t('driver.phaseCheckin')}</h3>
+                                        <p className="text-sm text-gray-500">{t('driver.phaseCheckinSubtitle')}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-bold text-gray-800 text-lg">{t('driver.tripActive')}</p>
-                                    <p className="text-sm text-gray-500">
-                                        {osrmMeta ? t('driver.remainingTime', { duration: osrmMeta.duration, distance: osrmMeta.distance }) : t('driver.calculatingRoute')}
-                                    </p>
+                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                                    <div className="text-sm text-gray-600">
+                                        {t('driver.phaseSummary', {
+                                            boarded: [...studentStatuses.values()].filter(s => s === 'boarded').length,
+                                            didNotBoard: [...studentStatuses.values()].filter(s => s === 'no_board').length
+                                        })}
+                                    </div>
+                                    <button
+                                        onClick={handleStartRoute}
+                                        disabled={routeLoading || (
+                                            // Block only when there are unresolved students who are NOT
+                                            // morning-absentees (those auto-resolve on transition).
+                                            (students || []).some(s => !studentStatuses.has(s._id) && !hasMorningAbsence(s._id))
+                                        )}
+                                        className="px-6 py-3 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary-500/20 flex items-center gap-2"
+                                    >
+                                        {routeLoading ? <Loader2 size={16} className="animate-spin" /> : <Navigation2 size={16} />}
+                                        {t('driver.startRoute')}
+                                    </button>
                                 </div>
                             </div>
-                            <button 
-                                onClick={async () => {
-                                    try { await api.post('/driver/trip/end'); } catch (e) { console.warn('فشل إنهاء الرحلة في الباكند:', e); }
-                                    setTripStarted(false);
-                                    setRoutePath([]);
-                                }}
-                                className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors border border-red-100 text-sm"
-                            >
-                                {t('driver.endTrip')}
-                            </button>
-                        </div>
+                        )}
 
-                        {/* Map Container */}
-                        <div className="h-[420px] rounded-2xl overflow-hidden shadow-inner border border-gray-200 relative mb-6">
-                            <SharedBusMap
-                                routePath={routePath.map(([lat, lng]) => ({ lat, lng }))}
-                                school={dashboardData?.school}
-                                students={students || []}
-                                busLocation={null}
-                                routeLoading={routeLoading}
-                            />
-                        </div>
+                        {/* Phase 2: Route Header (return trip) or Morning Trip Header */}
+                        {(returnPhase === 'route' || returnPhase === null) && (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-full flex items-center justify-center shrink-0">
+                                        <Navigation2 size={20} className={returnPhase === 'route' ? 'animate-pulse' : ''} />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-800 text-lg">{t('driver.tripActive')}</p>
+                                        <p className="text-sm text-gray-500 mt-1 whitespace-nowrap">
+                                            {osrmMeta ? t('driver.remainingTime', { duration: osrmMeta.duration, distance: osrmMeta.distance }) : t('driver.calculatingRoute')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        try { await api.post('/driver/trip/end'); } catch (e) { console.warn('فشل إنهاء الرحلة في الباكند:', e); }
+                                        setTripStarted(false);
+                                        setReturnPhase(null);
+                                        setRoutePath([]);
+                                    }}
+                                    disabled={completedList.length < (returnPhase === 'route' ? pendingList.length + completedList.length : students?.length || 0)}
+                                    className="w-full sm:w-auto px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors border border-red-100 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {t('driver.endTrip')}
+                                    {completedList.length < (returnPhase === 'route' ? pendingList.length + completedList.length : students?.length || 0) && (
+                                        <span className="ms-2 text-[10px] text-red-400 font-bold">
+                                            {(returnPhase === 'route' ? pendingList.length : (students?.length || 0) - completedList.length)} {t('driver.unresolved')}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                        )}
 
-                        {/* Student list during the trip — driver keeps marking
-                            statuses while the map is open. */}
+                        {/* Map Container - hidden in Phase 1 checkin */}
+                        {returnPhase !== 'checkin' && (
+                            <div className="h-[420px] rounded-2xl overflow-hidden shadow-inner border border-gray-200 relative mb-6">
+                                <SharedBusMap
+                                    routePath={routePath.map(([lat, lng]) => ({ lat, lng }))}
+                                    school={dashboardData?.school}
+                                    students={students || []}
+                                    busLocation={null}
+                                    routeLoading={routeLoading}
+                                />
+                            </div>
+                        )}
+
                         {studentListSection}
                     </div>
                 )}
@@ -758,6 +1059,90 @@ const DriverDashboard = () => {
                     onSelect={handleSelectTripType}
                 />
             )}
+
+            {/* No Receiver Modal */}
+            {noReceiverTarget && (
+                <NoReceiverModal
+                    student={noReceiverTarget}
+                    parentPhone={noReceiverTarget.parentId?.phone || null}
+                    parentName={noReceiverTarget.parentId?.name || null}
+                    schoolContacts={dashboardData?.school?.emergencyContacts || []}
+                    onConfirm={() => {
+                        handleReturnStatus(noReceiverTarget, 'no_receiver');
+                        setNoReceiverTarget(null);
+                    }}
+                    onClose={() => setNoReceiverTarget(null)}
+                />
+            )}
+
+            {/* Boarding Confirmation Modal for Morning-Absent Students */}
+            {boardingConfirmOpen && boardingConfirmStudent && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setBoardingConfirmOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-4 mb-4">
+                            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                                <AlertTriangle size={24} strokeWidth={1.75} />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-bold text-gray-800 text-lg">{t('driver.confirmBoardingMorningAbsent')}</h3>
+                                <p className="text-sm text-gray-500 mt-1">{boardingConfirmStudent.name} — {boardingConfirmStudent.studentId}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-3 mt-6">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setBoardingConfirmOpen(false);
+                                    setBoardingConfirmStudent(null);
+                                }}
+                                className="px-5 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    handleManualBoarding(boardingConfirmStudent._id);
+                                    setBoardingConfirmOpen(false);
+                                    setBoardingConfirmStudent(null);
+                                }}
+                                className="px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors text-sm shadow-md shadow-primary-500/20"
+                            >
+                                {t('common.confirm')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Fixed Emergency Footer */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-200 px-4 py-3 z-50 flex justify-center gap-4">
+                <div className="max-w-md w-full flex gap-3 mx-auto">
+                    {/* Contact School — calm / trustworthy blue */}
+                    <button
+                        type="button"
+                        onClick={() => setShowContacts(true)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white transition-all font-bold rounded-lg border border-blue-100 text-sm"
+                    >
+                        <Phone size={18} strokeWidth={2} />
+                        <span>{t('driver.contactSchool')}</span>
+                        {(dashboardData?.school?.emergencyContacts?.length || 0) > 0 && (
+                            <span className="ms-1 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-white text-blue-600 rounded-full border border-blue-200 group-hover:bg-blue-100">
+                                {dashboardData.school.emergencyContacts.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* 911 — high-danger red, visually distinct */}
+                    <a
+                        href="tel:911"
+                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-lg border border-red-100 text-sm"
+                    >
+                        <PhoneCall size={18} strokeWidth={2} />
+                        <span>{t('driver.callEmergency')}</span>
+                    </a>
+                </div>
+            </div>
 
         </MainLayout>
     );

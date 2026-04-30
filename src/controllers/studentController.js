@@ -131,6 +131,7 @@ exports.list = async (req, res) => {
     const students = await Student.find(filter)
       .populate('assignedBus', 'busId')
       .populate('parentId', 'name username')
+      .populate('previousParentId', 'name')
       .sort({ createdAt: -1 });
 
     const result = students.map(s => ({
@@ -141,6 +142,8 @@ exports.list = async (req, res) => {
       nationalId: s.nationalId ? maskData(decrypt(s.nationalId)) : null,
       parentLinked: !!s.parentId,
       parentName: s.parentId?.name || null,
+      previousParentId: s.previousParentId?._id || null,
+      previousParentName: s.previousParentId?.name || null,
       assignedBus: s.assignedBus?.busId || null,
       location: s.location || null,
       isActive: s.isActive !== false // treat undefined (old docs) as true
@@ -260,6 +263,86 @@ exports.unlinkParent = async (req, res) => {
     });
   } catch (err) {
     console.error('Unlink Parent Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/students/:id/relink-parent
+// Admin-initiated relink. Restores the previously unlinked parent (stored on
+// previousParentId) back to parentId. Requires the admin's current password
+// as confirmation, mirroring the unlink flow. Clears ghost metadata and
+// cancels any pending deletion schedule.
+exports.relinkParent = async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'PASSWORD_REQUIRED',
+        message: 'كلمة المرور مطلوبة لتأكيد إعادة الربط'
+      });
+    }
+
+    // 1. Verify admin password
+    const admin = await User.findById(req.user._id).select('+password');
+    if (!admin) {
+      return res.status(401).json({ success: false, errorCode: 'UNAUTHORIZED', message: 'Unauthorized' });
+    }
+    const passwordMatch = await bcrypt.compare(password, admin.password);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        errorCode: 'WRONG_PASSWORD',
+        message: 'كلمة المرور غير صحيحة'
+      });
+    }
+
+    // 2. Locate the student (scoped to this admin's school)
+    const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!student) {
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'الطالب غير موجود' });
+    }
+
+    // 3. Must have a previousParentId to relink, and must NOT already be linked
+    if (!student.previousParentId) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'NO_PREVIOUS_PARENT',
+        message: 'لا يوجد ولي أمر سابق لإعادة ربطه'
+      });
+    }
+    if (student.parentId) {
+      return res.status(400).json({
+        success: false,
+        errorCode: 'ALREADY_LINKED',
+        message: 'هذا الطالب مرتبط بولي أمر بالفعل'
+      });
+    }
+
+    // 4. Restore the link
+    student.parentId = student.previousParentId;
+    student.previousParentId = null;
+    student.unlinkedAt = null;
+    student.unlinkedBy = null;
+    await student.save();
+
+    // 5. Cancel any pending deletion for the restored parent
+    await refreshParentDeletionSchedule(student.parentId);
+
+    // Populate parent name for the response
+    const parent = await User.findById(student.parentId).select('name');
+
+    res.json({
+      success: true,
+      message: 'تم إعادة الربط مع ولي الأمر بنجاح',
+      student: {
+        id: student._id,
+        name: student.name,
+        parentName: parent?.name || null
+      }
+    });
+  } catch (err) {
+    console.error('Relink Parent Error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check, Lock, Unlink } from 'lucide-react';
+import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check, Lock, Unlink, Link2 } from 'lucide-react';
 import UnlinkParentModal from '../../components/UnlinkParentModal';
+import RelinkParentModal from '../../components/RelinkParentModal';
 
 // ─── Print Styles (injected once) ─────────────────────────────────────────
 const PRINT_STYLES = `
@@ -49,6 +50,8 @@ const StudentManagement = () => {
 
     // Unlink-parent confirmation modal
     const [unlinkTarget, setUnlinkTarget] = useState(null);
+    // Relink-parent confirmation modal
+    const [relinkTarget, setRelinkTarget] = useState(null);
 
     // CSV state
     const [csvLoading, setCsvLoading] = useState(false);
@@ -338,6 +341,28 @@ const StudentManagement = () => {
                                     </button>
                                 </div>
                             )}
+
+                            {/* Relink Parent — appears when student was unlinked by admin (has previousParentId) */}
+                            {!editStudent.parentLinked && editStudent.previousParentId && (
+                                <div className="pt-2 border-t border-dashed border-gray-200">
+                                    <div className="flex items-center justify-between gap-3 mb-2 px-1">
+                                        <span className="text-xs font-bold text-gray-500 text-start">{t('studentManagement.unlinkedParentLabel')}</span>
+                                        {editStudent.previousParentName && (
+                                            <span className="text-xs font-bold text-gray-700 bg-gray-50 px-2 py-0.5 rounded-lg border border-gray-200 truncate text-end">
+                                                {editStudent.previousParentName}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRelinkTarget(editStudent)}
+                                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-100 rounded-xl font-bold text-sm transition-colors"
+                                    >
+                                        <Link2 size={16} />
+                                        {t('studentManagement.relinkParent')}
+                                    </button>
+                                </div>
+                            )}
                             {editError && (
                                 <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
                                     <p className="text-sm text-red-700 flex items-start gap-2">
@@ -358,6 +383,19 @@ const StudentManagement = () => {
                     onClose={() => setUnlinkTarget(null)}
                     onSuccess={() => {
                         setUnlinkTarget(null);
+                        setEditStudent(null);
+                        fetchStudents();
+                    }}
+                />
+            )}
+
+            {/* Relink Parent Confirmation Modal */}
+            {relinkTarget && (
+                <RelinkParentModal
+                    student={relinkTarget}
+                    onClose={() => setRelinkTarget(null)}
+                    onSuccess={() => {
+                        setRelinkTarget(null);
                         setEditStudent(null);
                         fetchStudents();
                     }}

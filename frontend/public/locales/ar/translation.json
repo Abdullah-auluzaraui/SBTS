@@ -196,6 +196,9 @@
   },
   "driver": {
     "dashboardTitle": "لوحة تحكم السائق — {{name}}",
+    "dashboardTitleShort": "لوحة تحكم السائق",
+    "welcomeTitle": "مرحباً، {{name}}",
+    "welcomeSubtitle": "الرجاء تحديد مسار الرحلة لبدء العمل.",
     "noBus": "لا توجد حافلة مخصصة",
     "busNumber": "رقم الحافلة: {{id}}",
     "startTrip": "بدء الرحلة",
@@ -233,7 +236,27 @@
     "emergencyContactsSubtitle": "اضغط على الرقم للاتصال مباشرة",
     "noEmergency": "لم يتم إضافة أرقام طوارئ بعد",
     "noEmergencyHint": "تواصل مع مدير المدرسة لإضافتها",
-    "grade": "الصف: {{grade}}"
+    "grade": "الصف: {{grade}}",
+    "undoNoBoard": "إلغاء",
+    "unresolved": "لم يُسجَّلوا بعد",
+    "returnConfirmTitle": "طلاب لم يصعدوا في رحلة الذهاب",
+    "returnConfirmSubtitle": "حدد الطلاب الذين وصلوا المدرسة لاحقاً وسيركبون مع الحافلة في العودة",
+    "returnConfirmButton": "تأكيد وبدء رحلة العودة",
+    "phaseCheckin": "تسجيل الصعود عند المدرسة",
+    "phaseCheckinSubtitle": "سجّل حضور كل طالب قبل بدء الرحلة",
+    "startRoute": "بدء الرحلة",
+    "morningAbsentBadge": "⚠️ لم يصعد في الذهاب",
+    "markDroppedOff": "وصل للمنزل",
+    "noReceiverModalTitle": "تأكيد — لا يوجد مُستَلِم",
+    "noReceiverModalSubtitle": "يجب التواصل مع ولي الأمر قبل تأكيد هذه الحالة",
+    "callParent": "اتصل بولي الأمر",
+    "noParentPhone": "لا يوجد رقم جوال",
+    "schoolEmergencyContacts": "أرقام طوارئ المدرسة",
+    "noReceiverAck": "أؤكد أنني حاولت التواصل مع ولي الأمر أو المدرسة",
+    "confirmNoReceiver": "تأكيد عدم الاستلام",
+    "phaseSummary": "{{boarded}} صعد · {{didNotBoard}} لم يصعد",
+    "parent": "ولي الأمر",
+    "confirmBoardingMorningAbsent": "هذا الطالب غاب في رحلة الذهاب، هل أنت متأكد من تواجده وصعوده الآن؟"
   },
   "parent": {
     "welcome": "مرحباً، {{name}}",
@@ -281,8 +304,8 @@
     "relinking": "جاري التحقق...",
     "relinkSuccess": "تمت إعادة ربط الطالب بنجاح",
     "relinkWrongId": "الهوية الوطنية غير مطابقة للسجل",
-    "havingTrouble": "تواجه مشكلة؟",
-    "contactSchool": "التواصل مع المدرسة",
+    "unlinkContactAdmin": "تم فك الربط من قبل الإدارة. تواصل معهم لإعادة الربط.",
+    "contactAdmin": "تواصل مع الإدارة",
     "deletionScheduledTitle": "حسابك مجدول للحذف",
     "deletionScheduledMessage": "سيتم حذف حسابك خلال {{days}} يوم (بتاريخ {{date}}).",
     "deletionScheduledMessage_plural": "سيتم حذف حسابك خلال {{days}} يوماً (بتاريخ {{date}}).",
@@ -430,6 +453,13 @@
     "unlinkingButton": "جاري فك الربط...",
     "unlinkSuccess": "تم فك الربط بنجاح",
     "wrongPassword": "كلمة المرور غير صحيحة",
+    "unlinkedParentLabel": "ولي الأمر السابق (تم فك الربط)",
+    "relinkParent": "إعادة الربط مع ولي الأمر",
+    "relinkConfirmTitle": "تأكيد إعادة الربط",
+    "relinkConfirmSubtitle": "سيتم ربط ولي الأمر السابق بهذا الطالب مجدداً",
+    "relinkInfo": "إعادة الربط ستلغي أي مهلة حذف مجدولة لحساب ولي الأمر",
+    "relinkCtaButton": "تأكيد إعادة الربط",
+    "relinkingButton": "جاري إعادة الربط...",
     "errors": {
       "updateError": "حدث خطأ أثناء التحديث"
     }
@@ -508,7 +538,8 @@
     "tripTypeFilter": "نوع الرحلة",
     "allTrips": "كل الرحلات",
     "tripToSchool": "ذهاب",
-    "tripToHome": "عودة"
+    "tripToHome": "عودة",
+    "driverCol": "السائق"
   },
   "routeManagement": {
     "title": "المسارات الذكية (Routing)",
