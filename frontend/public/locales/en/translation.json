@@ -257,7 +257,11 @@
     "confirmNoReceiver": "Confirm No Receiver",
     "phaseSummary": "{{boarded}} Boarded · {{didNotBoard}} Did Not Board",
     "parent": "Parent",
-    "confirmBoardingMorningAbsent": "This student missed the morning trip. Are you sure they are present and boarding now?"
+    "confirmBoardingMorningAbsent": "This student missed the morning trip. Are you sure they are present and boarding now?",
+    "tripEndedSuccess": "Trip ended successfully",
+    "completedStatus": "Completed",
+    "resumeTripToSchool": "Resume School Trip",
+    "resumeTripToHome": "Resume Home Trip"
   },
   "parent": {
     "welcome": "Welcome, {{name}}",

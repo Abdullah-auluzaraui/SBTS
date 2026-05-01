@@ -3,6 +3,8 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const { encrypt, decrypt, maskData } = require('../utils/crypto');
 const { normalizeArabicName } = require('../utils/textUtils');
+const NotificationService = require('../utils/NotificationService');
+
 
 // Grace period (in days) applied to parent accounts that drop to zero
 // active linked students. Centralized so changing the policy touches one spot.
@@ -41,15 +43,26 @@ module.exports.refreshParentDeletionSchedule = refreshParentDeletionSchedule;
 // ─── Helper: Generate Next Sequential Student ID (e.g. S260000001) ──
 const generateNextStudentId = async (yearStr) => {
   const prefix = `S${yearStr}`;
-  // Find the highest existing ID with this prefix
-  const latestStudent = await Student.findOne({ studentId: { $regex: `^${prefix}` } })
-    .sort({ studentId: -1 })
-    .select('studentId');
+  
+  // Use aggregation to sort by the numerical value of the suffix.
+  // This avoids the string sorting bug where 'S26000100' (length 9) is considered
+  // greater than 'S260000101' (length 10).
+  const latestStudents = await Student.aggregate([
+    { $match: { studentId: { $regex: `^${prefix}` } } },
+    { $addFields: { numericPart: { $toInt: { $substr: ["$studentId", 3, -1] } } } },
+    { $sort: { numericPart: -1 } },
+    { $limit: 1 }
+  ]);
 
   let counter = 1;
-  if (latestStudent && latestStudent.studentId) {
-    const numericPart = latestStudent.studentId.replace(prefix, '');
-    counter = parseInt(numericPart, 10) + 1;
+  if (latestStudents && latestStudents.length > 0) {
+    if (latestStudents[0].numericPart) {
+      counter = latestStudents[0].numericPart + 1;
+    } else if (latestStudents[0].studentId) {
+      // Fallback
+      const numericPart = latestStudents[0].studentId.replace(prefix, '');
+      counter = parseInt(numericPart, 10) + 1;
+    }
   }
   
   // Pad the counter to 7 digits (up to 10 million students per year)
@@ -116,6 +129,12 @@ exports.create = async (req, res) => {
       }
     });
   } catch (err) {
+    if (err.code === 11000) {
+      if (err.keyPattern && err.keyPattern.studentId) {
+        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_ID', message: 'حدث تعارض في رقم الطالب التسلسلي (قد يكون أضيف في نفس الوقت)، يرجى المحاولة مرة أخرى.' });
+      }
+      return res.status(400).json({ success: false, errorCode: 'DUPLICATE_RECORD', message: 'هذه البيانات مسجلة مسبقاً.' });
+    }
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -251,6 +270,16 @@ exports.unlinkParent = async (req, res) => {
 
     // 4. Re-evaluate the former parent's deletion schedule.
     await refreshParentDeletionSchedule(formerParentId);
+
+    // --- Notification Integration ---
+    NotificationService.create(
+      formerParentId,
+      req.schoolId,
+      'admin_notice',
+      'تم فك ارتباط حسابك',
+      `قامت إدارة المدرسة بفك ارتباط حسابك مع الطالب ${student.name}.`,
+      { studentId: student._id }
+    );
 
     res.json({
       success: true,
@@ -497,17 +526,26 @@ exports.bulkUpload = async (req, res) => {
           continue;
       }
 
-      await Student.create({
-        name,
-        nationalId: encrypt(rawNationalId.toString().trim()),
-        dob: parsedDate,
-        normalizedName: normalizeArabicName(name),
-        studentId,
-        school: schoolIdToUse
-      });
-      
-      existingNameSet.add(name); // Add to set to prevent duplicates within the same CSV payload
-      imported++;
+      try {
+        await Student.create({
+          name,
+          nationalId: encrypt(rawNationalId.toString().trim()),
+          dob: parsedDate,
+          normalizedName: normalizeArabicName(name),
+          studentId,
+          school: schoolIdToUse
+        });
+        
+        existingNameSet.add(name); // Add to set to prevent duplicates within the same CSV payload
+        imported++;
+      } catch (insertErr) {
+        skipped++;
+        if (insertErr.code === 11000 && insertErr.keyPattern && insertErr.keyPattern.studentId) {
+          errors.push(`تم تخطي "${name}": تعارض في رقم الطالب التسلسلي، يرجى المحاولة لاحقاً.`);
+        } else {
+          errors.push(`تم تخطي "${name}": ${insertErr.message}`);
+        }
+      }
     }
 
     res.status(201).json({
