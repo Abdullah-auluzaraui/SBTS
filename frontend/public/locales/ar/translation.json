@@ -256,7 +256,11 @@
     "confirmNoReceiver": "تأكيد عدم الاستلام",
     "phaseSummary": "{{boarded}} صعد · {{didNotBoard}} لم يصعد",
     "parent": "ولي الأمر",
-    "confirmBoardingMorningAbsent": "هذا الطالب غاب في رحلة الذهاب، هل أنت متأكد من تواجده وصعوده الآن؟"
+    "confirmBoardingMorningAbsent": "هذا الطالب غاب في رحلة الذهاب، هل أنت متأكد من تواجده وصعوده الآن؟",
+    "tripEndedSuccess": "تم إنهاء الرحلة بنجاح",
+    "completedStatus": "مكتملة",
+    "resumeTripToSchool": "استئناف رحلة المدرسة",
+    "resumeTripToHome": "استئناف رحلة المنزل"
   },
   "parent": {
     "welcome": "مرحباً، {{name}}",

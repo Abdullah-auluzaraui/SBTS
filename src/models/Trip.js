@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
 
-// Trip Model — حفظ الرحلة النشطة لكل حافلة
-// unique: true على الـ bus يضمن رحلة واحدة نشطة لكل حافلة في أي وقت
+// Trip Model — حفظ الرحلات النشطة والمكتملة لكل حافلة
 const tripSchema = new mongoose.Schema({
-  school: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true, index: true },
-  bus:    { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true, unique: true },
-  driver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status: { type: String, enum: ['active', 'completed'], default: 'active' },
+  school:    { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true, index: true },
+  bus:       { type: mongoose.Schema.Types.ObjectId, ref: 'Bus', required: true },
+  driver:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // Direction of the trip — used to prevent duplicate trips per day per direction
+  tripType:  { type: String, enum: ['to_school', 'to_home'], default: null },
+  status:    { type: String, enum: ['active', 'completed'], default: 'active' },
 
   // المسار المحسوب من OSRM: مصفوفة من { lat, lng }
   routePath: [{ lat: Number, lng: Number }],
@@ -18,7 +19,11 @@ const tripSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: null }
   },
 
-  startedAt: { type: Date, default: Date.now }
+  startedAt:   { type: Date, default: Date.now },
+  completedAt: { type: Date, default: null }
 }, { timestamps: true });
+
+// Index for fast daily-status queries per bus
+tripSchema.index({ bus: 1, startedAt: -1 });
 
 module.exports = mongoose.model('Trip', tripSchema);

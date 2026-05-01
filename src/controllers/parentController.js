@@ -3,30 +3,27 @@ const Student = require('../models/Student');
 // POST /api/parents/link-request
 exports.requestLinking = async (req, res) => {
   try {
-    const { studentName, nationalId, dob } = req.body;
+    const { nationalId, dob } = req.body;
 
     // Use the phone already on the parent's account; only require it from the body if not set yet
     const phone = req.user.phone || req.body.phone;
 
     const missingPhone = !phone;
-    if (!studentName || !nationalId || !dob || missingPhone) {
+    if (!nationalId || !dob || missingPhone) {
       return res.status(400).json({
         success: false,
         message: missingPhone
-          ? 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد، رقم الجوال)'
-          : 'جميع الحقول مطلوبة (الاسم، الهوية، تاريخ الميلاد)'
+          ? 'جميع الحقول مطلوبة (الهوية، تاريخ الميلاد، رقم الجوال)'
+          : 'جميع الحقول مطلوبة (الهوية، تاريخ الميلاد)'
       });
     }
 
-    // 1. Search by dob and normalized name
-    const { normalizeArabicName } = require('../utils/textUtils');
     const { decrypt } = require('../utils/crypto');
-    const normalized = normalizeArabicName(studentName);
     
     // Scope search to the parent's own school to prevent cross-tenant student discovery.
     // If the parent has no school linked yet, the empty result is a safe fallback.
     const schoolFilter = req.user.school ? { school: req.user.school } : {};
-    const students = await Student.find({ normalizedName: normalized, ...schoolFilter });
+    const students = await Student.find(schoolFilter);
 
     if (students.length === 0) {
       return res.status(404).json({ success: false, message: 'لم يتم العثور على طالب بهذه البيانات' });
@@ -298,11 +295,30 @@ exports.getStudents = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    const Attendance = require('../models/Attendance');
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const studentIds = students.map(s => s._id);
+    const todayEvents = await Attendance.find({
+      student: { $in: studentIds },
+      timestamp: { $gte: startOfDay }
+    }).sort({ timestamp: -1 }).lean();
+
+    const latestEventByStudent = {};
+    for (const e of todayEvents) {
+      if (!latestEventByStudent[e.student]) {
+        latestEventByStudent[e.student] = e.event;
+      }
+    }
+
     // Tag each record so the frontend can visually separate live vs ghost.
     const tagged = students.map(s => {
       const isLinked = String(s.parentId || '') === String(req.user._id);
       const obj = s.toObject();
       obj.linkStatus = isLinked ? 'LINKED' : 'UNLINKED';
+      obj.latestEvent = latestEventByStudent[s._id] || null;
+      
       if (!isLinked) {
         // Hide driver/bus details from ghosts — the parent should not retain
         // operational access once unlinked.

@@ -3,6 +3,17 @@ const Route = require('../models/Route');
 const Student = require('../models/Student');
 const Trip = require('../models/Trip');
 const Attendance = require('../models/Attendance');
+const NotificationService = require('../utils/NotificationService');
+
+// Shared helper: day window for today in server local time
+const todayWindow = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
 
 // GET /api/driver/me
 // Fetch all required dashboard data for the logged-in driver.
@@ -93,36 +104,124 @@ exports.getDriverDashboardData = async (req, res) => {
   }
 };
 
+// GET /api/driver/trip/today-status
+// Returns the status of both morning and afternoon trips for today.
+// Used by the frontend on mount to lock/resume completed or in-progress trips.
+exports.getTodayStatus = async (req, res) => {
+  try {
+    const driverId = req.user._id;
+    const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId });
+    if (!bus) {
+      return res.json({ success: true, to_school: null, to_home: null });
+    }
+
+    const { start, end } = todayWindow();
+    const trips = await Trip.find({
+      bus: bus._id,
+      school: req.schoolId,
+      startedAt: { $gte: start, $lte: end }
+    }).select('tripType status routePath startedAt').lean();
+
+    // Build a map: tripType -> { status, tripId, routePath }
+    const result = { to_school: null, to_home: null };
+    for (const trip of trips) {
+      const key = trip.tripType || 'to_school'; // legacy trips without tripType are assumed morning
+      // Keep the latest record per direction (trips sorted by startedAt desc)
+      if (!result[key] || new Date(trip.startedAt) > new Date(result[key].startedAt)) {
+        result[key] = { status: trip.status, tripId: trip._id, routePath: trip.routePath, startedAt: trip.startedAt };
+      }
+    }
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Get Today Status Error:', err);
+    res.status(500).json({ success: false, message: 'فشل جلب حالة الرحلات اليومية' });
+  }
+};
+
 // POST /api/driver/trip/start
-// يحسب السائق المسار في المتصفح عبر OSRM ثم يحفظه هنا كرحلة نشطة
+// Validates no duplicate for same direction today, then saves the route.
 exports.startTrip = async (req, res) => {
   try {
     const driverId = req.user._id;
-    const { routePath } = req.body;
+    const { routePath, tripType } = req.body;
 
     if (!routePath || !Array.isArray(routePath) || routePath.length === 0) {
       return res.status(400).json({ success: false, message: 'routePath مطلوب ويجب أن يكون مصفوفة من {lat, lng}' });
     }
+    if (!['to_school', 'to_home'].includes(tripType)) {
+      return res.status(400).json({ success: false, message: 'tripType مطلوب (to_school أو to_home)' });
+    }
 
-    // 1. تحقق أن السائق لديه حافلة نشطة — scoped to driver's school
     const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId }).populate('school', 'name location');
     if (!bus) {
       return res.status(404).json({ success: false, message: 'لا توجد حافلة مخصصة لهذا السائق' });
     }
 
-    // 2. احذف أي رحلة نشطة قديمة لنفس الحافلة (تأمين من التضارب)
-    await Trip.deleteOne({ bus: bus._id });
+    const { start, end } = todayWindow();
 
-    // 3. أنشئ رحلة جديدة وحفظ المسار
+    // Guard 1: Check if this direction is already completed today
+    const completedTrip = await Trip.findOne({
+      bus: bus._id,
+      school: req.schoolId,
+      tripType,
+      status: 'completed',
+      startedAt: { $gte: start, $lte: end }
+    });
+    if (completedTrip) {
+      return res.status(400).json({
+        success: false,
+        code: 'TRIP_ALREADY_COMPLETED',
+        message: 'تم إكمال هذه الرحلة بالفعل اليوم.'
+      });
+    }
+
+    // Guard 2: If already active (in-progress), return the existing trip — do NOT create a duplicate
+    const activeTrip = await Trip.findOne({
+      bus: bus._id,
+      school: req.schoolId,
+      tripType,
+      status: 'active',
+      startedAt: { $gte: start, $lte: end }
+    });
+    if (activeTrip) {
+      return res.status(200).json({
+        success: true,
+        resumed: true,
+        message: 'الرحلة كانت نشطة بالفعل — تم استئنافها.',
+        tripId: activeTrip._id
+      });
+    }
+
+    // Create a fresh trip for this direction
     const trip = await Trip.create({
       school:    req.schoolId,
       bus:       bus._id,
       driver:    driverId,
+      tripType,
       status:    'active',
       routePath: routePath
     });
 
-    res.status(201).json({ success: true, message: 'تم بدء الرحلة وحفظ المسار', tripId: trip._id });
+    res.status(201).json({ success: true, resumed: false, message: 'تم بدء الرحلة وحفظ المسار', tripId: trip._id });
+
+    // Fan-out start notifications only for brand-new trips
+    const students = await Student.find({ assignedBus: bus._id, school: req.schoolId })
+      .select('parentId').lean();
+
+    Promise.allSettled(
+      students
+        .filter(s => s.parentId)
+        .map(s => NotificationService.create(
+          s.parentId,
+          req.schoolId,
+          'status_update',
+          'الرحلة بدأت',
+          `بدأ السائق رحلة الحافلة ${bus.busId}. كن مستعداً.`,
+          { tripId: trip._id, event: 'trip_started', tripType }
+        ))
+    ).catch(err => console.error('trip_started fan-out error:', err));
+
   } catch (err) {
     console.error('Start Trip Error:', err);
     res.status(500).json({ success: false, message: 'فشل بدء الرحلة' });
@@ -142,10 +241,12 @@ exports.endTrip = async (req, res) => {
 
     const trip = await Trip.findOne({ bus: bus._id, status: 'active', school: req.schoolId });
     if (!trip) {
-      return res.status(404).json({ success: false, message: 'لا توجد رحلة نشطة لهذه الحافلة' });
+      // No active trip — already ended or never started; treat as success (idempotent)
+      return res.json({ success: true, message: 'لا توجد رحلة نشطة — تم التعامل كمنتهية' });
     }
 
     trip.status = 'completed';
+    trip.completedAt = new Date();
     await trip.save();
 
     res.json({ success: true, message: 'تم إنهاء الرحلة بنجاح', tripId: trip._id });
@@ -216,6 +317,45 @@ exports.markManualAttendance = async (req, res) => {
     });
 
     res.status(200).json({ success: true, message: 'تم تسجيل الحالة بنجاح', attendance });
+
+    // --- Notification Integration ---
+    if (student.parentId) {
+      if (event === 'no_board' && tripType === 'to_home') {
+        NotificationService.handleNoBoard(student._id, bus._id, student.parentId, req.schoolId);
+      } else {
+        let type = 'status_update';
+        let title = 'تحديث حالة الحافلة';
+        let message = 'تم تحديث حالة الطالب في الحافلة.';
+        
+        if (event === 'boarding') {
+          title = 'صعد الحافلة';
+          message = tripType === 'to_school' ? 'تم تسجيل صعود الطالب إلى الحافلة للذهاب إلى المدرسة.' : 'تم تسجيل صعود الطالب إلى الحافلة للعودة إلى المنزل.';
+        } else if (event === 'exit') {
+          title = 'نزل من الحافلة';
+          message = 'تم تسجيل نزول الطالب من الحافلة بأمان في المدرسة.';
+        } else if (event === 'no_board' && tripType === 'to_school') {
+          title = 'لم يصعد الحافلة';
+          message = 'لم يصعد الطالب إلى حافلة المدرسة هذا الصباح.';
+        } else if (event === 'arrived_home') {
+          title = 'وصل إلى المنزل';
+          message = 'تم تسجيل وصول الطالب إلى المنزل بأمان.';
+        } else if (event === 'no_receiver') {
+          type = 'urgent_alert';
+          title = 'لا يوجد مستلم';
+          message = 'لم يتم العثور على مستلم للطالب عند المنزل.';
+        }
+
+        NotificationService.create(
+          student.parentId,
+          req.schoolId,
+          type,
+          title,
+          message,
+          { studentId: student._id, attendanceId: attendance._id, event, tripType }
+        );
+      }
+    }
+
   } catch (err) {
     console.error('Manual Attendance Error:', err);
     res.status(500).json({ success: false, message: 'فشل تسجيل الحالة' });

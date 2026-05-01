@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
-import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone, UserX, Home, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
+import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone, UserX, Home, School, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
@@ -24,6 +24,11 @@ const DriverDashboard = () => {
     const [routePath, setRoutePath] = useState([]);
     const [osrmMeta, setOsrmMeta] = useState(null);
     const [routeLoading, setRouteLoading] = useState(false);
+
+    // ─── Today's server-side trip status (source of truth for locking) ──
+    // { to_school: {status, tripId, routePath} | null, to_home: ... }
+    const [todayTripStatus, setTodayTripStatus] = useState({ to_school: null, to_home: null });
+    const [todayStatusLoading, setTodayStatusLoading] = useState(true);
     
     // Track boarded status locally for the session
     const [boardedStudents, setBoardedStudents] = useState(new Set());
@@ -65,6 +70,14 @@ const DriverDashboard = () => {
     // ─── Boarding Confirmation Modal state ────────────────────────────────
     const [boardingConfirmOpen, setBoardingConfirmOpen] = useState(false);
     const [boardingConfirmStudent, setBoardingConfirmStudent] = useState(null);
+
+    // ─── Success toast state ──────────────────────────────────────────────
+    const [successMsg, setSuccessMsg] = useState('');
+    useEffect(() => {
+        if (!successMsg) return;
+        const timer = setTimeout(() => setSuccessMsg(''), 3000);
+        return () => clearTimeout(timer);
+    }, [successMsg]);
 
     // ─── Notification stubs (no API calls yet) ───────────────────────────
     // Real notification delivery isn't built yet — these stubs keep the
@@ -212,6 +225,30 @@ const DriverDashboard = () => {
 
     useEffect(() => {
         fetchDashboardData();
+        // Fetch today's server-side trip status to restore lock/resume state
+        api.get('/driver/trip/today-status')
+            .then(({ data }) => {
+                if (data.success) {
+                    setTodayTripStatus({ to_school: data.to_school, to_home: data.to_home });
+                    // Auto-resume: if a trip is active, restore UI state
+                    if (data.to_school?.status === 'active') {
+                        setTripType('to_school');
+                        setTripStarted(true);
+                        if (data.to_school.routePath?.length > 0) {
+                            setRoutePath(data.to_school.routePath.map(p => [p.lat, p.lng]));
+                        }
+                    } else if (data.to_home?.status === 'active') {
+                        setTripType('to_home');
+                        setTripStarted(true);
+                        setReturnPhase('route');
+                        if (data.to_home.routePath?.length > 0) {
+                            setRoutePath(data.to_home.routePath.map(p => [p.lat, p.lng]));
+                        }
+                    }
+                }
+            })
+            .catch(err => console.warn('Could not fetch today trip status:', err))
+            .finally(() => setTodayStatusLoading(false));
     }, []);
 
     // Open the trip-type chooser modal. The actual OSRM/start-trip flow runs
@@ -362,8 +399,16 @@ const DriverDashboard = () => {
                 setRouteOrder(orderMap);
 
                 try {
-                    await api.post('/driver/trip/start', { routePath: pathForBackend });
+                    const result = await api.post('/driver/trip/start', { routePath: pathForBackend, tripType: 'to_home' });
+                    if (result.data?.tripId && !result.data?.resumed) {
+                        setTodayTripStatus(prev => ({ ...prev, to_home: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
+                    }
                 } catch (saveErr) {
+                    if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
+                        setError('رحلة العودة مكتملة بالفعل اليوم.');
+                        setReturnPhase('checkin');
+                        return;
+                    }
                     console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
                 }
             } else {
@@ -441,8 +486,16 @@ const DriverDashboard = () => {
                 setRouteOrder(orderMap);
 
                 try {
-                    await api.post('/driver/trip/start', { routePath: pathForBackend });
+                    const result = await api.post('/driver/trip/start', { routePath: pathForBackend, tripType: tripType || 'to_school' });
+                    if (result.data?.tripId && !result.data?.resumed) {
+                        setTodayTripStatus(prev => ({ ...prev, [tripType || 'to_school']: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
+                    }
                 } catch (saveErr) {
+                    if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
+                        setError('هذه الرحلة مكتملة بالفعل اليوم.');
+                        setTripStarted(false);
+                        return;
+                    }
                     console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
                 }
             } else {
@@ -896,24 +949,26 @@ const DriverDashboard = () => {
 
     return (
         <MainLayout>
-            <div className="max-w-3xl mx-auto bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10 overflow-hidden relative pb-28">
+            <div className={`max-w-3xl mx-auto bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 lg:p-10 overflow-hidden relative ${!tripType ? 'h-fit' : 'pb-28'}`}>
 
                 {/* Background accent */}
                 <div className="absolute top-0 right-0 w-full h-32 bg-gradient-to-b from-primary-50/50 to-transparent"></div>
 
-                {/* Header */}
-                <div className="mb-8 border-b border-gray-100 pb-6 relative z-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
-                        <Bus size={28} strokeWidth={1.75} className="text-primary-500 sm:w-8 sm:h-8" />
-                    </div>
-                    <div className="text-center sm:text-start">
-                        <h2 className="text-xl md:text-2xl text-gray-800 font-bold">{t('driver.dashboardTitleShort')}</h2>
-                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-bold border border-gray-200">
-                            <span className={`w-2 h-2 rounded-full ${bus ? 'bg-green-500' : 'bg-amber-400'}`}></span>
-                            {bus ? t('driver.busNumber', { id: bus.busId }) : t('driver.noBus')}
+                {/* Header — hidden in Zero State to reduce clutter */}
+                {tripType && (
+                    <div className="mb-8 border-b border-gray-100 pb-6 relative z-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
+                            <Bus size={28} strokeWidth={1.75} className="text-primary-500 sm:w-8 sm:h-8" />
+                        </div>
+                        <div className="text-center sm:text-start">
+                            <h2 className="text-xl md:text-2xl text-gray-800 font-bold">{t('driver.dashboardTitleShort')}</h2>
+                            <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-bold border border-gray-200">
+                                <span className={`w-2 h-2 rounded-full ${bus ? 'bg-green-500' : 'bg-amber-400'}`}></span>
+                                {bus ? t('driver.busNumber', { id: bus.busId }) : t('driver.noBus')}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl font-bold flex items-center gap-2">
@@ -922,40 +977,105 @@ const DriverDashboard = () => {
                     </div>
                 )}
 
-                {!tripType ? (
-                    /* ─── Zero State: no trip selected yet ─── */
-                    <div className="relative z-10 flex flex-col items-center justify-center py-16 gap-6">
-                        <div className="w-20 h-20 bg-primary-50 text-primary-500 rounded-full flex items-center justify-center shadow-sm">
-                            <Bus size={40} strokeWidth={1.5} />
-                        </div>
-                        <div className="text-center max-w-sm">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">{t('driver.welcomeTitle', { name: user?.name || '' })}</h3>
-                            <p className="text-gray-500 text-sm leading-relaxed">{t('driver.welcomeSubtitle')}</p>
-                        </div>
-                        <button
-                            onClick={handleOpenTripTypeChooser}
-                            disabled={!bus || !students?.length}
-                            className="w-full max-w-xs px-8 py-4 bg-primary-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:translate-y-0"
-                        >
-                            <Play size={22} strokeWidth={2} className="text-white" />
-                            {t('driver.startTrip')}
-                        </button>
+                {successMsg && (
+                    <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-xl font-bold flex items-center gap-2 border border-green-100">
+                        <CheckCircle size={20} />
+                        {successMsg}
                     </div>
-                ) : !tripStarted ? (
-                    /* ─── Trip type selected but not started yet ─── */
-                    <>
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pb-8 mb-8 border-b border-gray-100 relative z-10 w-full">
-                            <button
-                                onClick={handleOpenTripTypeChooser}
-                                disabled={!bus || !students?.length}
-                                className="w-full px-8 py-4 bg-primary-500 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary-500/30 hover:bg-primary-600 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:translate-y-0"
-                            >
-                                <Play size={22} strokeWidth={2} className="text-white" />
-                                {t('driver.startTrip')}
-                            </button>
+                )}
+
+                {!tripType ? (
+                    /* ─── Zero State: direct trip type selection ─── */
+                    <div className="max-w-sm w-full mx-auto py-10 relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex flex-col items-center gap-3 mb-6">
+                            <div className="text-center">
+                                <h3 className="text-xl font-bold text-gray-800 mb-1">{t('driver.welcomeTitle', { name: user?.name || '' })}</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">{t('driver.welcomeSubtitle')}</p>
+                            </div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold border border-gray-200">
+                                <span className={`w-2 h-2 rounded-full ${bus ? 'bg-green-500' : 'bg-amber-400'}`}></span>
+                                {bus ? t('driver.busNumber', { id: bus.busId }) : t('driver.noBus')}
+                            </div>
                         </div>
-                        {studentListSection}
-                    </>
+                        <div className="space-y-3">
+                            {/* Trip to School */}
+                            {(() => {
+                                const s = todayTripStatus.to_school;
+                                const isCompleted = s?.status === 'completed';
+                                const isActive    = s?.status === 'active';
+                                return (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (isCompleted) return;
+                                            if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
+                                                return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+                                            }
+                                            setError('');
+                                            if (isActive) {
+                                                // Resume: restore state without re-calling API
+                                                setTripType('to_school');
+                                                setTripStarted(true);
+                                                if (s.routePath?.length > 0) setRoutePath(s.routePath.map(p => [p.lat, p.lng]));
+                                            } else {
+                                                handleSelectTripType('to_school');
+                                            }
+                                        }}
+                                        disabled={!bus || !students?.length || isCompleted || todayStatusLoading}
+                                        className={`w-full flex items-center justify-center gap-4 p-4 border-2 rounded-xl font-bold text-lg transition-all
+                                            ${isCompleted
+                                                ? 'bg-gray-100 border-gray-200 text-gray-400 opacity-60 cursor-not-allowed'
+                                                : isActive
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-800 hover:bg-indigo-100 hover:border-indigo-400 hover:shadow-md cursor-pointer'
+                                                    : 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                                            }`}
+                                    >
+                                        {isCompleted ? null : isActive ? <Play size={22} className="animate-pulse" /> : <School size={22} />}
+                                        {isCompleted ? `✅ ${t('driver.tripToSchool')} (${t('driver.completedStatus')})` : isActive ? `🔄 ${t('driver.resumeTripToSchool')}` : t('driver.tripToSchool')}
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Trip Back Home */}
+                            {(() => {
+                                const s = todayTripStatus.to_home;
+                                const isCompleted = s?.status === 'completed';
+                                const isActive    = s?.status === 'active';
+                                const morningDone = todayTripStatus.to_school?.status === 'completed';
+                                return (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (isCompleted) return;
+                                            if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
+                                                return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+                                            }
+                                            setError('');
+                                            if (isActive) {
+                                                setTripType('to_home');
+                                                setTripStarted(true);
+                                                setReturnPhase('route');
+                                                if (s.routePath?.length > 0) setRoutePath(s.routePath.map(p => [p.lat, p.lng]));
+                                            } else {
+                                                handleSelectTripType('to_home');
+                                            }
+                                        }}
+                                        disabled={!bus || !students?.length || isCompleted || todayStatusLoading}
+                                        className={`w-full flex items-center justify-center gap-4 p-4 border-2 rounded-xl font-bold text-lg transition-all
+                                            ${isCompleted
+                                                ? 'bg-gray-100 border-gray-200 text-gray-400 opacity-60 cursor-not-allowed'
+                                                : isActive
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-800 hover:bg-indigo-100 hover:border-indigo-400 hover:shadow-md cursor-pointer'
+                                                    : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 hover:border-amber-400 hover:shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                                            }`}
+                                    >
+                                        {isCompleted ? null : isActive ? <Play size={22} className="animate-pulse" /> : <Home size={22} />}
+                                        {isCompleted ? `✅ ${t('driver.tripToHome')} (${t('driver.completedStatus')})` : isActive ? `🔄 ${t('driver.resumeTripToHome')}` : t('driver.tripToHome')}
+                                    </button>
+                                );
+                            })()}
+                        </div>
+                    </div>
                 ) : (
                     <div className="flex flex-col relative z-10 mt-8">
                         {/* Phase 1: Check-in Header (return trip only) */}
@@ -1009,10 +1129,26 @@ const DriverDashboard = () => {
                                 </div>
                                 <button
                                     onClick={async () => {
+                                        const currentTripType = tripType; // capture before reset
                                         try { await api.post('/driver/trip/end'); } catch (e) { console.warn('فشل إنهاء الرحلة في الباكند:', e); }
+                                        // Update today status cache immediately so Zero State shows completed
+                                        if (currentTripType) {
+                                            setTodayTripStatus(prev => ({
+                                                ...prev,
+                                                [currentTripType]: { ...prev[currentTripType], status: 'completed' }
+                                            }));
+                                        }
+                                        setTripType(null);
                                         setTripStarted(false);
                                         setReturnPhase(null);
                                         setRoutePath([]);
+                                        setStudentStatuses(new Map());
+                                        setRouteOrder(new Map());
+                                        setOsrmMeta(null);
+                                        setBoardedStudents(new Set());
+                                        setAbsentStudents(new Set());
+                                        setShowCompleted(false);
+                                        setSuccessMsg(t('driver.tripEndedSuccess'));
                                     }}
                                     disabled={completedList.length < (returnPhase === 'route' ? pendingList.length + completedList.length : students?.length || 0)}
                                     className="w-full sm:w-auto px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-bold transition-colors border border-red-100 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
