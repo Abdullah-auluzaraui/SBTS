@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Navigation2, AlertTriangle, Loader2, MapPin } from 'lucide-react';
 import api from '../../services/apiService';
 import SharedBusMap from './SharedBusMap';
 import { useTranslation } from 'react-i18next';
+import io from 'socket.io-client';
+
+const getSocketUrl = () => {
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
+};
 
 /**
  * BusTrackingModal — نافذة تتبع الحافلة لولي الأمر
@@ -21,6 +27,8 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
     const [liveData, setLiveData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState('');
+    const [liveBusLocation, setLiveBusLocation] = useState(null);
+    const socketRef = useRef(null);
 
     const fetchLiveData = useCallback(async () => {
         try {
@@ -37,11 +45,27 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
 
     useEffect(() => {
         fetchLiveData();
-
-        // Polling كل 30 ثانية — سيُستبدل بـ Socket.io لاحقاً
-        const interval = setInterval(fetchLiveData, 30000);
-        return () => clearInterval(interval);
     }, [fetchLiveData]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token || !busId) return;
+
+        const socket = io(getSocketUrl(), { auth: { token } });
+        socketRef.current = socket;
+
+        socket.on('bus:location', (payload) => {
+            if (String(payload.busId) === String(busId)) {
+                setLiveBusLocation({ lat: payload.lat, lng: payload.lng });
+            }
+        });
+
+        return () => {
+            socket.off('bus:location');
+            socket.disconnect();
+            socketRef.current = null;
+        };
+    }, [busId]);
 
     // منع تمرير الصفحة خلف الـ Modal
     useEffect(() => {
@@ -133,8 +157,9 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                                     routePath={liveData.routePath}
                                     school={liveData.school}
                                     students={liveData.myStudents}
-                                    busLocation={liveData.lastLocation}
+                                    busLocation={liveBusLocation ?? liveData.lastLocation}
                                     routeLoading={false}
+                                    showRouteLine={false}
                                 />
                             )}
                         </div>

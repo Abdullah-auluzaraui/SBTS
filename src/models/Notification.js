@@ -8,8 +8,13 @@ const notificationSchema = new mongoose.Schema({
     enum: ['status_update', 'urgent_alert', 'admin_notice'], 
     required: true 
   },
-  title: { type: String, required: true },
-  message: { type: String, required: true },
+  notificationType: {
+    type: String,
+    default: null,
+    index: true
+  },
+  title: { type: String },
+  message: { type: String },
   isRead: { type: Boolean, default: false, index: true },
   payload: {
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },

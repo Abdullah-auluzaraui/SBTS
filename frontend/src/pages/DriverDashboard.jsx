@@ -6,6 +6,7 @@ import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCi
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
+import TripSimulator from '../components/TripSimulator';
 import DriverContactsModal from '../components/DriverContactsModal';
 import TripTypeModal from '../components/TripTypeModal';
 import NoReceiverModal from '../components/NoReceiverModal';
@@ -71,6 +72,11 @@ const DriverDashboard = () => {
     const [boardingConfirmOpen, setBoardingConfirmOpen] = useState(false);
     const [boardingConfirmStudent, setBoardingConfirmStudent] = useState(null);
 
+    // ─── Simulator state ───────────────────────────────────────────────────
+    const [busLocation, setBusLocation]     = useState(null);  // { lat, lng } live bus pos
+    const [approachingId, setApproachingId] = useState(null);  // student._id within 400 m ring
+    const [currentStudent, setCurrentStudent] = useState(null); // student within 50 m (NFC zone)
+
     // ─── Success toast state ──────────────────────────────────────────────
     const [successMsg, setSuccessMsg] = useState('');
     useEffect(() => {
@@ -95,6 +101,8 @@ const DriverDashboard = () => {
     // request times out, we transparently fall back to `fallbackLngLat` so
     // the routing call always succeeds.
     const getDriverCoordinate = (fallbackLngLat) => new Promise(resolve => {
+        // Skip real GPS when simulation is already active — bus position is controlled by simulator
+        if (busLocation !== null) return resolve(fallbackLngLat);
         if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
             return resolve(fallbackLngLat);
         }
@@ -269,6 +277,7 @@ const DriverDashboard = () => {
         setTripType(selected);
         setRouteOrder(new Map());
         setShowCompleted(false);
+        setCurrentStudent(null);
 
         if (selected === 'to_home') {
             // Return trip: enter Phase 1 (checkin) — fetch all students
@@ -372,7 +381,7 @@ const DriverDashboard = () => {
             const orderedCoords = [schoolLngLat, ...studentLngLat];
             const studentIndexOffset = 1; // students start at coord index 1
             const coordsString = orderedCoords.map(fmt).join(';');
-            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson`;
+            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
 
             const { data: osrmData } = await axios.get(osrmUrl);
 
@@ -382,6 +391,8 @@ const DriverDashboard = () => {
                 const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
 
                 setRoutePath(pathForMap);
+                // Fix 4: anchor bus marker at route origin immediately — no GPS override
+                setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
                     distance: (trip.distance / 1000).toFixed(1)
@@ -392,7 +403,7 @@ const DriverDashboard = () => {
                     validStudents.forEach((s, i) => {
                         const wp = osrmData.waypoints[i + studentIndexOffset];
                         if (wp && typeof wp.waypoint_index === 'number') {
-                            orderMap.set(s._id, wp.waypoint_index);
+                            orderMap.set(String(s._id), wp.waypoint_index);
                         }
                     });
                 }
@@ -459,7 +470,7 @@ const DriverDashboard = () => {
 
             const studentIndexOffset = 1;
             const coordsString = orderedCoords.map(fmt).join(';');
-            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson`;
+            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
 
             const { data: osrmData } = await axios.get(osrmUrl);
 
@@ -469,6 +480,8 @@ const DriverDashboard = () => {
                 const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
 
                 setRoutePath(pathForMap);
+                // Fix 4: anchor bus marker at route origin immediately — no GPS override
+                setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
                     distance: (trip.distance / 1000).toFixed(1)
@@ -479,7 +492,7 @@ const DriverDashboard = () => {
                     validStudents.forEach((s, i) => {
                         const wp = osrmData.waypoints[i + studentIndexOffset];
                         if (wp && typeof wp.waypoint_index === 'number') {
-                            orderMap.set(s._id, wp.waypoint_index);
+                            orderMap.set(String(s._id), wp.waypoint_index);
                         }
                     });
                 }
@@ -509,33 +522,29 @@ const DriverDashboard = () => {
         }
     };
 
-    const handleManualBoarding = async (studentId) => {
+    const handleManualBoarding = async (studentId, recordedBy = 'manual') => {
         if (!dashboardData?.bus?._id) return;
-        
+
+        // Optimistic update BEFORE the API call so activeStudent shifts to the next
+        // student immediately (critical for the simulator's stale-ref guard).
+        setBoardedStudents(prev => { const s = new Set(prev); s.add(studentId); return s; });
+        setStudentStatuses(prev => { const m = new Map(prev); m.set(studentId, 'boarded'); return m; });
+
         setMarkingAttendance(studentId);
         try {
             await api.post('/driver/attendance/manual', {
                 studentId,
                 busId: dashboardData.bus._id,
                 event: 'boarding',
-                tripType: tripType || 'to_school'
-            });
-            // Mark as boarded locally
-            setBoardedStudents(prev => {
-                const newSet = new Set(prev);
-                newSet.add(studentId);
-                return newSet;
-            });
-            // Also write into studentStatuses so the unified "resolved" check
-            // (used for active-student pinning + Completed grouping) sees it.
-            setStudentStatuses(prev => {
-                const next = new Map(prev);
-                next.set(studentId, 'boarded');
-                return next;
+                tripType: tripType || 'to_school',
+                recordedBy
             });
         } catch (err) {
             console.error('Manual boarding error:', err);
             setError('تعذر تسجيل حضور الطالب يدوياً.');
+            // Revert optimistic update on failure
+            setBoardedStudents(prev => { const s = new Set(prev); s.delete(studentId); return s; });
+            setStudentStatuses(prev => { const m = new Map(prev); m.delete(studentId); return m; });
         } finally {
             setMarkingAttendance(null);
         }
@@ -616,20 +625,19 @@ const DriverDashboard = () => {
     // notification stub.
     const handleReturnStatus = async (student, event) => {
         if (!dashboardData?.bus?._id || !student?._id) return;
-        const studentId = student._id;
+        const sid = String(student._id); // String Force
 
-        setMarkingAttendance(studentId);
+        // Optimistic update — activeStudent must shift BEFORE the API resolves
+        // so the simulator's next tick sees the correct next student.
+        setStudentStatuses(prev => { const m = new Map(prev); m.set(sid, event); return m; });
+
+        setMarkingAttendance(sid);
         try {
             await api.post('/driver/attendance/manual', {
-                studentId,
+                studentId: sid,
                 busId: dashboardData.bus._id,
                 event,
                 tripType: tripType || 'to_home'
-            });
-            setStudentStatuses(prev => {
-                const next = new Map(prev);
-                next.set(studentId, event);
-                return next;
             });
             if (event === 'no_receiver') notifyNoReceiver(student);
         } catch (err) {
@@ -646,7 +654,7 @@ const DriverDashboard = () => {
     // (falls back to the first one in list order before OSRM has run).
     // Hook is declared BEFORE the early loading return to keep call order
     // stable across renders (Rules of Hooks).
-    const { activeStudent, pendingList, completedList } = useMemo(() => {
+    const { pendingList, completedList } = useMemo(() => {
         const allStudents = dashboardData?.students || [];
 
         // Phase-aware "resolved" check:
@@ -654,19 +662,20 @@ const DriverDashboard = () => {
         //    still need a drop-off action. Only arrived_home / no_receiver / no_board
         //    count as completed.
         //  - Phase 1 (checkin) and morning trip: any status counts as resolved.
-        const isResolved = (id) => {
-            const status = studentStatuses.get(id);
+        const isResolved = (rawId) => {
+            const sid = String(rawId);
+            const status = studentStatuses.get(sid);
             if (returnPhase === 'route') {
                 return status === 'arrived_home' || status === 'no_receiver' || status === 'no_board';
             }
-            return studentStatuses.has(id) || boardedStudents.has(id) || absentStudents.has(id);
+            return studentStatuses.has(sid) || boardedStudents.has(sid) || absentStudents.has(sid);
         };
 
         // Phase 2: hide students who never boarded — they don't appear in the
         // drop-off view at all (neither pending nor completed columns).
         const list = returnPhase === 'route'
             ? allStudents.filter(s => {
-                const st = studentStatuses.get(s._id);
+                const st = studentStatuses.get(String(s._id));
                 return st === 'boarded' || st === 'arrived_home' || st === 'no_receiver';
             })
             : allStudents;
@@ -674,15 +683,17 @@ const DriverDashboard = () => {
         const pending = list.filter(s => !isResolved(s._id));
         const completed = list.filter(s => isResolved(s._id));
 
-        // Sort pending by routeOrder when available, else stable list order.
+        // Sort pending by OSRM waypoint_index — String keys guarantee reference-independent lookup.
         pending.sort((a, b) => {
-            const ai = routeOrder.has(a._id) ? routeOrder.get(a._id) : Number.POSITIVE_INFINITY;
-            const bi = routeOrder.has(b._id) ? routeOrder.get(b._id) : Number.POSITIVE_INFINITY;
+            const ai = routeOrder.get(String(a._id)) ?? Number.POSITIVE_INFINITY;
+            const bi = routeOrder.get(String(b._id)) ?? Number.POSITIVE_INFINITY;
             return ai - bi;
         });
 
-        const [active, ...rest] = pending;
-        return { activeStudent: active || null, pendingList: rest, completedList: completed };
+        // pendingList contains ALL pending students sorted by routeOrder.
+        // "Current student" is driven purely by 50 m proximity (currentStudent state),
+        // not by route order, so activeStudent is not derived here.
+        return { pendingList: pending, completedList: completed };
     }, [dashboardData, studentStatuses, boardedStudents, absentStudents, routeOrder, returnPhase]);
 
     if (loading) {
@@ -727,18 +738,25 @@ const DriverDashboard = () => {
         // In Phase 1 (checkin), suppress the "Active" highlight — all cards look the same.
         const suppressActive = returnPhase === 'checkin';
 
-        // Container styling per mode
-        const containerCls = isActive && !suppressActive
-            ? 'border-2 border-primary-400 bg-primary-50/60 shadow-md ring-2 ring-primary-200 ring-offset-1'
-            : isCompleted
-                ? 'border border-gray-100 bg-white opacity-60'
-                : 'border border-gray-100 bg-white shadow-sm';
+        // Simulator approach state
+        const isApproaching = !isCompleted && String(id) === String(approachingId);
 
-        const indexBadgeCls = isActive && !suppressActive
-            ? 'bg-primary-500 text-white'
-            : isCompleted
-                ? 'bg-gray-100 text-gray-400'
-                : 'bg-blue-50 text-blue-600';
+        // Container styling per mode
+        const containerCls = isApproaching
+            ? 'border-2 border-amber-400 bg-amber-50/60 shadow-md ring-2 ring-amber-200 ring-offset-1 animate-pulse'
+            : isActive && !suppressActive
+                ? 'border-2 border-primary-400 bg-primary-50/60 shadow-md ring-2 ring-primary-200 ring-offset-1'
+                : isCompleted
+                    ? 'border border-gray-100 bg-white opacity-60'
+                    : 'border border-gray-100 bg-white shadow-sm';
+
+        const indexBadgeCls = isApproaching
+            ? 'bg-amber-500 text-white'
+            : isActive && !suppressActive
+                ? 'bg-primary-500 text-white'
+                : isCompleted
+                    ? 'bg-gray-100 text-gray-400'
+                    : 'bg-blue-50 text-blue-600';
 
         return (
             <div key={id} className={`rounded-xl p-3 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${containerCls}`}>
@@ -751,7 +769,13 @@ const DriverDashboard = () => {
                     <div className="min-w-0 text-start">
                         <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-800 truncate">{student.name}</p>
-                            {isActive && !suppressActive && (
+                            {isApproaching && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+                                    <Navigation2 size={10} />
+                                    الحافلة تقترب
+                                </span>
+                            )}
+                            {isActive && !suppressActive && !isApproaching && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-700 bg-white border border-primary-200 rounded-full px-2 py-0.5">
                                     <Sparkles size={10} />
                                     {t('driver.activeStudent')}
@@ -897,20 +921,31 @@ const DriverDashboard = () => {
                     {t('driver.studentList')}
                 </h3>
                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg font-bold">
-                    {t('driver.studentCount', { boarded: boardedStudents.size, total: students?.length || 0 })}
+                    {(() => {
+                        if (tripType === 'to_home') {
+                            const dropped = [...studentStatuses.values()].filter(
+                                v => v === 'arrived_home' || v === 'no_receiver'
+                            ).length;
+                            const total = pendingList.length + dropped;
+                            return t('driver.dropOffCount', { dropped, total });
+                        }
+                        return t('driver.studentCount', { boarded: boardedStudents.size, total: students?.length || 0 });
+                    })()}
                 </span>
             </div>
 
             {students?.length > 0 ? (
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pb-4">
-                    {/* Active student — pinned to the top */}
-                    {activeStudent && renderStudentCard(activeStudent, 'active', 1)}
+                    {/* Current student — only rendered when bus is within 50 m (NFC zone) */}
+                    {currentStudent && renderStudentCard(currentStudent, 'active', 1)}
 
-                    {/* Remaining pending */}
-                    {pendingList.map((s, i) => renderStudentCard(s, 'pending', i + 2))}
+                    {/* All pending students in route order (current student filtered out to avoid duplicate) */}
+                    {pendingList
+                        .filter(s => !currentStudent || String(s._id) !== String(currentStudent._id))
+                        .map((s, i) => renderStudentCard(s, 'pending', i + 2))}
 
                     {/* Empty pending state when everything is resolved */}
-                    {!activeStudent && pendingList.length === 0 && completedList.length > 0 && (
+                    {!currentStudent && pendingList.length === 0 && completedList.length > 0 && (
                         <div className="text-center text-gray-400 text-sm py-2 font-bold">
                             {t('driver.completed')} ✓
                         </div>
@@ -1130,7 +1165,34 @@ const DriverDashboard = () => {
                                 <button
                                     onClick={async () => {
                                         const currentTripType = tripType; // capture before reset
-                                        try { await api.post('/driver/trip/end'); } catch (e) { console.warn('فشل إنهاء الرحلة في الباكند:', e); }
+                                        try {
+                                            const { data: endTripResult } = await api.post('/driver/trip/end', { tripType: currentTripType });
+                                            if (endTripResult?.success === false) throw new Error(endTripResult?.message || 'End trip failed');
+                                            if (currentTripType === 'to_school') {
+                                                const atSchoolIds = new Set(
+                                                    (dashboardData?.students || [])
+                                                        .map(s => String(s._id))
+                                                        .filter(sid => boardedStudents.has(sid))
+                                                );
+                                                setStudentStatuses(prev => {
+                                                    const m = new Map(prev);
+                                                    atSchoolIds.forEach(sid => m.set(sid, 'exit'));
+                                                    return m;
+                                                });
+                                                setDashboardData(prev => prev ? ({
+                                                    ...prev,
+                                                    students: (prev.students || []).map(s =>
+                                                        atSchoolIds.has(String(s._id))
+                                                            ? { ...s, latestEvent: 'exit', status: 'at_school' }
+                                                            : s
+                                                    )
+                                                }) : prev);
+                                            }
+                                        } catch (e) {
+                                            console.warn('فشل إنهاء الرحلة في الباكند:', e);
+                                            setError(e?.response?.data?.message || e?.message || 'فشل إنهاء الرحلة');
+                                            return;
+                                        }
                                         // Update today status cache immediately so Zero State shows completed
                                         if (currentTripType) {
                                             setTodayTripStatus(prev => ({
@@ -1148,6 +1210,9 @@ const DriverDashboard = () => {
                                         setBoardedStudents(new Set());
                                         setAbsentStudents(new Set());
                                         setShowCompleted(false);
+                                        setBusLocation(null);
+                                        setApproachingId(null);
+                                        setCurrentStudent(null);
                                         setSuccessMsg(t('driver.tripEndedSuccess'));
                                     }}
                                     disabled={completedList.length < (returnPhase === 'route' ? pendingList.length + completedList.length : students?.length || 0)}
@@ -1169,11 +1234,26 @@ const DriverDashboard = () => {
                                 <SharedBusMap
                                     routePath={routePath.map(([lat, lng]) => ({ lat, lng }))}
                                     school={dashboardData?.school}
-                                    students={students || []}
-                                    busLocation={null}
+                                    students={pendingList}
+                                    busLocation={busLocation}
                                     routeLoading={routeLoading}
                                 />
                             </div>
+                        )}
+
+                        {tripStarted && routePath.length > 0 && returnPhase !== 'checkin' && (
+                            <TripSimulator
+                                routePath={routePath}
+                                students={pendingList}
+                                activeStudent={currentStudent}
+                                busId={dashboardData?.bus?._id}
+                                tripType={tripType}
+                                onBusMove={setBusLocation}
+                                onApproach={setApproachingId}
+                                onCurrentStudent={setCurrentStudent}
+                                onNfcBoard={(studentId) => handleManualBoarding(studentId, 'NFC')}
+                                onDropOff={(student, event) => handleReturnStatus(student, event)}
+                            />
                         )}
 
                         {studentListSection}

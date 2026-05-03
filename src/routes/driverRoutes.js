@@ -2,7 +2,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { getDriverDashboardData, markManualAttendance, undoManualAttendance, startTrip, endTrip, getTodayStatus } = require('../controllers/driverController');
+const { getDriverDashboardData, markManualAttendance, undoManualAttendance, startTrip, endTrip, getTodayStatus, updateTripLocation } = require('../controllers/driverController');
 
 const router = express.Router();
 
@@ -26,6 +26,9 @@ router.post('/trip/start', startTrip);
 
 // POST /api/driver/trip/end - Mark active trip as completed
 router.post('/trip/end', endTrip);
+
+// PATCH /api/driver/trip/location - Update live bus position (called by TripSimulator)
+router.patch('/trip/location', updateTripLocation);
 
 module.exports = router;
 
