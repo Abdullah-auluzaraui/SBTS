@@ -1,4 +1,11 @@
 {
+  "simulator": {
+    "card_scanned": "Card Scanned —",
+    "trip_completed": "Trip Completed",
+    "pause": "Pause",
+    "start": "Start Simulation",
+    "mode": "Simulation Mode"
+  },
   "common": {
     "appName": "School Bus Tracker",
     "logout": "Logout",
@@ -23,6 +30,8 @@
     "status": "Status",
     "active": "Active",
     "inactive": "Disabled",
+    "notifications": "Notifications",
+    "markAllAsRead": "Mark all as read",
     "suspended": "Suspended",
     "enable": "Enable",
     "disable": "Disable",
@@ -221,6 +230,7 @@
     "completed": "Completed",
     "completedCount": "Completed ({{count}})",
     "studentCount": "{{boarded}} / {{total}} students",
+    "dropOffCount": "{{dropped}} / {{total}} dropped off",
     "noStudents": "No students have been assigned to this bus yet.",
     "boarded": "Boarded",
     "markBoarding": "Mark Boarding",
@@ -666,5 +676,56 @@
   "lang": {
     "ar": "ع",
     "en": "EN"
+  },
+  "notifications": {
+    "TRIP_STARTED": {
+      "title": "Trip Started",
+      "body": "The driver has started the bus trip. Be ready."
+    },
+    "BOARDED_BUS_TO_SCHOOL": {
+      "title": "Boarded Bus",
+      "body": "Your child has boarded the bus for school."
+    },
+    "BOARDED_BUS_TO_HOME": {
+      "title": "Boarded Bus",
+      "body": "Your child has boarded the bus for home."
+    },
+    "ARRIVED_SCHOOL": {
+      "title": "Arrived at School",
+      "body": "Your child has safely arrived at school and exited the bus."
+    },
+    "DID_NOT_BOARD": {
+      "title": "Did Not Board",
+      "body": "Your child did not board the school bus this morning."
+    },
+    "ARRIVED_HOME": {
+      "title": "Arrived Home",
+      "body": "Your child has safely arrived home."
+    },
+    "NO_RECEIVER": {
+      "title": "No Receiver",
+      "body": "No receiver was found for your child at home."
+    },
+    "NO_BOARD_ALERT": {
+      "title": "Alert: Did Not Board",
+      "body": "Your child was on the bus this morning but did not board for the return trip."
+    },
+    "ACCOUNT_UNLINKED": {
+      "title": "Account Unlinked",
+      "body": "The school administration has unlinked your account from your child."
+    },
+    "BUS_STATUS_UPDATE": {
+      "title": "Bus Status Update",
+      "body": "Your child's status on the bus has been updated."
+    }
+  },
+  "status": {
+    "on_bus": "On Bus",
+    "arrived_school": "Arrived at School",
+    "at_home": "At Home",
+    "did_not_board": "Did Not Board",
+    "no_receiver": "No Receiver",
+    "waiting_bus": "Waiting for Bus",
+    "not_assigned": "Not Assigned to Bus"
   }
 }

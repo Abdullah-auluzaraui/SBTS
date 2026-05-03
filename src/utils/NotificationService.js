@@ -20,19 +20,17 @@ const todayUTC = () => {
  * @param {ObjectId} recipientId - The user ID receiving the notification
  * @param {ObjectId} school - The school ID
  * @param {String} type - 'status_update', 'urgent_alert', or 'admin_notice'
- * @param {String} title - Notification title
- * @param {String} message - Notification message
+ * @param {String} notificationType - Language-agnostic key (e.g., 'BOARDED_BUS', 'TRIP_STARTED')
  * @param {Object} payload - Additional data (studentId, tripId, attendanceId, event, tripType)
  * @returns {Promise<Document>} The saved notification document
  */
-const create = async (recipientId, school, type, title, message, payload = {}) => {
+const create = async (recipientId, school, type, notificationType, payload = {}) => {
   try {
     const notification = await Notification.create({
       recipient: recipientId,
       school,
       type,
-      title,
-      message,
+      notificationType,
       isRead: false,
       payload
     });
@@ -74,8 +72,7 @@ const handleNoBoard = async (studentId, busId, parentId, schoolId) => {
         parentId,
         schoolId,
         'urgent_alert',
-        'تنبيه: لم يصعد الحافلة',
-        'الطالب كان في الحافلة صباحاً ولم يصعد عودةً.',
+        'NO_BOARD_ALERT',
         {
           studentId,
           event: 'no_board',

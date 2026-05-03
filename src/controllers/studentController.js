@@ -276,8 +276,7 @@ exports.unlinkParent = async (req, res) => {
       formerParentId,
       req.schoolId,
       'admin_notice',
-      'تم فك ارتباط حسابك',
-      `قامت إدارة المدرسة بفك ارتباط حسابك مع الطالب ${student.name}.`,
+      'ACCOUNT_UNLINKED',
       { studentId: student._id }
     );
 

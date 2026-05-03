@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -26,20 +26,29 @@ const studentIcon = new L.Icon({
     iconSize: [20, 33], iconAnchor: [10, 33], popupAnchor: [1, -28], shadowSize: [33, 33]
 });
 
-const busIcon = new L.Icon({
-    iconUrl:   'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+const busIcon = L.divIcon({
+    html: '<div style="font-size:30px;line-height:1;">🚌</div>',
+    className: '',
+    iconAnchor: [15, 15]
 });
 
-// ── ضبط حدود الخريطة تلقائياً عند تغيير المسار ─────────────────────────────
-const FitBounds = ({ path }) => {
+// ── Map camera controller ─────────────────────────────────────────────────────
+// Pre-trip  : fitBounds to show the full route.
+// Navigation: auto-center ONCE on the first live location, then hands-off so
+//             the user can pan freely while the marker continues to move.
+const MapController = ({ busLocation, leafletPath }) => {
     const map = useMap();
+    const centeredOnBus = useRef(false);
     useEffect(() => {
-        if (path && path.length > 1) {
-            map.fitBounds(L.latLngBounds(path), { padding: [50, 50] });
+        if (busLocation?.lat && busLocation?.lng) {
+            if (!centeredOnBus.current) {
+                centeredOnBus.current = true;
+                map.setView([busLocation.lat, busLocation.lng], 17, { animate: true, duration: 0.5 });
+            }
+        } else if (!centeredOnBus.current && leafletPath.length > 1) {
+            map.fitBounds(L.latLngBounds(leafletPath), { padding: [50, 50] });
         }
-    }, [path, map]);
+    }, [busLocation, leafletPath, map]);
     return null;
 };
 
@@ -55,7 +64,7 @@ const DEFAULT_CENTER = [24.7136, 46.6753];
  *   busLocation  : { lat, lng } | null   — موقع الحافلة الحي (Socket.io لاحقاً)
  *   routeLoading : Boolean
  */
-const SharedBusMap = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false }) => {
+const SharedBusMap = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false, showRouteLine = true }) => {
     const { t } = useTranslation();
     // تحويل المسار من {lat,lng} إلى [lat,lng] المتوافق مع Leaflet
     const leafletPath = routePath.map(p => [p.lat, p.lng]);
@@ -80,14 +89,15 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                     attribution="&copy; OpenStreetMap contributors &copy; CARTO"
                 />
 
-                {/* مسار الرحلة */}
-                {leafletPath.length > 0 && (
+                {/* مسار الرحلة — مخفي في عرض ولي الأمر */}
+                {showRouteLine && leafletPath.length > 0 && (
                     <>
                         <Polyline positions={leafletPath} color="#0EA5E9" weight={5} opacity={0.6} />
                         <Polyline positions={leafletPath} color="#0369A1" weight={2} opacity={0.9} dashArray="5, 10" />
-                        <FitBounds path={leafletPath} />
                     </>
                 )}
+
+                <MapController busLocation={busLocation} leafletPath={leafletPath} />
 
                 {/* علامة المدرسة */}
                 {school?.location?.coordinates && (

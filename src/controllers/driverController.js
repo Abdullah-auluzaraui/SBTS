@@ -4,6 +4,7 @@ const Student = require('../models/Student');
 const Trip = require('../models/Trip');
 const Attendance = require('../models/Attendance');
 const NotificationService = require('../utils/NotificationService');
+const { getIO } = require('../utils/socket');
 
 // Shared helper: day window for today in server local time
 const todayWindow = () => {
@@ -216,8 +217,7 @@ exports.startTrip = async (req, res) => {
           s.parentId,
           req.schoolId,
           'status_update',
-          'الرحلة بدأت',
-          `بدأ السائق رحلة الحافلة ${bus.busId}. كن مستعداً.`,
+          'TRIP_STARTED',
           { tripId: trip._id, event: 'trip_started', tripType }
         ))
     ).catch(err => console.error('trip_started fan-out error:', err));
@@ -233,16 +233,102 @@ exports.startTrip = async (req, res) => {
 exports.endTrip = async (req, res) => {
   try {
     const driverId = req.user._id;
+    const requestedTripType = req.body?.tripType;
+    let completedSchoolArrivalStudents = [];
 
     const bus = await Bus.findOne({ driver: driverId, isActive: true, school: req.schoolId });
     if (!bus) {
       return res.status(404).json({ success: false, message: 'لا توجد حافلة مخصصة لهذا السائق' });
     }
 
-    const trip = await Trip.findOne({ bus: bus._id, status: 'active', school: req.schoolId });
+    const tripQuery = { bus: bus._id, status: 'active', school: req.schoolId };
+    if (['to_school', 'to_home'].includes(requestedTripType)) {
+      tripQuery.tripType = requestedTripType;
+    }
+
+    const trip = await Trip.findOne(tripQuery);
     if (!trip) {
       // No active trip — already ended or never started; treat as success (idempotent)
       return res.json({ success: true, message: 'لا توجد رحلة نشطة — تم التعامل كمنتهية' });
+    }
+
+    if (trip.tripType === 'to_school') {
+      const { start, end } = todayWindow();
+      const [boardingEvents, terminalEvents] = await Promise.all([
+        Attendance.find({
+          school: req.schoolId,
+          bus: bus._id,
+          tripType: 'to_school',
+          event: 'boarding',
+          timestamp: { $gte: start, $lte: end }
+        }).select('student').lean(),
+        Attendance.find({
+          school: req.schoolId,
+          bus: bus._id,
+          tripType: 'to_school',
+          event: { $in: ['exit', 'no_board', 'absent'] },
+          timestamp: { $gte: start, $lte: end }
+        }).select('student').lean()
+      ]);
+
+      const terminalSet = new Set(terminalEvents.map(e => String(e.student)));
+      const studentIds = [...new Set(
+        boardingEvents
+          .map(e => String(e.student))
+          .filter(sid => !terminalSet.has(sid))
+      )];
+
+      if (studentIds.length > 0) {
+        const now = new Date();
+        await Attendance.bulkWrite(studentIds.map(sid => ({
+          updateOne: {
+            filter: {
+              school: req.schoolId,
+              bus: bus._id,
+              student: sid,
+              tripType: 'to_school',
+              event: 'exit',
+              timestamp: { $gte: start, $lte: end }
+            },
+            update: {
+              $set: { timestamp: now, recordedBy: 'manual', driver: driverId, trip: trip._id },
+              $setOnInsert: {
+                school: req.schoolId,
+                bus: bus._id,
+                student: sid,
+                tripType: 'to_school',
+                event: 'exit'
+              }
+            },
+            upsert: true
+          }
+        })));
+
+        const [arrivalEvents, studentsWithParents] = await Promise.all([
+          Attendance.find({
+            school: req.schoolId,
+            bus: bus._id,
+            student: { $in: studentIds },
+            tripType: 'to_school',
+            event: 'exit',
+            timestamp: { $gte: start, $lte: end }
+          }).select('_id student').lean(),
+          Student.find({
+            _id: { $in: studentIds },
+            assignedBus: bus._id,
+            school: req.schoolId
+          }).select('_id parentId').lean()
+        ]);
+
+        const attendanceByStudent = new Map(arrivalEvents.map(e => [String(e.student), e._id]));
+        completedSchoolArrivalStudents = studentsWithParents
+          .filter(s => s.parentId)
+          .map(s => ({
+            studentId: s._id,
+            parentId: s.parentId,
+            attendanceId: attendanceByStudent.get(String(s._id)) || null
+          }));
+      }
     }
 
     trip.status = 'completed';
@@ -250,6 +336,24 @@ exports.endTrip = async (req, res) => {
     await trip.save();
 
     res.json({ success: true, message: 'تم إنهاء الرحلة بنجاح', tripId: trip._id });
+
+    if (completedSchoolArrivalStudents.length > 0) {
+      Promise.allSettled(
+        completedSchoolArrivalStudents.map(s => NotificationService.create(
+          s.parentId,
+          req.schoolId,
+          'status_update',
+          'ARRIVED_SCHOOL',
+          {
+            studentId: s.studentId,
+            attendanceId: s.attendanceId,
+            tripId: trip._id,
+            event: 'exit',
+            tripType: 'to_school'
+          }
+        ))
+      ).catch(err => console.error('bulk school-arrival notification fan-out error:', err));
+    }
   } catch (err) {
     console.error('End Trip Error:', err);
     res.status(500).json({ success: false, message: 'فشل إنهاء الرحلة' });
@@ -263,7 +367,8 @@ exports.endTrip = async (req, res) => {
 // morning trip can carry both 'boarding' and 'exit' for the same student).
 exports.markManualAttendance = async (req, res) => {
   try {
-    const { studentId, busId, event, tripType } = req.body;
+    const { studentId, busId, event, tripType, recordedBy: rawRecordedBy } = req.body;
+    const recordedBy = rawRecordedBy === 'NFC' ? 'NFC' : 'manual';
 
     if (!studentId || !busId || !event) {
       return res.status(400).json({ success: false, message: 'بيانات غير مكتملة لتسجيل الحضور' });
@@ -300,7 +405,7 @@ exports.markManualAttendance = async (req, res) => {
     };
 
     const update = {
-      $set: { timestamp: new Date(), recordedBy: 'manual', driver: req.user._id },
+      $set: { timestamp: new Date(), recordedBy, driver: req.user._id },
       $setOnInsert: {
         school: req.schoolId,
         bus: bus._id,
@@ -324,33 +429,26 @@ exports.markManualAttendance = async (req, res) => {
         NotificationService.handleNoBoard(student._id, bus._id, student.parentId, req.schoolId);
       } else {
         let type = 'status_update';
-        let title = 'تحديث حالة الحافلة';
-        let message = 'تم تحديث حالة الطالب في الحافلة.';
+        let notificationType = 'BUS_STATUS_UPDATE';
         
         if (event === 'boarding') {
-          title = 'صعد الحافلة';
-          message = tripType === 'to_school' ? 'تم تسجيل صعود الطالب إلى الحافلة للذهاب إلى المدرسة.' : 'تم تسجيل صعود الطالب إلى الحافلة للعودة إلى المنزل.';
+          notificationType = tripType === 'to_school' ? 'BOARDED_BUS_TO_SCHOOL' : 'BOARDED_BUS_TO_HOME';
         } else if (event === 'exit') {
-          title = 'نزل من الحافلة';
-          message = 'تم تسجيل نزول الطالب من الحافلة بأمان في المدرسة.';
+          notificationType = 'ARRIVED_SCHOOL';
         } else if (event === 'no_board' && tripType === 'to_school') {
-          title = 'لم يصعد الحافلة';
-          message = 'لم يصعد الطالب إلى حافلة المدرسة هذا الصباح.';
+          notificationType = 'DID_NOT_BOARD';
         } else if (event === 'arrived_home') {
-          title = 'وصل إلى المنزل';
-          message = 'تم تسجيل وصول الطالب إلى المنزل بأمان.';
+          notificationType = 'ARRIVED_HOME';
         } else if (event === 'no_receiver') {
           type = 'urgent_alert';
-          title = 'لا يوجد مستلم';
-          message = 'لم يتم العثور على مستلم للطالب عند المنزل.';
+          notificationType = 'NO_RECEIVER';
         }
 
         NotificationService.create(
           student.parentId,
           req.schoolId,
           type,
-          title,
-          message,
+          notificationType,
           { studentId: student._id, attendanceId: attendance._id, event, tripType }
         );
       }
@@ -359,6 +457,56 @@ exports.markManualAttendance = async (req, res) => {
   } catch (err) {
     console.error('Manual Attendance Error:', err);
     res.status(500).json({ success: false, message: 'فشل تسجيل الحالة' });
+  }
+};
+
+// PATCH /api/driver/trip/location
+// Updates the active trip's lastLocation and fans out a real-time
+// 'bus:location' socket event to all parents with students on this bus.
+// Called every ~5 ticks by TripSimulator (debounced in the frontend).
+exports.updateTripLocation = async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.status(400).json({ success: false, message: 'إحداثيات غير صالحة' });
+    }
+
+    const bus = await Bus.findOne({ driver: req.user._id, isActive: true, school: req.schoolId })
+      .select('_id');
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'لا توجد حافلة مرتبطة بهذا السائق' });
+    }
+
+    const trip = await Trip.findOne({ bus: bus._id, status: 'active' });
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'لا توجد رحلة نشطة' });
+    }
+
+    trip.lastLocation = { lat, lng, updatedAt: new Date() };
+    await trip.save();
+
+    // Fan-out: emit to each parent's existing socket room
+    const students = await Student.find({ assignedBus: bus._id, school: req.schoolId })
+      .select('parentId').lean();
+
+    const io = getIO();
+    const payload = { busId: String(bus._id), lat, lng };
+    const seen = new Set();
+    students.forEach(s => {
+      if (s.parentId) {
+        const pid = String(s.parentId);
+        if (!seen.has(pid)) {
+          seen.add(pid);
+          io.to(`parent_${pid}`).emit('bus:location', payload);
+        }
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update Trip Location Error:', err);
+    res.status(500).json({ success: false, message: 'فشل تحديث موقع الحافلة' });
   }
 };
 

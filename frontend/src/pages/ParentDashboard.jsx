@@ -129,19 +129,19 @@ const ParentDashboard = () => {
     const getStatusBadgeProps = (event, assignedBus) => {
         switch (event) {
             case 'boarding':
-                return { text: 'متواجد بالحافلة', bgClass: 'bg-green-50 text-green-700 border-green-200', dotClass: 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)] animate-pulse' };
+                return { text: t('status.on_bus'), bgClass: 'bg-green-50 text-green-700 border-green-200', dotClass: 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)] animate-pulse' };
             case 'exit':
-                return { text: 'وصل للمدرسة', bgClass: 'bg-blue-50 text-blue-700 border-blue-200', dotClass: 'bg-blue-500' };
+                return { text: t('status.arrived_school'), bgClass: 'bg-blue-50 text-blue-700 border-blue-200', dotClass: 'bg-blue-500' };
             case 'arrived_home':
-                return { text: 'في المنزل', bgClass: 'bg-gray-100 text-gray-700 border-gray-200', dotClass: 'bg-gray-500' };
+                return { text: t('status.at_home'), bgClass: 'bg-gray-100 text-gray-700 border-gray-200', dotClass: 'bg-gray-500' };
             case 'no_board':
-                return { text: 'لم يصعد الحافلة', bgClass: 'bg-amber-50 text-amber-700 border-amber-200', dotClass: 'bg-amber-500' };
+                return { text: t('status.did_not_board'), bgClass: 'bg-amber-50 text-amber-700 border-amber-200', dotClass: 'bg-amber-500' };
             case 'no_receiver':
-                return { text: 'لا يوجد مستلم', bgClass: 'bg-red-50 text-red-700 border-red-200', dotClass: 'bg-red-500 animate-pulse' };
+                return { text: t('status.no_receiver'), bgClass: 'bg-red-50 text-red-700 border-red-200', dotClass: 'bg-red-500 animate-pulse' };
             default:
                 return assignedBus 
-                    ? { text: 'بانتظار الحافلة', bgClass: 'bg-gray-50 text-gray-600 border-gray-200', dotClass: 'bg-gray-400' }
-                    : { text: 'غير معين لحافلة', bgClass: 'bg-gray-50 text-gray-500 border-gray-200', dotClass: 'bg-gray-300' };
+                    ? { text: t('status.waiting_bus'), bgClass: 'bg-gray-50 text-gray-600 border-gray-200', dotClass: 'bg-gray-400' }
+                    : { text: t('status.not_assigned'), bgClass: 'bg-gray-50 text-gray-500 border-gray-200', dotClass: 'bg-gray-300' };
         }
     };
 

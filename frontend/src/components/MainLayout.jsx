@@ -61,17 +61,17 @@ const MainLayout = ({ children, onRefreshRequired }) => {
                                     <div className={`absolute top-full mt-2 w-80 max-w-[90vw] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-[100] left-1/2 -translate-x-1/2 sm:translate-x-0 ${i18n.language?.startsWith('ar') ? 'sm:right-auto sm:left-0' : 'sm:left-auto sm:right-0'}`}>
 
                                         <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                                            <h3 className="font-bold text-gray-800 text-sm">الإشعارات</h3>
+                                            <h3 className="font-bold text-gray-800 text-sm">{t('common.notifications')}</h3>
                                             <button 
                                                 onClick={() => { markAllAsRead(); setDropdownOpen(false); }}
                                                 className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors"
                                             >
-                                                تحديد الكل كمقروء
+                                                {t('common.markAllAsRead')}
                                             </button>
                                         </div>
                                         <div className="max-h-[60vh] overflow-y-auto">
                                             {notifications.length === 0 ? (
-                                                <div className="p-6 text-center text-sm text-gray-500">لا توجد إشعارات</div>
+                                                <div className="p-6 text-center text-sm text-gray-500">{t('common.noData')}</div>
                                             ) : (
                                                 notifications.slice(0, 10).map(n => (
                                                     <div 
@@ -83,13 +83,13 @@ const MainLayout = ({ children, onRefreshRequired }) => {
                                                             {!n.isRead && <div className="mt-1.5 w-2 h-2 rounded-full bg-primary-500 shrink-0 shadow-sm shadow-primary-500/40" />}
                                                             <div className="flex-1 min-w-0">
                                                                 <h4 className={`text-sm font-bold truncate ${n.type === 'urgent_alert' ? 'text-red-700' : 'text-gray-800'}`}>
-                                                                    {n.title}
+                                                                    {n.notificationType ? t(`notifications.${n.notificationType}.title`) : n.title}
                                                                 </h4>
                                                                 <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
-                                                                    {n.message}
+                                                                    {n.notificationType ? t(`notifications.${n.notificationType}.body`) : n.message}
                                                                 </p>
                                                                 <span className="text-[10px] text-gray-400 mt-1 block font-medium">
-                                                                    {new Date(n.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute:'2-digit' })}
+                                                                    {new Date(n.createdAt).toLocaleTimeString(i18n.language?.startsWith('ar') ? 'ar' : 'en', { hour: '2-digit', minute:'2-digit' })}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -133,9 +133,11 @@ const MainLayout = ({ children, onRefreshRequired }) => {
                                 <Bell size={20} strokeWidth={2} className={`${toastData.type === 'urgent_alert' ? 'text-red-500' : 'text-primary-500'} animate-bounce`} />
                             </div>
                             <div>
-                                <h4 className={`font-bold text-sm ${toastData.type === 'urgent_alert' ? 'text-red-700' : 'text-gray-800'}`}>{toastData.title}</h4>
+                                <h4 className={`font-bold text-sm ${toastData.type === 'urgent_alert' ? 'text-red-700' : 'text-gray-800'}`}>
+                                    {toastData.notificationType ? t(`notifications.${toastData.notificationType}.title`) : toastData.title}
+                                </h4>
                                 <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">
-                                    {toastData.message}
+                                    {toastData.notificationType ? t(`notifications.${toastData.notificationType}.body`) : toastData.message}
                                 </p>
                             </div>
                         </div>
