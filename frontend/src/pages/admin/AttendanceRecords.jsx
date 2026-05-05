@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/apiService';
-import { ClipboardList, Filter, Loader2, Calendar, Bus, Users } from 'lucide-react';
+import { ClipboardList, Filter, Loader2, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const AttendanceRecords = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [records, setRecords] = useState([]);
     const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
     const [loading, setLoading] = useState(true);
@@ -12,6 +12,8 @@ const AttendanceRecords = () => {
     // Filters
     const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', busId: '', studentId: '', tripType: '' });
     const [buses, setBuses] = useState([]);
+    const [downloading, setDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState('');
 
     const fetchData = async (page = 1) => {
         setLoading(true);
@@ -38,7 +40,43 @@ const AttendanceRecords = () => {
 
     const handleFilter = (e) => {
         e.preventDefault();
+        setDownloadError('');
         fetchData(1);
+    };
+
+    const handleDownloadPDF = async () => {
+        setDownloading(true);
+        setDownloadError('');
+        try {
+            const params = new URLSearchParams();
+            if (filters.dateFrom)  params.append('dateFrom',  filters.dateFrom);
+            if (filters.dateTo)    params.append('dateTo',    filters.dateTo);
+            if (filters.busId)     params.append('busId',     filters.busId);
+            if (filters.tripType)  params.append('tripType',  filters.tripType);
+            params.append('lang', i18n.language);
+
+            const response = await api.get(`/attendance/report?${params}`, { responseType: 'blob' });
+
+            const dateLabel = new Date().toISOString().slice(0, 10);
+            const url = URL.createObjectURL(response.data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance-report-${dateLabel}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            try {
+                const text = await err.response?.data?.text();
+                const { message } = JSON.parse(text);
+                setDownloadError(message);
+            } catch {
+                setDownloadError(t('attendance.reportError'));
+            }
+        } finally {
+            setDownloading(false);
+        }
     };
 
     // Translated labels + colored pill styles for every Attendance.event
@@ -108,7 +146,18 @@ const AttendanceRecords = () => {
                 <button type="submit" className="px-5 py-2.5 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-all flex items-center gap-2 shadow-sm">
                     <Filter size={16} /> {t('attendance.search')}
                 </button>
+                <button type="button" onClick={handleDownloadPDF} disabled={downloading}
+                    className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                    {downloading ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+                    {downloading ? t('attendance.generating') : t('attendance.downloadPdf')}
+                </button>
             </form>
+
+            {downloadError && (
+                <div className="mb-4 px-5 py-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center gap-2">
+                    <span>⚠️</span> {downloadError}
+                </div>
+            )}
 
             {/* Table */}
             {loading ? (

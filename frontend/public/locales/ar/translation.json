@@ -553,7 +553,10 @@
     "allTrips": "كل الرحلات",
     "tripToSchool": "ذهاب",
     "tripToHome": "عودة",
-    "driverCol": "السائق"
+    "driverCol": "السائق",
+    "downloadPdf": "تحميل PDF",
+    "generating": "جارٍ التوليد...",
+    "reportError": "حدث خطأ أثناء توليد التقرير"
   },
   "routeManagement": {
     "title": "المسارات الذكية (Routing)",

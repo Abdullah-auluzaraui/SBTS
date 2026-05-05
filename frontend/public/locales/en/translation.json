@@ -554,7 +554,10 @@
     "allTrips": "All Trips",
     "tripToSchool": "Trip to School",
     "tripToHome": "Trip Back Home",
-    "driverCol": "Driver"
+    "driverCol": "Driver",
+    "downloadPdf": "Download PDF",
+    "generating": "Generating...",
+    "reportError": "Failed to generate the report"
   },
   "routeManagement": {
     "title": "Smart Routes (Routing)",
