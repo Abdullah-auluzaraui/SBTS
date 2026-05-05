@@ -10,7 +10,7 @@ import SchoolContactsManager from '../components/SchoolContactsManager';
 const AdminDashboard = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
-    const [stats, setStats] = useState({ buses: 0, routes: 0, students: 0, attendance: 0, drivers: 0 });
+    const [stats, setStats] = useState({ buses: 0, students: 0, attendance: 0, drivers: 0 });
     const [loading, setLoading] = useState(true);
     const [schoolInfo, setSchoolInfo] = useState(null);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -28,16 +28,14 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [busRes, routeRes, studentRes, attendanceRes, driverRes] = await Promise.all([
+                const [busRes, studentRes, attendanceRes, driverRes] = await Promise.all([
                     api.get('/buses'),
-                    api.get('/routes'),
                     api.get('/students'),
                     api.get('/attendance?limit=1'),
                     api.get('/users/drivers')
                 ]);
                 setStats({
                     buses: busRes.data.buses?.length || 0,
-                    routes: routeRes.data.routes?.length || 0,
                     students: studentRes.data.students?.length || 0,
                     attendance: attendanceRes.data.pagination?.total || 0,
                     drivers: driverRes.data.drivers?.length || 0
@@ -53,7 +51,6 @@ const AdminDashboard = () => {
 
     const cards = [
         { title: t('admin.statBuses'), count: stats.buses, icon: Bus, color: 'blue', link: '/admin/buses' },
-        { title: t('admin.statRoutes'), count: stats.routes, icon: MapPin, color: 'emerald', link: '/admin/routes' },
         { title: t('admin.statStudents'), count: stats.students, icon: GraduationCap, color: 'purple', link: '/admin/students' },
         { title: t('admin.statDrivers'), count: stats.drivers, icon: UserCog, color: 'teal', link: '/admin/drivers' },
         { title: t('admin.statAttendance'), count: stats.attendance, icon: ClipboardList, color: 'amber', link: '/admin/attendance' },
@@ -61,7 +58,6 @@ const AdminDashboard = () => {
 
     const colorMap = {
         blue: { bg: 'from-blue-50 to-white', border: 'border-blue-100', icon: 'bg-blue-100 text-blue-600', number: 'text-blue-600' },
-        emerald: { bg: 'from-emerald-50 to-white', border: 'border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', number: 'text-emerald-600' },
         purple: { bg: 'from-purple-50 to-white', border: 'border-purple-100', icon: 'bg-purple-100 text-purple-600', number: 'text-purple-600' },
         amber: { bg: 'from-amber-50 to-white', border: 'border-amber-100', icon: 'bg-amber-100 text-amber-600', number: 'text-amber-600' },
         teal: { bg: 'from-teal-50 to-white', border: 'border-teal-100', icon: 'bg-teal-100 text-teal-600', number: 'text-teal-600' },

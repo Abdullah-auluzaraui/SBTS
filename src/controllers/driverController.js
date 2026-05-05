@@ -423,6 +423,17 @@ exports.markManualAttendance = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'تم تسجيل الحالة بنجاح', attendance });
 
+    // --- Real-time admin map sync ---
+    try {
+      const io = getIO();
+      io.to(`admin_${req.schoolId}`).emit('student:status', {
+        busId:     String(bus._id),
+        studentId: String(student._id),
+        event,
+        tripType
+      });
+    } catch (_) {}
+
     // --- Notification Integration ---
     if (student.parentId) {
       if (event === 'no_board' && tripType === 'to_home') {
@@ -502,6 +513,9 @@ exports.updateTripLocation = async (req, res) => {
         }
       }
     });
+
+    // Also emit to the school admin room so FleetMap receives live updates
+    io.to(`admin_${req.schoolId}`).emit('bus:location', payload);
 
     res.json({ success: true });
   } catch (err) {
