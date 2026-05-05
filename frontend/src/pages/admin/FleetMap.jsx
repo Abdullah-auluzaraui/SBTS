@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap
 } from 'react-leaflet';
@@ -11,6 +11,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import api from '../../services/apiService';
 import axios from 'axios';
+import io from 'socket.io-client';
+
+const getSocketUrl = () => {
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
+};
 
 // ── Fix default Leaflet icons ─────────────────────────────────────────────
 delete L.Icon.Default.prototype._getIconUrl;
@@ -32,6 +38,12 @@ const busIcon = new L.Icon({
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
 
+const liveBusMarkerIcon = L.divIcon({
+    html: '<div style="font-size:30px;line-height:1;">🚌</div>',
+    className: '',
+    iconAnchor: [15, 15]
+});
+
 // Auto-fit bounds when route path changes
 const FitBounds = ({ path }) => {
     const map = useMap();
@@ -40,6 +52,19 @@ const FitBounds = ({ path }) => {
             map.fitBounds(L.latLngBounds(path), { padding: [50, 50] });
         }
     }, [path, map]);
+    return null;
+};
+
+// Auto-center ONCE on first live location — then hands-off so admin can pan freely
+const LiveBusController = ({ liveBusLocation }) => {
+    const map = useMap();
+    const centeredRef = useRef(false);
+    useEffect(() => {
+        if (liveBusLocation?.lat && liveBusLocation?.lng && !centeredRef.current) {
+            centeredRef.current = true;
+            map.setView([liveBusLocation.lat, liveBusLocation.lng], 15, { animate: true, duration: 0.5 });
+        }
+    }, [liveBusLocation, map]);
     return null;
 };
 
@@ -57,6 +82,12 @@ const FleetMap = () => {
     const [loading, setLoading] = useState(true);
     const [routeLoading, setRouteLoading] = useState(false);
     const [error, setError] = useState('');
+    const [liveBusLocation, setLiveBusLocation] = useState(null);
+    const [studentStatusMap, setStudentStatusMap] = useState(new Map());
+    const socketRef = useRef(null);
+
+    // Events that mean the student is no longer at their home stop
+    const HIDDEN_EVENTS = new Set(['boarding', 'exit', 'absent', 'no_board', 'arrived_home', 'no_receiver']);
 
     // ── Load buses + school location ─────────────────────────────────────
     useEffect(() => {
@@ -80,9 +111,41 @@ const FleetMap = () => {
         init();
     }, []);
 
+    // ── Socket.io: listen for real-time bus location updates ─────────────
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const socket = io(getSocketUrl(), { auth: { token } });
+        socketRef.current = socket;
+
+        socket.on('bus:location', (payload) => {
+            if (selectedBus && String(payload.busId) === String(selectedBus._id)) {
+                setLiveBusLocation({ lat: payload.lat, lng: payload.lng });
+            }
+        });
+
+        socket.on('student:status', (payload) => {
+            if (selectedBus && String(payload.busId) === String(selectedBus._id)) {
+                setStudentStatusMap(prev =>
+                    new Map(prev).set(String(payload.studentId), payload.event)
+                );
+            }
+        });
+
+        return () => {
+            socket.off('bus:location');
+            socket.off('student:status');
+            socket.disconnect();
+            socketRef.current = null;
+        };
+    }, [selectedBus]);
+
     // ── When a bus is selected, fetch its students and auto-route ─────────
     const handleSelectBus = async (bus) => {
         setSelectedBus(bus);
+        setLiveBusLocation(null);
+        setStudentStatusMap(new Map());
         setRoutePath([]);
         setOsrmMeta(null);
         setError('');
@@ -95,11 +158,27 @@ const FleetMap = () => {
         }
 
         try {
-            const { data } = await api.get(`/students?busId=${bus._id}`);
-            const busStudents = (data.students || []).filter(
+            const [studentsRes, locationRes] = await Promise.all([
+                api.get(`/students?busId=${bus._id}`),
+                api.get(`/buses/${bus._id}/active-location`).catch(() => ({ data: { lastLocation: null } }))
+            ]);
+
+            const busStudents = (studentsRes.data.students || []).filter(
                 s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0
             );
             setStudents(busStudents);
+
+            if (locationRes.data.lastLocation) {
+                setLiveBusLocation(locationRes.data.lastLocation);
+            }
+
+            if (locationRes.data.studentEvents?.length > 0) {
+                const statusMap = new Map();
+                locationRes.data.studentEvents.forEach(({ studentId, event }) => {
+                    statusMap.set(String(studentId), event);
+                });
+                setStudentStatusMap(statusMap);
+            }
 
             if (busStudents.length === 0) {
                 setError(t('fleetMap.errors.noStudentLocations'));
@@ -303,17 +382,20 @@ const FleetMap = () => {
                                 </Marker>
                             )}
 
-                            {students.map(s => {
-                                const lat = s.location.coordinates[1];
-                                const lng = s.location.coordinates[0];
-                                return (
-                                    <Marker key={s._id} position={[lat, lng]} icon={studentIcon}>
-                                        <Tooltip direction="top" opacity={0.95} className="font-sans font-bold text-xs">
-                                            🏠 {s.name}
-                                        </Tooltip>
-                                    </Marker>
-                                );
-                            })}
+                            {students
+                                .filter(s => !HIDDEN_EVENTS.has(studentStatusMap.get(String(s._id))))
+                                .map(s => {
+                                    const lat = s.location.coordinates[1];
+                                    const lng = s.location.coordinates[0];
+                                    return (
+                                        <Marker key={s._id} position={[lat, lng]} icon={studentIcon}>
+                                            <Tooltip direction="top" opacity={0.95} className="font-sans font-bold text-xs">
+                                                🏠 {s.name}
+                                            </Tooltip>
+                                        </Marker>
+                                    );
+                                })
+                            }
 
                             {routePath.length > 0 && (
                                 <>
@@ -321,6 +403,19 @@ const FleetMap = () => {
                                     <FitBounds path={routePath} />
                                 </>
                             )}
+
+                            {liveBusLocation?.lat && liveBusLocation?.lng && (
+                                <Marker
+                                    position={[liveBusLocation.lat, liveBusLocation.lng]}
+                                    icon={liveBusMarkerIcon}
+                                >
+                                    <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
+                                        <span className="font-bold text-blue-700">🚌 {selectedBus?.busId}</span>
+                                    </Tooltip>
+                                </Marker>
+                            )}
+
+                            <LiveBusController liveBusLocation={liveBusLocation} />
                         </MapContainer>
                     </div>
                 </div>

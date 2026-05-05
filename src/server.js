@@ -10,6 +10,8 @@ const http = require('http');
 const jwt = require('jsonwebtoken');
 const socketUtil = require('./utils/socket');
 
+const User = require('./models/User');
+
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes');
@@ -74,12 +76,22 @@ io.use((socket, next) => {
   }
 });
 
-io.on('connection', socket => {
+io.on('connection', async socket => {
   console.log(`Socket connected: ${socket.id} (User: ${socket.userId}, Role: ${socket.userRole})`);
+
   if (socket.userRole === 'parent') {
     socket.join(`parent_${socket.userId}`);
+  } else if (socket.userRole === 'schooladmin') {
+    try {
+      const user = await User.findById(socket.userId).select('school').lean();
+      if (user?.school) {
+        socket.join(`admin_${user.school}`);
+      }
+    } catch (e) {
+      console.error('Socket admin room join error:', e.message);
+    }
   }
-  
+
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });

@@ -2,6 +2,8 @@ const Bus = require('../models/Bus');
 const User = require('../models/User');
 const Student = require('../models/Student');
 const School = require('../models/School');
+const Trip = require('../models/Trip');
+const Attendance = require('../models/Attendance');
 
 // BE-S2-5: Bus CRUD — All operations scoped by req.schoolId (from tenantMiddleware)
 
@@ -326,6 +328,48 @@ exports.assignStudents = async (req, res) => {
       assigned: validIds.length,
       blocked: blocked.length > 0 ? blocked : undefined
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/buses/:id/active-location — Return active trip's lastLocation + today's student events
+exports.getActiveLocation = async (req, res) => {
+  try {
+    const bus = await Bus.findOne({ _id: req.params.id, school: req.schoolId });
+    if (!bus) return res.status(404).json({ success: false, message: 'Bus not found' });
+
+    const trip = await Trip.findOne({ bus: bus._id, status: 'active' })
+      .select('lastLocation tripType')
+      .lean();
+
+    const lastLocation = trip?.lastLocation?.lat ? trip.lastLocation : null;
+
+    // Fetch today's attendance events for the active trip's direction.
+    // Sort ascending so later entries overwrite earlier ones in the map,
+    // giving us the most recent event per student.
+    let studentEvents = [];
+    if (trip?.tripType) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const records = await Attendance.find({
+        bus:      bus._id,
+        school:   req.schoolId,
+        tripType: trip.tripType,
+        timestamp: { $gte: startOfToday }
+      })
+        .select('student event')
+        .sort({ timestamp: 1 })
+        .lean();
+
+      // One entry per student — later record overwrites earlier one
+      const eventMap = new Map();
+      records.forEach(r => eventMap.set(String(r.student), r.event));
+      studentEvents = Array.from(eventMap.entries()).map(([studentId, event]) => ({ studentId, event }));
+    }
+
+    res.json({ success: true, lastLocation, studentEvents });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

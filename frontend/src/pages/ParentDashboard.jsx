@@ -237,34 +237,7 @@ const ParentDashboard = () => {
                 {/* Active Student Detail View */}
                 {selectedStudent && (
                     <div className="relative z-10 space-y-6">
-                        {/* ETA Panel */}
-                        <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110 pointer-events-none"></div>
-                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-500/5 rounded-full -ml-12 -mb-12 transition-transform group-hover:scale-110 pointer-events-none"></div>
-
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center shadow-inner shrink-0 relative z-10">
-                                        <Clock size={28} strokeWidth={2} className="text-blue-500" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <h3 className="font-bold text-xl text-gray-800">{t('parent.eta')}</h3>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-6 relative z-10 bg-gray-50/50 px-6 py-4 rounded-2xl border border-gray-100/50">
-                                    <div className="text-6xl font-black text-blue-600 drop-shadow-sm flex items-baseline gap-2 tracking-tight">
-                                        <span>8</span>
-                                        <span className="text-2xl font-bold text-blue-400">{t('parent.minutes')}</span>
-                                    </div>
-                                    <div className="hidden sm:block h-12 w-px bg-gray-200"></div>
-                                    <div className="px-5 py-2.5 bg-blue-50 text-blue-600 text-sm font-bold rounded-full border border-blue-100 flex items-center gap-2 shadow-sm whitespace-nowrap">
-                                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>
-                                        {t('parent.busApproaching')}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        
 
                         {/* Student Card */}
                         {(() => {

@@ -11,6 +11,22 @@ const Student = require('./models/Student');
 const Bus = require('./models/Bus');
 const { encrypt } = require('./utils/crypto');
 
+// ── Saudi Phone Number Generator ───────────────────────────────────────
+function generateSaudiPhone() {
+  // Format: +9665XXXXXXXX or 05XXXXXXXX
+  const prefix = Math.random() > 0.5 ? '+9665' : '05';
+  const suffix = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+  return `${prefix}${suffix}`;
+}
+
+// ── NFC Tag ID Generator ────────────────────────────────────────────────
+function generateNfcTag() {
+  // Generate random hex string like "A1B2C3D4E5F6"
+  return Array.from({ length: 12 }, () => 
+    Math.floor(Math.random() * 16).toString(16).toUpperCase()
+  ).join('');
+}
+
 // ── Arabic Name Pools (Three-part names) ──────────────────────────────────
 const FIRST_NAMES = [
   'أحمد', 'خالد', 'إبراهيم', 'عمر', 'محمد', 'سعد', 'فيصل', 'عبدالله',
@@ -84,9 +100,13 @@ const seed = async () => {
   }
   console.log(`🏫  School found: ${school.name} (${school.schoolId})`);
 
-  // 2. Set school location to Al-Shifa, South Riyadh
+  // 2. Set school location to Al-Shifa, South Riyadh + contact info
   await School.findByIdAndUpdate(school._id, {
     location: { type: 'Point', coordinates: [46.7150, 24.5370] },
+    emergencyContacts: [
+      { name: 'أحمد محمد العتيبي', phone: '+966501234567' },
+      { name: 'عبدالله سالم القحطاني', phone: '+966502345678' }
+    ]
   });
   console.log('📍  School location set → 24.5370° N, 46.7150° E (حي الشفا)');
 
@@ -125,6 +145,7 @@ const seed = async () => {
       password: driverHash,
       role: 'driver',
       school: school._id,
+      phone: generateSaudiPhone(),
       isActive: true,
     }))
   );
@@ -151,6 +172,7 @@ const seed = async () => {
         name:     `ولي أمر ${n}`,
         role:     'parent',
         school:   school._id,
+        phone:    generateSaudiPhone(),
         isActive: true,
       };
     })
@@ -177,6 +199,7 @@ const seed = async () => {
           type:        'Point',
           coordinates: [coord.lng, coord.lat],
         },
+        nfcTagId:       generateNfcTag(),
         assignedBus: null,
         isActive:    true,
       };
