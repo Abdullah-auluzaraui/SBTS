@@ -78,16 +78,16 @@ exports.create = async (req, res) => {
     const { name, nationalId, dob, assignedBus, grade } = req.body;
 
     if (!name || name.trim() === '') {
-      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'اسم الطالب مطلوب' });
+      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'Student name is required' });
     }
 
     if (!nationalId || !dob) {
-      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'الهوية الوطنية وتاريخ الميلاد مطلوبان' });
+      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'National ID and Date of Birth are required' });
     }
 
     const nameParts = name.trim().split(/\s+/);
     if (nameParts.length < 3) {
-      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'يجب أن يكون الاسم ثلاثياً كحد أدنى (الاسم الأول واسم الأب واسم العائلة)' });
+      return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'Name must be at least three parts (First, Middle, Last)' });
     }
 
     // Strip any school/schoolId injected from body — always use token-derived value
@@ -97,7 +97,7 @@ exports.create = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         errorCode: 'DUPLICATE_NAME', 
-        message: 'يوجد طالب مسجل مسبقاً بنفس الاسم تماماً في مدرستك. يرجى إضافة اسم الجد أو العائلة للتمييز بينهما.' 
+        message: 'A student with this exact name is already registered in your school. Please add a family name to differentiate.' 
       });
     }
 
@@ -131,9 +131,9 @@ exports.create = async (req, res) => {
   } catch (err) {
     if (err.code === 11000) {
       if (err.keyPattern && err.keyPattern.studentId) {
-        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_ID', message: 'حدث تعارض في رقم الطالب التسلسلي (قد يكون أضيف في نفس الوقت)، يرجى المحاولة مرة أخرى.' });
+        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_ID', message: 'Student ID sequence conflict (might have been added concurrently). Please try again.' });
       }
-      return res.status(400).json({ success: false, errorCode: 'DUPLICATE_RECORD', message: 'هذه البيانات مسجلة مسبقاً.' });
+      return res.status(400).json({ success: false, errorCode: 'DUPLICATE_RECORD', message: 'This record is already registered.' });
     }
     res.status(500).json({ success: false, message: err.message });
   }
@@ -179,16 +179,16 @@ exports.update = async (req, res) => {
   try {
     const { name, nationalId } = req.body;
     const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
-    if (!student) return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     if (name && name.trim() !== '') {
       const nameParts = name.trim().split(/\s+/);
       if (nameParts.length < 3) {
-        return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'يجب أن يكون الاسم ثلاثياً كحد أدنى (الاسم الأول واسم الأب واسم العائلة)' });
+        return res.status(400).json({ success: false, errorCode: 'VALIDATION_ERROR', message: 'Name must be at least three parts (First, Middle, Last)' });
       }
       const duplicate = await Student.findOne({ school: req.schoolId, name: name.trim(), _id: { $ne: req.params.id } });
       if (duplicate) {
-        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_NAME', message: 'يوجد طالب مسجل مسبقاً بنفس الاسم. يرجى إضافة اسم الجد أو العائلة للتمييز.' });
+        return res.status(400).json({ success: false, errorCode: 'DUPLICATE_NAME', message: 'A student with this exact name is already registered. Please add a family name to differentiate.' });
       }
       student.name = name.trim();
       student.normalizedName = normalizeArabicName(name);
@@ -203,14 +203,14 @@ exports.update = async (req, res) => {
         return res.status(403).json({
           success: false,
           errorCode: 'NATIONAL_ID_LOCKED',
-          message: 'لا يمكن تعديل الهوية الوطنية بعد ربط الطالب بولي الأمر. يُرجى فك الربط أولاً.'
+          message: 'National ID cannot be modified after linking to a parent. Please unlink first.'
         });
       }
       student.nationalId = encrypt(nationalId.trim());
     }
 
     await student.save();
-    res.json({ success: true, message: `تم تحديث بيانات "${student.name}" بنجاح` });
+    res.json({ success: true, message: `Student "${student.name}" updated successfully` });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -229,7 +229,7 @@ exports.unlinkParent = async (req, res) => {
       return res.status(400).json({
         success: false,
         errorCode: 'PASSWORD_REQUIRED',
-        message: 'كلمة المرور مطلوبة لتأكيد فك الربط'
+        message: 'Password is required to confirm unlinking'
       });
     }
 
@@ -243,20 +243,20 @@ exports.unlinkParent = async (req, res) => {
       return res.status(401).json({
         success: false,
         errorCode: 'WRONG_PASSWORD',
-        message: 'كلمة المرور غير صحيحة'
+        message: 'Incorrect password'
       });
     }
 
     // 2. Locate the student (scoped to this admin's school)
     const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
     if (!student) {
-      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'الطالب غير موجود' });
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'Student not found' });
     }
     if (!student.parentId) {
       return res.status(400).json({
         success: false,
         errorCode: 'NOT_LINKED',
-        message: 'هذا الطالب غير مرتبط بأي ولي أمر'
+        message: 'This student is not linked to any parent'
       });
     }
 
@@ -282,7 +282,7 @@ exports.unlinkParent = async (req, res) => {
 
     res.json({
       success: true,
-      message: `تم فك الربط مع ولي الأمر بنجاح`,
+      message: 'Parent unlinked successfully',
       student: {
         id: student._id,
         name: student.name,
@@ -307,7 +307,7 @@ exports.relinkParent = async (req, res) => {
       return res.status(400).json({
         success: false,
         errorCode: 'PASSWORD_REQUIRED',
-        message: 'كلمة المرور مطلوبة لتأكيد إعادة الربط'
+        message: 'Password is required to confirm relinking'
       });
     }
 
@@ -321,14 +321,14 @@ exports.relinkParent = async (req, res) => {
       return res.status(401).json({
         success: false,
         errorCode: 'WRONG_PASSWORD',
-        message: 'كلمة المرور غير صحيحة'
+        message: 'Incorrect password'
       });
     }
 
     // 2. Locate the student (scoped to this admin's school)
     const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
     if (!student) {
-      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'الطالب غير موجود' });
+      return res.status(404).json({ success: false, errorCode: 'NOT_FOUND', message: 'Student not found' });
     }
 
     // 3. Must have a previousParentId to relink, and must NOT already be linked
@@ -336,14 +336,14 @@ exports.relinkParent = async (req, res) => {
       return res.status(400).json({
         success: false,
         errorCode: 'NO_PREVIOUS_PARENT',
-        message: 'لا يوجد ولي أمر سابق لإعادة ربطه'
+        message: 'No previous parent found to relink'
       });
     }
     if (student.parentId) {
       return res.status(400).json({
         success: false,
         errorCode: 'ALREADY_LINKED',
-        message: 'هذا الطالب مرتبط بولي أمر بالفعل'
+        message: 'This student is already linked to a parent'
       });
     }
 
@@ -362,7 +362,7 @@ exports.relinkParent = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'تم إعادة الربط مع ولي الأمر بنجاح',
+      message: 'Parent relinked successfully',
       student: {
         id: student._id,
         name: student.name,
@@ -379,14 +379,14 @@ exports.relinkParent = async (req, res) => {
 exports.toggleStatus = async (req, res) => {
   try {
     const student = await Student.findOne({ _id: req.params.id, school: req.schoolId });
-    if (!student) return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     student.isActive = !student.isActive;
     await student.save();
 
     res.json({
       success: true,
-      message: student.isActive ? `تم تفعيل "${student.name}" بنجاح` : `تم تعطيل "${student.name}" بنجاح`,
+      message: student.isActive ? `Student "${student.name}" activated successfully` : `Student "${student.name}" disabled successfully`,
       isActive: student.isActive
     });
   } catch (err) {
@@ -454,7 +454,7 @@ exports.bulkUpload = async (req, res) => {
     });
 
     if (rows.length === 0) {
-      return res.status(400).json({ success: false, errorCode: 'EMPTY_FILE', message: 'ملف الـ CSV فارغ' });
+      return res.status(400).json({ success: false, errorCode: 'EMPTY_FILE', message: 'CSV file is empty' });
     }
 
     let imported = 0;
@@ -479,13 +479,13 @@ exports.bulkUpload = async (req, res) => {
       
       if (!rawName || rawName.trim() === '') {
         skipped++;
-        errors.push(`تم تخطي السطر: لم يتم العثور على اسم الطالب.`);
+        errors.push({ key: 'skipNoName' });
         continue;
       }
       
       if (!rawNationalId || !rawDob) {
         skipped++;
-        errors.push(`تم تخطي "${rawName.trim()}": الهوية الوطنية وتاريخ الميلاد مطلوبان.`);
+        errors.push({ key: 'skipMissingData', name: rawName.trim() });
         continue;
       }
 
@@ -493,14 +493,14 @@ exports.bulkUpload = async (req, res) => {
       const nameParts = name.split(/\s+/);
       if (nameParts.length < 3) {
         skipped++;
-        errors.push(`تم تخطي "${name}": يجب أن يكون الاسم ثلاثياً كحد أدنى.`);
+        errors.push({ key: 'skipShortName', name });
         continue;
       }
 
       // Skip duplicate names
       if (existingNameSet.has(name)) {
         skipped++;
-        errors.push(`تم تخطي "${name}": يوجد طالب مسجل مسبقاً بنفس الاسم تماماً. أضف اسم العائلة للتمييز.`);
+        errors.push({ key: 'skipDuplicateName', name });
         continue;
       }
 
@@ -521,7 +521,7 @@ exports.bulkUpload = async (req, res) => {
       
       if (isNaN(parsedDate.getTime())) {
           skipped++;
-          errors.push(`تم تخطي "${name}": صيغة التاريخ غير صحيحة.`);
+          errors.push({ key: 'skipInvalidDate', name });
           continue;
       }
 
@@ -540,16 +540,16 @@ exports.bulkUpload = async (req, res) => {
       } catch (insertErr) {
         skipped++;
         if (insertErr.code === 11000 && insertErr.keyPattern && insertErr.keyPattern.studentId) {
-          errors.push(`تم تخطي "${name}": تعارض في رقم الطالب التسلسلي، يرجى المحاولة لاحقاً.`);
+          errors.push({ key: 'skipIdConflict', name });
         } else {
-          errors.push(`تم تخطي "${name}": ${insertErr.message}`);
+          errors.push({ key: 'skipGeneric', name, message: insertErr.message });
         }
       }
     }
 
     res.status(201).json({
       success: true,
-      message: `تم رفع بيانات ${imported} طالب بنجاح`,
+      message: 'CSV data uploaded successfully',
       imported,
       skipped,
       errors: errors.length > 0 ? errors : undefined
