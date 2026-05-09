@@ -425,6 +425,7 @@
   "studentManagement": {
     "title": "Student Management",
     "uploadCsv": "Upload CSV",
+    "uploadSuccess": "Successfully uploaded data for {{count}} students",
     "uploading": "Uploading...",
     "addStudent": "Add Student",
     "addStudentTitle": "Add Student",
@@ -477,6 +478,15 @@
     "relinkingButton": "Relinking...",
     "errors": {
       "updateError": "An error occurred while updating"
+    },
+    "csvErrors": {
+      "skipNoName": "Row skipped: Student name not found.",
+      "skipMissingData": "Skipped \"{{name}}\": National ID and Date of Birth are required.",
+      "skipShortName": "Skipped \"{{name}}\": Name must be at least three parts.",
+      "skipDuplicateName": "Skipped \"{{name}}\": A student with the exact same name is already registered. Add a family name to differentiate.",
+      "skipInvalidDate": "Skipped \"{{name}}\": Invalid date format.",
+      "skipIdConflict": "Skipped \"{{name}}\": Conflict in student ID, please try again later.",
+      "skipGeneric": "Skipped \"{{name}}\": {{message}}"
     }
   },
   "driverManagement": {

@@ -424,6 +424,7 @@
   "studentManagement": {
     "title": "إدارة الطلاب",
     "uploadCsv": "رفع CSV",
+    "uploadSuccess": "تم رفع بيانات {{count}} طالب بنجاح",
     "uploading": "جاري الرفع...",
     "addStudent": "إضافة طالب",
     "addStudentTitle": "إضافة طالب",
@@ -476,6 +477,15 @@
     "relinkingButton": "جاري إعادة الربط...",
     "errors": {
       "updateError": "حدث خطأ أثناء التحديث"
+    },
+    "csvErrors": {
+      "skipNoName": "تم تخطي السطر: لم يتم العثور على اسم الطالب.",
+      "skipMissingData": "تم تخطي \"{{name}}\": الهوية الوطنية وتاريخ الميلاد مطلوبان.",
+      "skipShortName": "تم تخطي \"{{name}}\": يجب أن يكون الاسم ثلاثياً كحد أدنى.",
+      "skipDuplicateName": "تم تخطي \"{{name}}\": يوجد طالب مسجل مسبقاً بنفس الاسم تماماً. أضف اسم العائلة للتمييز.",
+      "skipInvalidDate": "تم تخطي \"{{name}}\": صيغة التاريخ غير صحيحة.",
+      "skipIdConflict": "تم تخطي \"{{name}}\": تعارض في رقم الطالب التسلسلي، يرجى المحاولة لاحقاً.",
+      "skipGeneric": "تم تخطي \"{{name}}\": {{message}}"
     }
   },
   "driverManagement": {

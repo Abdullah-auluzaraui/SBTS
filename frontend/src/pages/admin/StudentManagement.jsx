@@ -130,7 +130,7 @@ const StudentManagement = () => {
             setCsvResult(data);
             fetchStudents();
         } catch (err) {
-            setCsvResult({ success: false, message: err.response?.data?.message || 'فشل رفع الملف' });
+            setCsvResult({ success: false, message: err.response?.data?.message || t('studentManagement.csvFailed') });
         } finally {
             setCsvLoading(false);
             if (fileRef.current) fileRef.current.value = '';
@@ -181,11 +181,17 @@ const StudentManagement = () => {
                 <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 ${csvResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                     {csvResult.success ? <CheckCircle2 size={20} className="text-green-500 mt-0.5 shrink-0" /> : <AlertCircle size={20} className="text-red-500 mt-0.5 shrink-0" />}
                     <div>
-                        <p className={`font-bold ${csvResult.success ? 'text-green-700' : 'text-red-700'}`}>{csvResult.message}</p>
+                        <p className={`font-bold ${csvResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                            {csvResult.success ? t('studentManagement.uploadSuccess', { count: csvResult.imported }) : csvResult.message}
+                        </p>
                         {csvResult.imported !== undefined && <p className="text-sm text-gray-600 mt-1">{t('studentManagement.imported', { imported: csvResult.imported, skipped: csvResult.skipped })}</p>}
                         {csvResult.errors?.length > 0 && (
                             <ul className="mt-2 space-y-0.5">
-                                {csvResult.errors.map((e, i) => <li key={i} className="text-xs text-red-600">• {e}</li>)}
+                                {csvResult.errors.map((e, i) => (
+                                    <li key={i} className="text-xs text-red-600">
+                                        • {typeof e === 'string' ? e : t(`studentManagement.csvErrors.${e.key}`, { name: e.name, message: e.message })}
+                                    </li>
+                                ))}
                             </ul>
                         )}
                     </div>
