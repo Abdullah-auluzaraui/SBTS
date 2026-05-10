@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
             const payload = err.response?.data || {
                 success: false,
                 errorCode: 'NETWORK_ERROR',
-                message: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
+                message: 'Could not connect to server. Please check your connection.',
             };
             throw payload;
         } finally {
@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }) => {
             const payload = err.response?.data || {
                 success: false,
                 errorCode: 'NETWORK_ERROR',
-                message: 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك.',
+                message: 'Could not connect to server. Please check your connection.',
             };
             throw payload;
         } finally {

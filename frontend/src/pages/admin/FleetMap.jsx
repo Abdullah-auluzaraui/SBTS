@@ -312,11 +312,10 @@ const FleetMap = () => {
                                 <button
                                     key={bus._id}
                                     onClick={() => handleSelectBusAndView(bus)}
-                                    className={`w-full text-right p-4 rounded-2xl border transition-all ${
-                                        isSelected
+                                    className={`w-full text-right p-4 rounded-2xl border transition-all ${isSelected
                                             ? 'bg-primary-50 border-primary-200 shadow-md shadow-primary-100'
                                             : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary-500' : 'bg-gray-100'}`}>

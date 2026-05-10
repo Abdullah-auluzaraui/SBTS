@@ -35,8 +35,8 @@ exports.getDriverDashboardData = async (req, res) => {
     const rawTripType = req.query?.tripType;
     const tripType =
       rawTripType === 'return' || rawTripType === 'to_home' ? 'to_home'
-      : rawTripType === 'to_school' ? 'to_school'
-      : null;
+        : rawTripType === 'to_school' ? 'to_school'
+          : null;
 
     // Phase param for two-phase return trip workflow
     const phase = req.query?.phase === 'checkin' ? 'checkin' : req.query?.phase === 'route' ? 'route' : null;
@@ -196,11 +196,11 @@ exports.startTrip = async (req, res) => {
 
     // Create a fresh trip for this direction
     const trip = await Trip.create({
-      school:    req.schoolId,
-      bus:       bus._id,
-      driver:    driverId,
+      school: req.schoolId,
+      bus: bus._id,
+      driver: driverId,
       tripType,
-      status:    'active',
+      status: 'active',
       routePath: routePath
     });
 
@@ -427,12 +427,12 @@ exports.markManualAttendance = async (req, res) => {
     try {
       const io = getIO();
       io.to(`admin_${req.schoolId}`).emit('student:status', {
-        busId:     String(bus._id),
+        busId: String(bus._id),
         studentId: String(student._id),
         event,
         tripType
       });
-    } catch (_) {}
+    } catch (_) { }
 
     // --- Notification Integration ---
     if (student.parentId) {
@@ -441,7 +441,7 @@ exports.markManualAttendance = async (req, res) => {
       } else {
         let type = 'status_update';
         let notificationType = 'BUS_STATUS_UPDATE';
-        
+
         if (event === 'boarding') {
           notificationType = tripType === 'to_school' ? 'BOARDED_BUS_TO_SCHOOL' : 'BOARDED_BUS_TO_HOME';
         } else if (event === 'exit') {

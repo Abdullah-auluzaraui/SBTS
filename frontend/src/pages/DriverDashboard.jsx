@@ -232,10 +232,9 @@ const DriverDashboard = () => {
     };
 
     useEffect(() => {
-        fetchDashboardData();
         // Fetch today's server-side trip status to restore lock/resume state
         api.get('/driver/trip/today-status')
-            .then(({ data }) => {
+            .then(async ({ data }) => {
                 if (data.success) {
                     setTodayTripStatus({ to_school: data.to_school, to_home: data.to_home });
                     // Auto-resume: if a trip is active, restore UI state
@@ -245,17 +244,30 @@ const DriverDashboard = () => {
                         if (data.to_school.routePath?.length > 0) {
                             setRoutePath(data.to_school.routePath.map(p => [p.lat, p.lng]));
                         }
+                        // Hydrate with morning data so student statuses are restored
+                        await fetchDashboardData('to_school', null);
                     } else if (data.to_home?.status === 'active') {
                         setTripType('to_home');
                         setTripStarted(true);
-                        setReturnPhase('route');
                         if (data.to_home.routePath?.length > 0) {
                             setRoutePath(data.to_home.routePath.map(p => [p.lat, p.lng]));
                         }
+                        // Critical fix: re-fetch with to_home+route so studentStatuses
+                        // gets populated BEFORE returnPhase='route' filters the list.
+                        await fetchDashboardData('to_home', 'route');
+                        setReturnPhase('route');
+                    } else {
+                        // No active trip — just fetch the default dashboard
+                        await fetchDashboardData();
                     }
+                } else {
+                    await fetchDashboardData();
                 }
             })
-            .catch(err => console.warn('Could not fetch today trip status:', err))
+            .catch(async err => {
+                console.warn('Could not fetch today trip status:', err);
+                await fetchDashboardData();
+            })
             .finally(() => setTodayStatusLoading(false));
     }, []);
 
@@ -263,7 +275,7 @@ const DriverDashboard = () => {
     // only after the driver picks a direction in handleSelectTripType().
     const handleOpenTripTypeChooser = () => {
         if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-            return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+            return setError(t('driver.errors.missingData'));
         }
         setError('');
         setShowTripTypeModal(true);
@@ -302,7 +314,7 @@ const DriverDashboard = () => {
     // Phase 1 → Phase 2 transition: start the route with boarded students only
     const handleStartRoute = async () => {
         if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-            return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+            return setError(t('driver.errors.missingData'));
         }
 
         setRouteLoading(true);
@@ -355,7 +367,7 @@ const DriverDashboard = () => {
             const boardedStudents = (dashboardData.students || []).filter(s => boardedIds.includes(String(s._id)));
 
             if (boardedStudents.length === 0) {
-                setError('لا يوجد طلاب صعدوا الحافلة لبدء الرحلة.');
+                setError(t('driver.errors.noBoardedStudents'));
                 setRouteLoading(false);
                 setReturnPhase('checkin');
                 return;
@@ -365,7 +377,7 @@ const DriverDashboard = () => {
             const validStudents = boardedStudents.filter(s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0);
 
             if (validStudents.length === 0) {
-                setError('لا يوجد طلاب بمواقع جغرافية محددة. يرجى توجيه أولياء الأمور لتحديد مواقعهم.');
+                setError(t('driver.errors.noStudentsLocation'));
                 setRouteLoading(false);
                 setReturnPhase('checkin');
                 return;
@@ -416,19 +428,19 @@ const DriverDashboard = () => {
                     }
                 } catch (saveErr) {
                     if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
-                        setError('رحلة العودة مكتملة بالفعل اليوم.');
+                        setError(t('driver.errors.returnTripCompleted'));
                         setReturnPhase('checkin');
                         return;
                     }
-                    console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
+                    console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
                 }
             } else {
-                setError('تعذّر حساب المسار من خدمة الخرائط.');
+                setError(t('driver.errors.osrmRouteFailed'));
                 setReturnPhase('checkin');
             }
         } catch (err) {
             console.error('OSRM Route Error:', err);
-            setError('حدث خطأ أثناء رسم المسار الذكي.');
+            setError(t('driver.errors.routeDrawError'));
             setReturnPhase('checkin');
         } finally {
             setRouteLoading(false);
@@ -437,7 +449,7 @@ const DriverDashboard = () => {
 
     const handleStartTrip = async () => {
         if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-            return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+            return setError(t('driver.errors.missingData'));
         }
 
         setTripStarted(true);
@@ -450,7 +462,7 @@ const DriverDashboard = () => {
             const validStudents = students.filter(s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0);
 
             if (validStudents.length === 0) {
-                setError('لا يوجد طلاب بمواقع جغرافية محددة. يرجى توجيه أولياء الأمور لتحديد مواقعهم.');
+                setError(t('driver.errors.noStudentsLocation'));
                 setRouteLoading(false);
                 return;
             }
@@ -505,18 +517,18 @@ const DriverDashboard = () => {
                     }
                 } catch (saveErr) {
                     if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
-                        setError('هذه الرحلة مكتملة بالفعل اليوم.');
+                        setError(t('driver.errors.tripAlreadyCompleted'));
                         setTripStarted(false);
                         return;
                     }
-                    console.warn('تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:', saveErr);
+                    console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
                 }
             } else {
-                setError('تعذّر حساب المسار من خدمة الخرائط.');
+                setError(t('driver.errors.osrmRouteFailed'));
             }
         } catch (err) {
             console.error('OSRM Route Error:', err);
-            setError('حدث خطأ أثناء رسم المسار الذكي.');
+            setError(t('driver.errors.routeDrawError'));
         } finally {
             setRouteLoading(false);
         }
@@ -541,7 +553,7 @@ const DriverDashboard = () => {
             });
         } catch (err) {
             console.error('Manual boarding error:', err);
-            setError('تعذر تسجيل حضور الطالب يدوياً.');
+            setError(t('driver.errors.manualAttendanceFailed'));
             // Revert optimistic update on failure
             setBoardedStudents(prev => { const s = new Set(prev); s.delete(studentId); return s; });
             setStudentStatuses(prev => { const m = new Map(prev); m.delete(studentId); return m; });
@@ -579,7 +591,7 @@ const DriverDashboard = () => {
             notifyAbsent(student);
         } catch (err) {
             console.error('Mark no-board error:', err);
-            setError('تعذر تسجيل عدم صعود الطالب.');
+            setError(t('driver.errors.markNoBoardFailed'));
         } finally {
             setMarkingAttendance(null);
         }
@@ -613,7 +625,7 @@ const DriverDashboard = () => {
             });
         } catch (err) {
             console.error('Undo no-board error:', err);
-            setError('تعذر إلغاء حالة عدم الصعود.');
+            setError(t('driver.errors.undoNoBoardFailed'));
         } finally {
             setMarkingAttendance(null);
         }
@@ -642,7 +654,7 @@ const DriverDashboard = () => {
             if (event === 'no_receiver') notifyNoReceiver(student);
         } catch (err) {
             console.error('Return status error:', err);
-            setError('تعذر تحديث حالة الطالب.');
+            setError(t('driver.errors.statusUpdateFailed'));
         } finally {
             setMarkingAttendance(null);
         }
@@ -1044,7 +1056,7 @@ const DriverDashboard = () => {
                                         onClick={() => {
                                             if (isCompleted) return;
                                             if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-                                                return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+                                                return setError(t('driver.errors.missingData'));
                                             }
                                             setError('');
                                             if (isActive) {
@@ -1083,7 +1095,7 @@ const DriverDashboard = () => {
                                         onClick={() => {
                                             if (isCompleted) return;
                                             if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-                                                return setError('بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.');
+                                                return setError(t('driver.errors.missingData'));
                                             }
                                             setError('');
                                             if (isActive) {
@@ -1189,8 +1201,8 @@ const DriverDashboard = () => {
                                                 }) : prev);
                                             }
                                         } catch (e) {
-                                            console.warn('فشل إنهاء الرحلة في الباكند:', e);
-                                            setError(e?.response?.data?.message || e?.message || 'فشل إنهاء الرحلة');
+                                            console.warn(t('driver.errors.endTripBackendFailed'), e);
+                                            setError(e?.response?.data?.message || e?.message || t('driver.errors.endTripFailed'));
                                             return;
                                         }
                                         // Update today status cache immediately so Zero State shows completed

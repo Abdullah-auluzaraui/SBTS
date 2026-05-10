@@ -270,7 +270,23 @@
     "tripEndedSuccess": "تم إنهاء الرحلة بنجاح",
     "completedStatus": "مكتملة",
     "resumeTripToSchool": "استئناف رحلة المدرسة",
-    "resumeTripToHome": "استئناف رحلة المنزل"
+    "resumeTripToHome": "استئناف رحلة المنزل",
+    "errors": {
+      "missingData": "بيانات الحافلة أو الطلاب أو المدرسة غير مكتملة لبدء الرحلة.",
+      "noBoardedStudents": "لا يوجد طلاب صعدوا الحافلة لبدء الرحلة.",
+      "noStudentsLocation": "لا يوجد طلاب بمواقع جغرافية محددة. يرجى توجيه أولياء الأمور لتحديد مواقعهم.",
+      "returnTripCompleted": "رحلة العودة مكتملة بالفعل اليوم.",
+      "saveRouteBackendFailed": "تعذر حفظ المسار في الباكند — ستكمل الرحلة محلياً:",
+      "osrmRouteFailed": "تعذّر حساب المسار من خدمة الخرائط.",
+      "routeDrawError": "حدث خطأ أثناء رسم المسار الذكي.",
+      "tripAlreadyCompleted": "هذه الرحلة مكتملة بالفعل اليوم.",
+      "manualAttendanceFailed": "تعذر تسجيل حضور الطالب يدوياً.",
+      "markNoBoardFailed": "تعذر تسجيل عدم صعود الطالب.",
+      "undoNoBoardFailed": "تعذر إلغاء حالة عدم الصعود.",
+      "statusUpdateFailed": "تعذر تحديث حالة الطالب.",
+      "endTripBackendFailed": "فشل إنهاء الرحلة في الباكند:",
+      "endTripFailed": "فشل إنهاء الرحلة"
+    }
   },
   "parent": {
     "welcome": "مرحباً، {{name}}",

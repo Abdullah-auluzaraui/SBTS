@@ -271,7 +271,23 @@
     "tripEndedSuccess": "Trip ended successfully",
     "completedStatus": "Completed",
     "resumeTripToSchool": "Resume School Trip",
-    "resumeTripToHome": "Resume Home Trip"
+    "resumeTripToHome": "Resume Home Trip",
+    "errors": {
+      "missingData": "Incomplete bus, student, or school data to start the trip.",
+      "noBoardedStudents": "No students boarded to start the trip.",
+      "noStudentsLocation": "No students with valid locations. Please instruct parents to set their home locations.",
+      "returnTripCompleted": "The return trip is already completed for today.",
+      "saveRouteBackendFailed": "Could not save the route in the backend — continuing locally:",
+      "osrmRouteFailed": "Could not calculate route from the routing service.",
+      "routeDrawError": "An error occurred while calculating the smart route.",
+      "tripAlreadyCompleted": "This trip is already completed for today.",
+      "manualAttendanceFailed": "Could not record student attendance manually.",
+      "markNoBoardFailed": "Could not record that the student did not board.",
+      "undoNoBoardFailed": "Could not undo the 'did not board' status.",
+      "statusUpdateFailed": "Could not update the student status.",
+      "endTripBackendFailed": "Failed to end the trip in the backend:",
+      "endTripFailed": "Failed to end the trip"
+    }
   },
   "parent": {
     "welcome": "Welcome, {{name}}",
