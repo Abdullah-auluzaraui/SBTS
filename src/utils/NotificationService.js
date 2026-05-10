@@ -57,7 +57,7 @@ const create = async (recipientId, school, type, notificationType, payload = {})
 const handleNoBoard = async (studentId, busId, parentId, schoolId) => {
   try {
     const { start, end } = todayUTC();
-    
+
     // Check if there is an explicit morning presence record today
     const morningPresence = await Attendance.findOne({
       student: studentId,

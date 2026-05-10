@@ -26,7 +26,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
     const { t } = useTranslation();
     const [liveData, setLiveData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError]     = useState('');
+    const [error, setError] = useState('');
     const [liveBusLocation, setLiveBusLocation] = useState(null);
     const socketRef = useRef(null);
 
@@ -104,11 +104,10 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
 
                 {/* شريط الحالة */}
                 {!loading && liveData && (
-                    <div className={`px-6 py-2.5 shrink-0 flex items-center gap-2 text-sm font-bold ${
-                        liveData.tripActive
+                    <div className={`px-6 py-2.5 shrink-0 flex items-center gap-2 text-sm font-bold ${liveData.tripActive
                             ? 'bg-green-50 text-green-700 border-b border-green-100'
                             : 'bg-amber-50 text-amber-700 border-b border-amber-100'
-                    }`}>
+                        }`}>
                         <span className={`w-2 h-2 rounded-full ${liveData.tripActive ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`} />
                         {liveData.tripActive ? t('busTracking.tripActive') : t('busTracking.noActiveTrip')}
                     </div>

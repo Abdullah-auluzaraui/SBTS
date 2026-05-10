@@ -329,7 +329,7 @@ const RouteManagement = () => {
 
                                 return (
                                     <Marker key={s._id} position={[lat, lng]}>
-                                        <Tooltip direction="top" className="font-sans font-bold" opacity={1}>{s.name} (غير معين)</Tooltip>
+                                        <Tooltip direction="top" className="font-sans font-bold" opacity={1}>{s.name} ({t('routeManagement.unassigned')})</Tooltip>
                                     </Marker>
                                 );
                             })}
