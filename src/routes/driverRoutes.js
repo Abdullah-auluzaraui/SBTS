@@ -30,5 +30,8 @@ router.post('/trip/end', endTrip);
 // PATCH /api/driver/trip/location - Update live bus position (called by TripSimulator)
 router.patch('/trip/location', updateTripLocation);
 
+// PATCH /api/driver/trip/target - Manually override the current target student
+router.patch('/trip/target', require('../controllers/driverController').setManualTarget);
+
 module.exports = router;
 

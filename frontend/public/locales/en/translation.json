@@ -746,6 +746,10 @@
     "BUS_STATUS_UPDATE": {
       "title": "Bus Status Update",
       "body": "Your child's status on the bus has been updated."
+    },
+    "BUS_APPROACHING": {
+      "title": "Bus Approaching ",
+      "body": "The bus is approaching your location and will arrive soon."
     }
   },
   "status": {

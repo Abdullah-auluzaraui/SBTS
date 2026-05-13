@@ -4,6 +4,7 @@ const Student = require('../models/Student');
 const Trip = require('../models/Trip');
 const Attendance = require('../models/Attendance');
 const NotificationService = require('../utils/NotificationService');
+const ProximityEngine = require('../utils/ProximityEngine');
 const { getIO } = require('../utils/socket');
 
 // Shared helper: day window for today in server local time
@@ -494,7 +495,28 @@ exports.updateTripLocation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'لا توجد رحلة نشطة' });
     }
 
+    // Capture previous position BEFORE overwriting
+    const prevLocation = trip.lastLocation?.lat != null
+      ? { lat: trip.lastLocation.lat, lng: trip.lastLocation.lng, updatedAt: trip.lastLocation.updatedAt }
+      : null;
+
+    // Update positions
+    trip.prevLocation = prevLocation ? { ...prevLocation } : trip.prevLocation;
     trip.lastLocation = { lat, lng, updatedAt: new Date() };
+
+    // Resolve next target (auto or driver override)
+    const nextTargetId = await ProximityEngine.resolveNextTarget(
+      { lat, lng, updatedAt: trip.lastLocation.updatedAt }, 
+      bus._id, 
+      req.schoolId, 
+      trip.tripType, 
+      trip.currentTarget
+    );
+
+    if (nextTargetId && String(nextTargetId) !== String(trip.currentTarget?.studentId)) {
+      trip.currentTarget = { studentId: nextTargetId, setBy: 'auto', setAt: new Date() };
+    }
+
     await trip.save();
 
     // Fan-out: emit to each parent's existing socket room
@@ -517,10 +539,52 @@ exports.updateTripLocation = async (req, res) => {
     // Also emit to the school admin room so FleetMap receives live updates
     io.to(`admin_${req.schoolId}`).emit('bus:location', payload);
 
-    res.json({ success: true });
+    res.json({ success: true, currentTarget: trip.currentTarget });
+
+    // Non-blocking proximity evaluation
+    setImmediate(() => {
+      ProximityEngine.evaluate(
+        { lat, lng, updatedAt: trip.lastLocation.updatedAt }, 
+        prevLocation,
+        bus._id, 
+        trip._id, 
+        req.schoolId, 
+        trip.tripType
+      );
+    });
+
   } catch (err) {
     console.error('Update Trip Location Error:', err);
     res.status(500).json({ success: false, message: 'فشل تحديث موقع الحافلة' });
+  }
+};
+
+// PATCH /api/driver/trip/target
+exports.setManualTarget = async (req, res) => {
+  try {
+    const { studentId } = req.body;
+    
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'معرف الطالب مطلوب' });
+    }
+
+    const bus = await Bus.findOne({ driver: req.user._id, isActive: true, school: req.schoolId });
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'الحافلة غير موجودة' });
+    }
+
+    const trip = await Trip.findOne({ bus: bus._id, status: 'active' });
+    if (!trip) {
+      return res.status(404).json({ success: false, message: 'لا توجد رحلة نشطة' });
+    }
+
+    trip.currentTarget = { studentId, setBy: 'driver', setAt: new Date() };
+    await trip.save();
+    
+    res.json({ success: true, message: 'تم تحديث الوجهة يدوياً بنجاح', currentTarget: trip.currentTarget });
+  } catch (err) {
+    console.error('Set Manual Target Error:', err);
+    res.status(500).json({ success: false, message: 'فشل تحديث الوجهة' });
   }
 };
 
