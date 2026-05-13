@@ -92,13 +92,22 @@ function studentDob(i) {
 const seed = async () => {
   await connectDB();
 
-  // 1. Locate the first active school
-  const school = await School.findOne({ isActive: true });
+  // 1. Locate the first active school or create one if none exists
+  let school = await School.findOne({ isActive: true });
   if (!school) {
-    console.error('❌  No active school found.');
-    process.exit(1);
+    console.log('🏫  No active school found. Creating a default demo school...');
+    school = await School.create({
+      name: 'مدرسة الشفا النموذجية',
+      schoolId: 'SCH-0001',
+      contact: {
+        phone: '+966500000000',
+        email: 'alshifa@school.com'
+      },
+      location: { type: 'Point', coordinates: [46.7150, 24.5370] },
+      isActive: true
+    });
   }
-  console.log(`🏫  School found: ${school.name} (${school.schoolId})`);
+  console.log(`🏫  School found or created: ${school.name} (${school.schoolId})`);
 
   // 2. Set school location to Al-Shifa, South Riyadh + contact info
   await School.findByIdAndUpdate(school._id, {
@@ -113,22 +122,25 @@ const seed = async () => {
   // 3. Clear previous demo data (تنظيف شامل وعميق)
   const [delBuses, delUsers, delStudents] = await Promise.all([
     Bus.deleteMany({ busId: { $in: ['BUS-001', 'BUS-002', 'BUS-003', 'BUS-004', 'BUS-005'] } }),
-    User.deleteMany({ role: { $in: ['driver', 'parent'] } }), 
+    User.deleteMany({ 
+      $or: [
+        { role: { $in: ['driver', 'parent'] } },
+        { role: 'schooladmin', school: school._id },
+        { username: 's-admin' }
+      ]
+    }), 
     
     // مسح جميع الطلاب الذين يبدأ الـ ID حقهم بـ S26 بغض النظر عن المدرسة لتفادي أي تعارض
     Student.deleteMany({ studentId: { $regex: /^S26/ } }),
   ]);
   console.log(
     `🗑️   Cleared: ${delBuses.deletedCount} buses, ` +
-    `${delUsers.deletedCount} drivers/parents, ` +
+    `${delUsers.deletedCount} users (including schooladmin), ` +
     `${delStudents.deletedCount} students`
   );
 
   // 4. Hash passwords once
-  const [driverHash, parentHash] = await Promise.all([
-    bcrypt.hash('Driver@123', 10),
-    bcrypt.hash('Parent@123', 10),
-  ]);
+  const sharedHash = await bcrypt.hash('Aa1234', 10);
 
   // 5. Create 5 drivers
   const driverRecords = [
@@ -142,7 +154,7 @@ const seed = async () => {
   const drivers = await User.create(
     driverRecords.map(d => ({
       ...d,
-      password: driverHash,
+      password: sharedHash,
       role: 'driver',
       school: school._id,
       phone: generateSaudiPhone(),
@@ -168,8 +180,8 @@ const seed = async () => {
       return {
         username: `parent${n}`,
         email:    `parent${n}@sbts.com`,
-        password: parentHash,
-        name:     `ولي أمر ${n}`,
+        password: sharedHash,
+        name:     `Parent ${n}`,
         role:     'parent',
         school:   school._id,
         phone:    generateSaudiPhone(),
@@ -178,6 +190,19 @@ const seed = async () => {
     })
   );
   console.log(`✅  Created ${parents.length} parents`);
+
+  // Create school administrator (s-admin)
+  const schoolAdmin = await User.create({
+    username: 's-admin',
+    email: 'admin@sbts.com',
+    password: sharedHash,
+    name: 'مدير المدرسة',
+    role: 'schooladmin',
+    school: school._id,
+    phone: generateSaudiPhone(),
+    isActive: true
+  });
+  console.log(`✅  Created School Admin: ${schoolAdmin.username}`);
 
   // 8. Create 100 students 
   const students = await Student.create(
@@ -211,10 +236,13 @@ const seed = async () => {
   console.log('\n══════════════════════════════════════════════════');
   console.log('📋  Demo data ready!');
   console.log('──────────────────────────────────────────────────');
+  console.log('   School Admin : s-admin');
+  console.log('   Password     : Aa1234');
+  console.log('──────────────────────────────────────────────────');
   console.log('   Drivers  : driver01 ... driver05');
-  console.log('   Password : Driver@123');
+  console.log('   Password : Aa1234');
   console.log('   Parents  : parent001 … parent100');
-  console.log('   Password : Parent@123');
+  console.log('   Password : Aa1234');
   console.log('──────────────────────────────────────────────────');
   console.log('🗺️   Neighborhoods:');
   NEIGHBORHOODS.forEach(n =>

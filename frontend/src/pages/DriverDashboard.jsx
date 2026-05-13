@@ -64,6 +64,7 @@ const DriverDashboard = () => {
     // Completed section is collapsed by default to keep the screen calm.
     const [showCompleted, setShowCompleted] = useState(false);
 
+
     // ─── No Receiver Modal state ─────────────────────────────────────────
     const [noReceiverTarget, setNoReceiverTarget] = useState(null); // student object
     const [noReceiverAcknowledged, setNoReceiverAcknowledged] = useState(false);
@@ -533,6 +534,7 @@ const DriverDashboard = () => {
             setRouteLoading(false);
         }
     };
+
 
     const handleManualBoarding = async (studentId, recordedBy = 'manual') => {
         if (!dashboardData?.bus?._id) return;

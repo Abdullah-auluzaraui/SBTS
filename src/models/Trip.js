@@ -12,8 +12,22 @@ const tripSchema = new mongoose.Schema({
   // المسار المحسوب من OSRM: مصفوفة من { lat, lng }
   routePath: [{ lat: Number, lng: Number }],
 
+  // Smart sequencing — tracks which student the bus is currently heading to
+  currentTarget: {
+    studentId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },
+    setBy:       { type: String, enum: ['auto', 'driver'], default: 'auto' },
+    setAt:       { type: Date, default: null }
+  },
+
   // آخر موقع معروف للحافلة — سيُحدَّث لاحقاً عبر Socket.io
   lastLocation: {
+    lat:       { type: Number, default: null },
+    lng:       { type: Number, default: null },
+    updatedAt: { type: Date, default: null }
+  },
+
+  // Rolling position history (last 2 points for heading computation)
+  prevLocation: {
     lat:       { type: Number, default: null },
     lng:       { type: Number, default: null },
     updatedAt: { type: Date, default: null }

@@ -22,7 +22,11 @@ const userSchema = new mongoose.Schema({
   // this is set to (now + 30 days). If they regain a link before the timer
   // expires, it is cleared. A scheduled job / manual review would hard-delete
   // the account after the timer lapses.
-  accountDeletionScheduledAt: { type: Date, default: null }
+  accountDeletionScheduledAt: { type: Date, default: null },
+
+  // FCM device token — registered by the client app on login.
+  // Used by FCMService.sendPush() to deliver push notifications.
+  fcmToken: { type: String, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

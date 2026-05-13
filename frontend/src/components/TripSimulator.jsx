@@ -5,7 +5,7 @@ import { haversineMeters, pointToSegmentMeters } from '../utils/haversine';
 import api from '../services/apiService';
 
 const APPROACH_THRESHOLD = 400; // metres — pulsing amber ring, sim continues
-const BOARDING_THRESHOLD = 80;  // metres — NFC fire, sim pauses 1.5 s
+const BOARDING_THRESHOLD = 150; // metres — NFC fire (raised: OSRM waypoints land on road, not doorstep)
 const TICK_MS            = 300; // interval cadence (ms)
 
 // Fixed advance steps per speed setting (indices per tick)
@@ -214,6 +214,23 @@ const TripSimulator = ({
         if (idx >= total - 1) {
             isRunningRef.current = false;
             setIsRunning(false);
+
+            // Auto-resolve any student still not processed — last-mile safety net.
+            // This handles the case where the final waypoint lands on the road rather
+            // than exactly on the student's doorstep (OSRM snaps to road network).
+            const stillUnboarded = studentsRef.current.filter(
+                s => s.location?.coordinates && !boardedRef.current.has(String(s._id))
+            );
+            stillUnboarded.forEach(s => {
+                const sid = String(s._id);
+                boardedRef.current.add(sid); // prevent double-fire
+                if (!mountedRef.current) return;
+                if (tripTypeRef.current === 'to_school') {
+                    onNfcBoardRef.current?.(sid);
+                } else {
+                    onDropOffRef.current?.(s, 'arrived_home');
+                }
+            });
         }
     };
 
