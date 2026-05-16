@@ -51,7 +51,7 @@ app.use('/api/notifications', notificationRoutes);
 
 
 app.get('/', (req, res) => {
-  res.send('🚀 SBTS Backend Running Successfully');
+  res.send(' SBTS Backend Running Successfully');
 });
 
 const PORT = process.env.PORT || 5000;

@@ -22,7 +22,7 @@ function generateSaudiPhone() {
 // ── NFC Tag ID Generator ────────────────────────────────────────────────
 function generateNfcTag() {
   // Generate random hex string like "A1B2C3D4E5F6"
-  return Array.from({ length: 12 }, () => 
+  return Array.from({ length: 12 }, () =>
     Math.floor(Math.random() * 16).toString(16).toUpperCase()
   ).join('');
 }
@@ -36,7 +36,7 @@ const FIRST_NAMES = [
 ];
 
 const FATHER_NAMES = [
-  'محمد', 'علي', 'عبدالله', 'عبدالرحمن', 'سعد', 'سالم', 'فهد', 'خالد', 
+  'محمد', 'علي', 'عبدالله', 'عبدالرحمن', 'سعد', 'سالم', 'فهد', 'خالد',
   'سعيد', 'صالح', 'ناصر', 'سليمان', 'إبراهيم', 'عبدالعزيز', 'يوسف'
 ];
 
@@ -48,7 +48,7 @@ const FAMILY_NAMES = [
 ];
 
 function studentName(i) {
-  const first  = FIRST_NAMES[i % FIRST_NAMES.length];
+  const first = FIRST_NAMES[i % FIRST_NAMES.length];
   const father = FATHER_NAMES[i % FATHER_NAMES.length];
   const family = FAMILY_NAMES[Math.floor(i / FIRST_NAMES.length) % FAMILY_NAMES.length];
   return `${first} ${father} ${family}`; // اسم ثلاثي
@@ -57,8 +57,8 @@ function studentName(i) {
 // ── Geographic spread: Realistic random scatter around a residential center ──
 function scatterInNeighborhood(centerLat, centerLng, count) {
   return Array.from({ length: count }, () => {
-    const latOffset = (Math.random() - 0.5) * 0.012; 
-    const lngOffset = (Math.random() - 0.5) * 0.015; 
+    const latOffset = (Math.random() - 0.5) * 0.012;
+    const lngOffset = (Math.random() - 0.5) * 0.015;
     return {
       lat: centerLat + latOffset,
       lng: centerLng + lngOffset,
@@ -69,10 +69,10 @@ function scatterInNeighborhood(centerLat, centerLng, count) {
 // ── South Riyadh Neighborhoods (Al-Shifa & surroundings) ───────────
 const NEIGHBORHOODS = [
   { label: 'حي الشفا (وسط)', lat: 24.5375, lng: 46.7150, count: 20 },
-  { label: 'حي بدر',       lat: 24.5260, lng: 46.7210, count: 20 },
-  { label: 'حي المروة',     lat: 24.5450, lng: 46.7350, count: 20 },
-  { label: 'حي الحزم',      lat: 24.5420, lng: 46.6850, count: 20 },
-  { label: 'حي أحد',       lat: 24.5150, lng: 46.7300, count: 20 }, // المجموع أصبح 100
+  { label: 'حي بدر', lat: 24.5260, lng: 46.7210, count: 20 },
+  { label: 'حي المروة', lat: 24.5450, lng: 46.7350, count: 20 },
+  { label: 'حي الحزم', lat: 24.5420, lng: 46.6850, count: 20 },
+  { label: 'حي أحد', lat: 24.5150, lng: 46.7300, count: 20 }, // المجموع أصبح 100
 ];
 
 // Flatten to 100 coordinate objects
@@ -82,9 +82,9 @@ const ALL_COORDS = NEIGHBORHOODS.flatMap(n => scatterInNeighborhood(n.lat, n.lng
 const DOB_YEARS = [2010, 2011, 2012, 2013, 2014];
 
 function studentDob(i) {
-  const year  = DOB_YEARS[i % DOB_YEARS.length];
-  const month = (i % 12) + 1;       
-  const day   = (i % 28) + 1;       
+  const year = DOB_YEARS[i % DOB_YEARS.length];
+  const month = (i % 12) + 1;
+  const day = (i % 28) + 1;
   return new Date(year, month - 1, day);
 }
 
@@ -122,14 +122,14 @@ const seed = async () => {
   // 3. Clear previous demo data (تنظيف شامل وعميق)
   const [delBuses, delUsers, delStudents] = await Promise.all([
     Bus.deleteMany({ busId: { $in: ['BUS-001', 'BUS-002', 'BUS-003', 'BUS-004', 'BUS-005'] } }),
-    User.deleteMany({ 
+    User.deleteMany({
       $or: [
         { role: { $in: ['driver', 'parent'] } },
         { role: 'schooladmin', school: school._id },
-        { username: 's-admin' }
+        { username: 's_admin' }
       ]
-    }), 
-    
+    }),
+
     // مسح جميع الطلاب الذين يبدأ الـ ID حقهم بـ S26 بغض النظر عن المدرسة لتفادي أي تعارض
     Student.deleteMany({ studentId: { $regex: /^S26/ } }),
   ]);
@@ -144,11 +144,11 @@ const seed = async () => {
 
   // 5. Create 5 drivers
   const driverRecords = [
-    { username: 'driver01', name: 'محمد سعد العتيبي',      email: 'driver01@sbts.com' },
+    { username: 'driver01', name: 'محمد سعد العتيبي', email: 'driver01@sbts.com' },
     { username: 'driver02', name: 'سالم عبدالله القحطاني', email: 'driver02@sbts.com' },
-    { username: 'driver03', name: 'فهد ناصر الدوسري',      email: 'driver03@sbts.com' },
-    { username: 'driver04', name: 'خالد يوسف الشهري',      email: 'driver04@sbts.com' },
-    { username: 'driver05', name: 'علي حسن الغامدي',       email: 'driver05@sbts.com' },
+    { username: 'driver03', name: 'فهد ناصر الدوسري', email: 'driver03@sbts.com' },
+    { username: 'driver04', name: 'خالد يوسف الشهري', email: 'driver04@sbts.com' },
+    { username: 'driver05', name: 'علي حسن الغامدي', email: 'driver05@sbts.com' },
   ];
 
   const drivers = await User.create(
@@ -179,12 +179,12 @@ const seed = async () => {
       const n = String(i + 1).padStart(3, '0');
       return {
         username: `parent${n}`,
-        email:    `parent${n}@sbts.com`,
+        email: `parent${n}@sbts.com`,
         password: sharedHash,
-        name:     `Parent ${n}`,
-        role:     'parent',
-        school:   school._id,
-        phone:    generateSaudiPhone(),
+        name: `Parent ${n}`,
+        role: 'parent',
+        school: school._id,
+        phone: generateSaudiPhone(),
         isActive: true,
       };
     })
@@ -193,10 +193,10 @@ const seed = async () => {
 
   // Create school administrator (s-admin)
   const schoolAdmin = await User.create({
-    username: 's-admin',
+    username: 's_admin',
     email: 'admin@sbts.com',
     password: sharedHash,
-    name: 'مدير المدرسة',
+    name: 'صالح الغامدي',
     role: 'schooladmin',
     school: school._id,
     phone: generateSaudiPhone(),
@@ -208,25 +208,25 @@ const seed = async () => {
   const students = await Student.create(
     ALL_COORDS.map((coord, i) => {
       const num = String(i + 1).padStart(6, '0');
-      
+
       // توليد رقم هوية من 10 أرقام بشكل صحيح (يبدأ بـ 1 وبعده 9 أرقام)
-      const validNationalId = `1${String(100000000 + i + 1)}`; 
+      const validNationalId = `1${String(100000000 + i + 1)}`;
 
       return {
-        name:           studentName(i),
-        studentId:      `S26${num}`,
-        school:         school._id,
-        nationalId:     encrypt(validNationalId),
-        dob:            studentDob(i),
+        name: studentName(i),
+        studentId: `S26${num}`,
+        school: school._id,
+        nationalId: encrypt(validNationalId),
+        dob: studentDob(i),
         normalizedName: studentName(i).replace(/\s+/g, ' ').trim(),
-        parentId:       parents[i]._id,
+        parentId: parents[i]._id,
         location: {
-          type:        'Point',
+          type: 'Point',
           coordinates: [coord.lng, coord.lat],
         },
-        nfcTagId:       generateNfcTag(),
+        nfcTagId: generateNfcTag(),
         assignedBus: null,
-        isActive:    true,
+        isActive: true,
       };
     })
   );
