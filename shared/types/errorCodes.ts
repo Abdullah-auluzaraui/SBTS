@@ -1,0 +1,53 @@
+export type ErrorCode =
+  // Auth & Account Errors
+  | 'USER_EXISTS'
+  | 'USER_NOT_FOUND'
+  | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_INACTIVE'
+  | 'ACTION_FORBIDDEN'
+  | 'UNAUTHORIZED'
+  
+  // Registration & OTP
+  | 'STUDENT_NOT_FOUND'
+  | 'STUDENT_ALREADY_LINKED'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'INVALID_OTP'
+  | 'OTP_EXPIRED'
+  
+  // Invitations
+  | 'NO_TOKEN'
+  | 'INVALID_TOKEN'
+  | 'TOKEN_USED'
+  | 'TOKEN_EXPIRED'
+  | 'INVALID_RESET_TOKEN'
+  | 'NO_EMAIL_FOUND'
+  
+  // School errors
+  | 'SCHOOL_NOT_FOUND'
+
+  // Fleet & Infrastructure
+  | 'BUS_NOT_FOUND'
+  | 'BUS_ALREADY_EXISTS'
+  | 'ROUTE_NOT_FOUND'
+
+  // Student & Onboarding [NEW]
+  | 'DUPLICATE_NAME'
+  | 'PASSWORD_REQUIRED'
+  | 'WRONG_PASSWORD'
+  | 'NOT_LINKED'
+  | 'NO_PREVIOUS_PARENT'
+  | 'ALREADY_LINKED'
+  | 'NATIONAL_ID_LOCKED'
+  | 'NO_FILE'
+  | 'EMPTY_FILE'
+
+  // General & Input Validation
+  | 'VALIDATION_ERROR'
+  | 'INVALID_INPUT'
+  | 'EMAIL_TAKEN'
+  | 'USERNAME_TAKEN'
+  | 'DRIVER_NAME_READONLY'
+  | 'NOT_FOUND'
+  | 'ACCESS_DENIED'
+  | 'TRIP_ALREADY_COMPLETED'
+  | 'INTERNAL_SERVER_ERROR';
