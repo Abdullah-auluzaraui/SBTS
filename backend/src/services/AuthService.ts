@@ -1,9 +1,10 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
-import Student from '../models/Student';
+import Student, { IStudent } from '../models/Student';
 import Invitation from '../models/Invitation';
-import OTP from '../models/OTP';
+import OTP, { IOTP } from '../models/OTP';
+import { ISchool } from '../models/School';
 import { decrypt } from '../utils/crypto';
 import generateToken from '../utils/generateToken';
 import { AppError } from '../utils/AppError';
@@ -17,7 +18,7 @@ export class AuthService {
     nationalId: string;
     dob: string;
   }) {
-    const { username, email, name, phone, nationalId, dob } = data;
+    const { username, email, phone, nationalId, dob } = data;
 
     // Check for duplicate parent email or username
     const exists = await User.findOne({ $or: [{ email }, { username }] });
@@ -27,7 +28,7 @@ export class AuthService {
 
     // Find the student by nationalId + dob
     const inputDate = new Date(dob).toISOString().split('T')[0];
-    const allStudents: any[] = await Student.find({});
+    const allStudents: IStudent[] = await Student.find({});
     const student = allStudents.find(s => {
       const dbDate = new Date(s.dob).toISOString().split('T')[0];
       const dbNationalId = decrypt(s.nationalId);
@@ -77,7 +78,7 @@ export class AuthService {
     const { username, email, password, name, phone, otp, studentId } = data;
 
     // Verify OTP
-    const otps: any[] = await OTP.find({ phone, studentId });
+    const otps: IOTP[] = await OTP.find({ phone, studentId });
     if (otps.length === 0) {
       throw new AppError(400, 'OTP_EXPIRED');
     }
@@ -167,7 +168,7 @@ export class AuthService {
   }
 
   static async verifyInvitation(token: string) {
-    const invitation: any = await Invitation.findOne({ token }).populate('school', 'name schoolId');
+    const invitation = await Invitation.findOne({ token }).populate<{ school: ISchool }>('school', 'name schoolId');
     if (!invitation) {
       throw new AppError(404, 'INVALID_TOKEN');
     }
@@ -193,7 +194,7 @@ export class AuthService {
       throw new AppError(400, 'VALIDATION_ERROR');
     }
 
-    const invitation: any = await Invitation.findOne({ token }).populate('school');
+    const invitation = await Invitation.findOne({ token }).populate<{ school: ISchool }>('school');
     if (!invitation) {
       throw new AppError(404, 'INVALID_TOKEN');
     }
@@ -266,7 +267,7 @@ export class AuthService {
   }
 
   static async verifyOtp(phone: string, otpCode: string) {
-    const otps: any[] = await OTP.find({ phone, purpose: 'forgot-password' });
+    const otps: IOTP[] = await OTP.find({ phone, purpose: 'forgot-password' });
     if (otps.length === 0) {
       throw new AppError(400, 'OTP_EXPIRED');
     }
@@ -302,9 +303,9 @@ export class AuthService {
       throw new AppError(400, 'VALIDATION_ERROR');
     }
 
-    let payload: any;
+    let payload: { id: string; purpose: string } & jwt.JwtPayload;
     try {
-      payload = jwt.verify(resetToken, process.env.JWT_SECRET || 'secret');
+      payload = jwt.verify(resetToken, process.env.JWT_SECRET || 'secret') as { id: string; purpose: string } & jwt.JwtPayload;
     } catch {
       throw new AppError(401, 'INVALID_RESET_TOKEN');
     }

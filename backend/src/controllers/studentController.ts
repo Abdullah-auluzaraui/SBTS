@@ -33,7 +33,7 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 export const unlinkParent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { password } = req.body || {};
-    const adminUserId = (req as any).user._id;
+    const adminUserId = req.user!._id.toString();
     const result = await StudentService.unlinkParent(req.schoolId as string, req.params.id as string, adminUserId, password);
     res.json({
       success: true,
@@ -48,7 +48,7 @@ export const unlinkParent = async (req: Request, res: Response, next: NextFuncti
 export const relinkParent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { password } = req.body || {};
-    const adminUserId = (req as any).user._id;
+    const adminUserId = req.user!._id.toString();
     const result = await StudentService.relinkParent(req.schoolId as string, req.params.id as string, adminUserId, password);
     res.json({
       success: true,
@@ -84,11 +84,11 @@ export const getUnassigned = async (req: Request, res: Response, next: NextFunct
 
 export const bulkUpload = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    if (!(req as any).file) {
+    if (!req.file) {
       res.status(400).json({ success: false, errorCode: 'NO_FILE', message: 'CSV file is required' });
       return;
     }
-    const result = await StudentService.bulkUpload(req.schoolId as string, (req as any).file.buffer);
+    const result = await StudentService.bulkUpload(req.schoolId as string, req.file.buffer);
     res.status(201).json({
       success: true,
       message: 'CSV data uploaded successfully',

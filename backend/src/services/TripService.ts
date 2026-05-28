@@ -1,5 +1,4 @@
 import Bus from '../models/Bus';
-import Route from '../models/Route';
 import Student from '../models/Student';
 import Trip from '../models/Trip';
 import Attendance from '../models/Attendance';
@@ -8,6 +7,7 @@ import * as ProximityEngine from '../utils/ProximityEngine';
 import { getIO } from '../utils/socket';
 import mongoose from 'mongoose';
 import { AppError } from '../utils/AppError';
+import { ISchool } from '../models/School';
 
 // Shared helper: day window for today in server local time
 const todayWindow = () => {
@@ -31,8 +31,21 @@ export class TripService {
       .select('busId capacity school')
       .populate('school', 'location name emergencyContacts');
 
-    let students: any[] = [];
-    let todayEvents: any[] = [];
+    let students: Array<mongoose.Document & {
+      _id: mongoose.Types.ObjectId;
+      name: string;
+      studentId: string;
+      grade?: string | null;
+      location: { type: 'Point'; coordinates: number[] };
+      parentId?: { name: string; phone: string } | null;
+    }> = [];
+
+    let todayEvents: Array<{
+      student: mongoose.Types.ObjectId;
+      tripType: 'to_school' | 'to_home' | null;
+      event: string;
+      timestamp: Date;
+    }> = [];
 
     if (bus) {
       students = await Student.find({ assignedBus: bus._id, school: schoolId })
@@ -64,9 +77,9 @@ export class TripService {
     return {
       bus: bus ? { busId: bus.busId, capacity: bus.capacity, _id: bus._id } : null,
       school: bus?.school ? {
-        name: (bus.school as any).name,
-        location: (bus.school as any).location,
-        emergencyContacts: (bus.school as any).emergencyContacts || []
+        name: (bus.school as unknown as ISchool).name,
+        location: (bus.school as unknown as ISchool).location,
+        emergencyContacts: (bus.school as unknown as ISchool).emergencyContacts || []
       } : null,
       students,
       tripType,
@@ -87,18 +100,23 @@ export class TripService {
       startedAt: { $gte: start, $lte: end }
     }).select('tripType status routePath startedAt').lean();
 
-    const result: Record<string, any> = { to_school: null, to_home: null };
+    const result: Record<'to_school' | 'to_home', {
+      status: string;
+      tripId: mongoose.Types.ObjectId;
+      routePath: Array<{ lat: number; lng: number }>;
+      startedAt: Date;
+    } | null> = { to_school: null, to_home: null };
     for (const trip of trips) {
-      const key = trip.tripType || 'to_school';
-      if (!result[key] || new Date(trip.startedAt) > new Date(result[key].startedAt)) {
-        result[key] = { status: trip.status, tripId: trip._id, routePath: trip.routePath, startedAt: trip.startedAt };
+      const key = (trip.tripType || 'to_school') as 'to_school' | 'to_home';
+      if (!result[key] || new Date(trip.startedAt) > new Date(result[key]!.startedAt)) {
+        result[key] = { status: trip.status, tripId: trip._id, routePath: trip.routePath as Array<{ lat: number; lng: number }>, startedAt: trip.startedAt };
       }
     }
 
     return result;
   }
 
-  static async startTrip(schoolId: string, driverId: string, routePath: any[], tripType: string) {
+  static async startTrip(schoolId: string, driverId: string, routePath: Array<{ lat: number; lng: number }>, tripType: string) {
     if (!routePath || !Array.isArray(routePath) || routePath.length === 0) {
       throw new AppError(400, 'INVALID_INPUT', 'routePath مطلوب ويجب أن يكون مصفوفة من {lat, lng}');
     }
@@ -171,14 +189,18 @@ export class TripService {
   }
 
   static async endTrip(schoolId: string, driverId: string, requestedTripType?: string) {
-    let completedSchoolArrivalStudents: any[] = [];
+    let completedSchoolArrivalStudents: Array<{
+      studentId: mongoose.Types.ObjectId;
+      parentId: mongoose.Types.ObjectId;
+      attendanceId: mongoose.Types.ObjectId | null;
+    }> = [];
 
     const bus = await Bus.findOne({ driver: driverId, isActive: true, school: schoolId });
     if (!bus) {
       throw new AppError(404, 'NOT_FOUND', 'لا توجد حافلة مخصصة لهذا السائق');
     }
 
-    const tripQuery: any = { bus: bus._id, status: 'active', school: schoolId };
+    const tripQuery: Record<string, unknown> = { bus: bus._id, status: 'active', school: schoolId };
     if (requestedTripType && ['to_school', 'to_home'].includes(requestedTripType)) {
       tripQuery.tripType = requestedTripType;
     }
@@ -261,7 +283,7 @@ export class TripService {
           .filter(s => s.parentId)
           .map(s => ({
             studentId: s._id,
-            parentId: s.parentId,
+            parentId: s.parentId!,
             attendanceId: attendanceByStudent.get(String(s._id)) || null
           }));
       }
@@ -380,7 +402,7 @@ export class TripService {
         NotificationService.create(
           student.parentId,
           schoolId,
-          type as any,
+          type as 'status_update' | 'urgent_alert',
           notificationType,
           { studentId: student._id, attendanceId: attendance!._id, event, tripType }
         );
@@ -447,8 +469,8 @@ export class TripService {
 
     setImmediate(() => {
       ProximityEngine.evaluate(
-        { lat, lng, updatedAt: trip.lastLocation.updatedAt as Date }, 
-        prevLocation as any,
+        { lat, lng, updatedAt: trip.lastLocation!.updatedAt as Date }, 
+        prevLocation as { lat: number; lng: number; updatedAt: Date } | null,
         bus._id, 
         trip._id, 
         schoolId, 

@@ -1,37 +1,42 @@
-﻿// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Phone, Plus, Trash2, X, Loader2, CheckCircle2, AlertCircle, Users } from 'lucide-react';
 import api from '../services/apiService';
 
-// Modal for the school admin to add / edit / delete internal school contacts.
-// Backed by: GET /api/admin/school & PUT /api/admin/school/emergency-contacts
-//
-// Contact shape: { role: string, phone: string }
-// The backend persists them as { name, phone }; we map transparently here.
-const SchoolContactsManager = ({ onClose, onSaved }) => {
+interface Contact {
+  role: string;
+  phone: string;
+}
+
+interface SchoolContactsManagerProps {
+  onClose: () => void;
+  onSaved?: (contacts: Array<{ name: string; phone: string }>) => void;
+}
+
+const SchoolContactsManager: React.FC<SchoolContactsManagerProps> = ({ onClose, onSaved }) => {
     const { t } = useTranslation();
 
-    const [contacts, setContacts] = useState([]); // [{ role, phone }]
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [success, setSuccess] = useState('');
-    const [error, setError] = useState('');
+    const [contacts, setContacts] = useState<Contact[]>([]); // [{ role, phone }]
+    const [loading, setLoading] = useState<boolean>(true);
+    const [saving, setSaving] = useState<boolean>(false);
+    const [success, setSuccess] = useState<string>('');
+    const [error, setError] = useState<string>('');
 
-    // ΓöÇΓöÇ Load current contacts ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ── Load current contacts ────────────────────────────────────────────────────────
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
                 const { data } = await api.get('/admin/school');
                 if (cancelled) return;
-                const list = (data.school?.emergencyContacts || []).map(c => ({
+                const list = (data.school?.emergencyContacts || []).map((c: { name?: string; phone?: string }) => ({
                     role: c.name || '',
                     phone: c.phone || ''
                 }));
                 setContacts(list.length ? list : [{ role: '', phone: '' }]);
-            } catch (err) {
-                if (!cancelled) setError(err.response?.data?.message || t('common.error'));
+            } catch (err: unknown) {
+                const axiosErr = err as { response?: { data?: { message?: string } } };
+                if (!cancelled) setError(axiosErr.response?.data?.message || t('common.error'));
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -39,8 +44,8 @@ const SchoolContactsManager = ({ onClose, onSaved }) => {
         return () => { cancelled = true; };
     }, [t]);
 
-    // ΓöÇΓöÇ Row helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const updateRow = (idx, field, value) => {
+    // ── Row helpers ─────────────────────────────────────────────────────────────────
+    const updateRow = (idx: number, field: keyof Contact, value: string) => {
         setContacts(prev => prev.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
         setSuccess('');
         setError('');
@@ -52,14 +57,14 @@ const SchoolContactsManager = ({ onClose, onSaved }) => {
         setError('');
     };
 
-    const removeRow = (idx) => {
+    const removeRow = (idx: number) => {
         setContacts(prev => prev.filter((_, i) => i !== idx));
         setSuccess('');
         setError('');
     };
 
-    // ΓöÇΓöÇ Save ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleSave = async (e) => {
+    // ── Save ────────────────────────────────────────────────────────────────────────
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -79,12 +84,13 @@ const SchoolContactsManager = ({ onClose, onSaved }) => {
         try {
             const payload = { contacts: cleaned.map(c => ({ name: c.role, phone: c.phone })) };
             const { data } = await api.put('/admin/school/emergency-contacts', payload);
-            const saved = (data.emergencyContacts || []).map(c => ({ role: c.name || '', phone: c.phone || '' }));
+            const saved = (data.emergencyContacts || []).map((c: { name?: string; phone?: string }) => ({ role: c.name || '', phone: c.phone || '' }));
             setContacts(saved.length ? saved : [{ role: '', phone: '' }]);
             setSuccess(t('admin.contactsSaved'));
             onSaved?.(data.emergencyContacts || []);
-        } catch (err) {
-            setError(err.response?.data?.message || t('admin.contactsSaveFailed'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setError(axiosErr.response?.data?.message || t('admin.contactsSaveFailed'));
         } finally {
             setSaving(false);
         }

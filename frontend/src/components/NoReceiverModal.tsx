@@ -11,7 +11,7 @@ interface NoReceiverModalProps {
   student?: Student;
   parentPhone?: string;
   parentName?: string;
-  schoolContacts?: string[];
+  schoolContacts?: Array<{ name?: string; phone?: string }>;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -96,9 +96,12 @@ const NoReceiverModal: React.FC<NoReceiverModalProps> = ({
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 font-medium px-1">{t('driver.schoolEmergencyContacts')}:</p>
                 {schoolContacts.map((contact, idx) => (
-                  <a key={idx} href={`tel:${contact}`} className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition-colors text-sm">
-                    <Phone size={16} strokeWidth={1.75} className="text-blue-600 shrink-0" />
-                    <span className="font-bold text-blue-700">{contact}</span>
+                  <a key={idx} href={`tel:${contact.phone || ''}`} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-100 rounded-xl hover:bg-blue-100 transition-colors text-sm">
+                    <div className="flex items-center gap-2">
+                      <Phone size={16} strokeWidth={1.75} className="text-blue-600 shrink-0" />
+                      <span className="font-bold text-blue-700">{contact.name || t('driver.schoolEmergencyContacts')}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium">{contact.phone}</span>
                   </a>
                 ))}
               </div>

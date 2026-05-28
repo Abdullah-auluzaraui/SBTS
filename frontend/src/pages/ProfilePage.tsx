@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -10,9 +9,16 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-// ΓöÇΓöÇΓöÇ Reusable sub-components ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Reusable sub-components
 
-const TabButton = ({ active, onClick, icon: Icon, label }) => (
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
+  label: string;
+}
+
+const TabButton: React.FC<TabButtonProps> = ({ active, onClick, icon: Icon, label }) => (
   <button
     type="button"
     onClick={onClick}
@@ -26,21 +32,43 @@ const TabButton = ({ active, onClick, icon: Icon, label }) => (
   </button>
 );
 
-const SuccessAlert = ({ message }) => (
+interface SuccessAlertProps {
+  message: string;
+}
+
+const SuccessAlert: React.FC<SuccessAlertProps> = ({ message }) => (
   <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 font-semibold">
     <CheckCircle2 size={16} className="shrink-0" />
     {message}
   </div>
 );
 
-const ErrorAlert = ({ message }) => (
+interface ErrorAlertProps {
+  message: string;
+}
+
+const ErrorAlert: React.FC<ErrorAlertProps> = ({ message }) => (
   <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 font-semibold">
     <AlertCircle size={16} className="shrink-0 mt-0.5" />
     {message}
   </div>
 );
 
-const InputField = ({
+interface InputFieldProps {
+  label?: string;
+  type?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  dir?: string;
+  hint?: string;
+  required?: boolean;
+  labelAction?: React.ReactNode;
+  endAdornment?: React.ReactNode;
+}
+
+const InputField: React.FC<InputFieldProps> = ({
   label,
   type = 'text',
   value,
@@ -88,16 +116,20 @@ const InputField = ({
   </div>
 );
 
-// ΓöÇΓöÇΓöÇ Phone Change sub-modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-const PhoneChangeModal = ({ onClose, onSuccess }) => {
-  const { t } = useTranslation();
-  const [step, setStep] = useState(1); // 1: enter new phone, 2: enter OTP
-  const [newPhone, setNewPhone] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+interface PhoneChangeModalProps {
+  onClose: () => void;
+  onSuccess: (newPhone: string) => void;
+}
 
-  const handleRequestOtp = async (e) => {
+const PhoneChangeModal: React.FC<PhoneChangeModalProps> = ({ onClose, onSuccess }) => {
+  const { t } = useTranslation();
+  const [step, setStep] = useState<number>(1); // 1: enter new phone, 2: enter OTP
+  const [newPhone, setNewPhone] = useState<string>('');
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!/^\d{10}$/.test(newPhone)) { setError(t('profile.errors.invalidPhone')); return; }
@@ -110,14 +142,15 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
         console.log(`========================================\n`);
       }
       setStep(2);
-    } catch (err) {
-      setError(err.response?.data?.message || t('profile.errors.genericError'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || t('profile.errors.genericError'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (otpCode.length !== 6) { setError(t('profile.errors.invalidOtp')); return; }
@@ -125,8 +158,9 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
     try {
       const { data } = await api.put('/profile/phone/verify', { newPhone, otpCode });
       onSuccess(data.phone);
-    } catch (err) {
-      setError(err.response?.data?.message || t('profile.errors.wrongOtp'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || t('profile.errors.wrongOtp'));
     } finally {
       setLoading(false);
     }
@@ -193,35 +227,47 @@ const PhoneChangeModal = ({ onClose, onSuccess }) => {
   );
 };
 
-// ΓöÇΓöÇΓöÇ Main Profile Page ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-const ProfilePage = () => {
+// ─── Main Profile Page ────────────────────────────────────────────────────────
+interface UserProfile {
+  name?: string;
+  email?: string;
+  username?: string;
+  phone?: string;
+  isPhoneVerified?: boolean;
+  role?: string;
+}
+
+const ProfilePage: React.FC = () => {
   const { t } = useTranslation();
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
-  const dashboardPath = { schooladmin: '/admin', parent: '/parent', driver: '/driver' }[user?.role] || '/';
-  const [tab, setTab] = useState('general');
-  const [profile, setProfile] = useState(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  const role = user?.role as 'schooladmin' | 'parent' | 'driver' | undefined;
+  const dashboardPath = role ? ({ schooladmin: '/admin', parent: '/parent', driver: '/driver' }[role] || '/') : '/';
+  
+  const [tab, setTab] = useState<string>('general');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
 
   // General Info state
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [genSuccess, setGenSuccess] = useState('');
-  const [genError, setGenError] = useState('');
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [username, setUsername] = useState<string>('');
+  const [saving, setSaving] = useState<boolean>(false);
+  const [genSuccess, setGenSuccess] = useState<string>('');
+  const [genError, setGenError] = useState<string>('');
 
   // Phone change modal
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
 
   // Security tab state
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPwd, setShowPwd] = useState(false);
-  const [pwdSaving, setPwdSaving] = useState(false);
-  const [pwdSuccess, setPwdSuccess] = useState('');
-  const [pwdError, setPwdError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [showPwd, setShowPwd] = useState<boolean>(false);
+  const [pwdSaving, setPwdSaving] = useState<boolean>(false);
+  const [pwdSuccess, setPwdSuccess] = useState<string>('');
+  const [pwdError, setPwdError] = useState<string>('');
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -239,38 +285,39 @@ const ProfilePage = () => {
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  // ΓöÇΓöÇ Save General Info ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  const handleSaveGeneral = async (e) => {
+  // Save General Info
+  const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
     setGenError(''); setGenSuccess('');
     setSaving(true);
     try {
-      const payload = {};
-      if (user.role !== 'driver') payload.name = name;
-      if (user.role === 'schooladmin') payload.email = email;
-      if (['parent', 'schooladmin'].includes(user.role)) payload.username = username;
+      const payload: Record<string, string> = {};
+      if (user && user.role !== 'driver') payload.name = name;
+      if (user && user.role === 'schooladmin') payload.email = email;
+      if (user && ['parent', 'schooladmin'].includes(user.role)) payload.username = username;
 
       const { data } = await api.put('/profile/me', payload);
       setGenSuccess(t('profile.saveSuccess'));
       updateUser({ name: data.user.name, email: data.user.email, username: data.user.username });
       setProfile(prev => ({ ...prev, ...data.user }));
-    } catch (err) {
-      setGenError(err.response?.data?.message || t('profile.errors.saveFailed'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setGenError(axiosErr.response?.data?.message || t('profile.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
   };
 
-  // ΓöÇΓöÇ Phone change success ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  const handlePhoneChangeSuccess = (newPhone) => {
+  // Phone change success
+  const handlePhoneChangeSuccess = (newPhone: string) => {
     setShowPhoneModal(false);
     setProfile(prev => ({ ...prev, phone: newPhone, isPhoneVerified: true }));
     updateUser({ phone: newPhone });
     setGenSuccess(t('profile.phoneUpdateSuccess'));
   };
 
-  // ΓöÇΓöÇ Change Password ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  const handleChangePassword = async (e) => {
+  // ── Change Password ────────────────────────────────────────────────────────
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwdError(''); setPwdSuccess('');
     if (newPassword.length < 6) { setPwdError(t('profile.errors.shortPassword')); return; }
@@ -280,8 +327,9 @@ const ProfilePage = () => {
       await api.put('/profile/password', { currentPassword, newPassword });
       setPwdSuccess(t('profile.passwordChangeSuccess'));
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
-    } catch (err) {
-      setPwdError(err.response?.data?.message || t('profile.errors.changeFailed'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setPwdError(axiosErr.response?.data?.message || t('profile.errors.changeFailed'));
     } finally {
       setPwdSaving(false);
     }
@@ -307,7 +355,7 @@ const ProfilePage = () => {
         {/* Header */}
         <div className="bg-white border border-gray-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.05)] p-6 lg:p-8 mb-4">
 
-          {/* Back button ΓÇö positioned at the start (left in LTR, right in RTL) */}
+          {/* Back button — positioned at the start (left in LTR, right in RTL) */}
           <div className="flex justify-start mb-6">
             <button
               type="button"
@@ -325,7 +373,7 @@ const ProfilePage = () => {
             <TabButton active={tab === 'security'} onClick={() => setTab('security')} icon={Lock} label={t('profile.security')} />
           </div>
 
-          {/* ΓöÇΓöÇ General Info Tab ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+          {/* ── General Info Tab ─────────────────────────────────────────── */}
           {tab === 'general' && (
             <form onSubmit={handleSaveGeneral} className="space-y-5">
               <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">{t('profile.personalInfo')}</h3>
@@ -339,7 +387,7 @@ const ProfilePage = () => {
                 hint={isDriver ? t('profile.nameReadonly') : undefined}
               />
 
-              {/* Username ΓÇö parent and admin only */}
+              {/* Username — parent and admin only */}
               {(isAdmin || isParent) && (
                 <InputField
                   label={t('profile.usernameLabel')}
@@ -350,7 +398,7 @@ const ProfilePage = () => {
                 />
               )}
 
-              {/* Email ΓÇö schooladmin only */}
+              {/* Email — schooladmin only */}
               {isAdmin && (
                 <InputField
                   label={t('profile.emailLabel')}
@@ -360,7 +408,7 @@ const ProfilePage = () => {
                 />
               )}
 
-              {/* Phone ΓÇö full width with verified badge as end-adornment and Change as label action */}
+              {/* Phone — full width with verified badge as end-adornment and Change as label action */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2 px-1">
                   <label className="block text-gray-700 font-bold text-sm text-start">{t('profile.phoneLabel')}</label>
@@ -389,7 +437,7 @@ const ProfilePage = () => {
               {genSuccess && <SuccessAlert message={genSuccess} />}
               {genError && <ErrorAlert message={genError} />}
 
-              {/* Save button ΓÇö hidden for driver (no editable fields) */}
+              {/* Save button — hidden for driver (no editable fields) */}
               {!isDriver && (
                 <button type="submit" disabled={saving}
                   className="w-full bg-primary-500 text-white font-bold py-3 rounded-xl hover:bg-primary-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60 mt-2">
@@ -407,7 +455,7 @@ const ProfilePage = () => {
             </form>
           )}
 
-          {/* ΓöÇΓöÇ Security Tab ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+          {/* ── Security Tab ─────────────────────────────────────────────── */}
           {tab === 'security' && (
             <form onSubmit={handleChangePassword} className="space-y-5">
               <h3 className="text-base font-bold text-gray-500 border-b pb-2 mb-4">{t('profile.changePasswordTitle')}</h3>

@@ -18,6 +18,8 @@ export interface AuthUser {
   role: UserRole;
   schoolId?: string | null;
   phone?: string | null;
+  email?: string | null;
+  username?: string | null;
 }
 
 interface ApiErrorPayload {
@@ -120,8 +122,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       persistSession(data.token, data.user);
       navigate(ROLE_ROUTES[data.user.role] ?? '/login');
       return data;
-    } catch (err: any) {
-      const payload: ApiErrorPayload = err.response?.data ?? {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: ApiErrorPayload } };
+      const payload: ApiErrorPayload = axiosErr.response?.data ?? {
         success: false,
         errorCode: 'NETWORK_ERROR',
         message: 'Cannot reach the server. Please check your connection.',
@@ -147,8 +150,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name, username, email, phone, nationalId, dob,
       });
       return data;
-    } catch (err: any) {
-      const payload: ApiErrorPayload = err.response?.data ?? {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: ApiErrorPayload } };
+      const payload: ApiErrorPayload = axiosErr.response?.data ?? {
         success: false,
         errorCode: 'NETWORK_ERROR',
         message: 'Could not connect to server. Please check your connection.',
@@ -179,8 +183,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       persistSession(data.token, data.user);
       navigate('/parent');
       return data;
-    } catch (err: any) {
-      const payload: ApiErrorPayload = err.response?.data ?? {
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: ApiErrorPayload } };
+      const payload: ApiErrorPayload = axiosErr.response?.data ?? {
         success: false,
         errorCode: 'NETWORK_ERROR',
         message: 'Could not connect to server. Please check your connection.',

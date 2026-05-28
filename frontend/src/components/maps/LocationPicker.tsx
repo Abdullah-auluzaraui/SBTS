@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,15 +7,20 @@ import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
 
 // Fix for default Leaflet marker icons in React
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+interface LocationMarkerProps {
+  position: L.LatLng | { lat: number; lng: number };
+  setPosition: (p: L.LatLng) => void;
+}
+
 // Custom Component to handle map clicks/drags
-const LocationMarker = ({ position, setPosition }) => {
+const LocationMarker: React.FC<LocationMarkerProps> = ({ position, setPosition }) => {
   const map = useMap();
 
   useMapEvents({
@@ -39,8 +43,12 @@ const LocationMarker = ({ position, setPosition }) => {
   );
 };
 
+interface RecenterMapProps {
+  center: [number, number] | null;
+}
+
 // Component to recenter map from external button
-const RecenterMap = ({ center }) => {
+const RecenterMap: React.FC<RecenterMapProps> = ({ center }) => {
   const map = useMap();
   useEffect(() => {
     if (center) {
@@ -50,13 +58,27 @@ const RecenterMap = ({ center }) => {
   return null;
 };
 
-const LocationPicker = ({ student, onClose, onSaved }) => {
+interface Student {
+  _id: string;
+  name: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+interface LocationPickerProps {
+  student: Student;
+  onClose: () => void;
+  onSaved: (pos: { lat: number; lng: number }) => void;
+}
+
+const LocationPicker: React.FC<LocationPickerProps> = ({ student, onClose, onSaved }) => {
   const { t } = useTranslation();
-  const [position, setPosition] = useState(null);
-  const [mapCenter, setMapCenter] = useState([24.7136, 46.6753]); // Default: Riyadh
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [position, setPosition] = useState<L.LatLng | { lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([24.7136, 46.6753]); // Default: Riyadh
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [geoLoading, setGeoLoading] = useState<boolean>(false);
 
   useEffect(() => {
     // If student already has a location, use it
@@ -79,7 +101,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
       return;
     }
 
-    // First attempt: low accuracy (fast ΓÇö uses WiFi/cell triangulation, < 2 seconds)
+    // First attempt: low accuracy (fast Î“Ã‡Ã¶ uses WiFi/cell triangulation, < 2 seconds)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -129,7 +151,7 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
         lng: position.lng
       });
       onSaved(position);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.message || t('locationPicker.errors.saveFailed'));
     } finally {
       setLoading(false);
@@ -184,8 +206,12 @@ const LocationPicker = ({ student, onClose, onSaved }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 flex items-center justify-center bg-white shrink-0">
-
+        <div className="p-6 border-t border-gray-100 flex flex-col items-center justify-center bg-white shrink-0 gap-4">
+          {error && (
+            <div className="text-red-500 font-semibold text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-center w-full max-w-md">
+              {error}
+            </div>
+          )}
           <div className="flex gap-3">
             <button
               onClick={onClose}

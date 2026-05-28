@@ -3,15 +3,15 @@ import { AttendanceService } from '../services/AttendanceService';
 
 export const list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { busId, studentId, dateFrom, dateTo, tripType, page, limit } = req.query as any;
+    const { busId, studentId, dateFrom, dateTo, tripType, page, limit } = req.query as Record<string, string | undefined>;
     const result = await AttendanceService.listAttendance(req.schoolId as string, {
       busId,
       studentId,
       dateFrom,
       dateTo,
       tripType,
-      page,
-      limit
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined
     });
 
     res.json({
@@ -31,13 +31,13 @@ export const list = async (req: Request, res: Response, next: NextFunction): Pro
 
 export const generateReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { busId, tripType, dateFrom, dateTo, lang } = req.query as any;
+    const { busId, tripType, dateFrom, dateTo, lang } = req.query as Record<string, string | undefined>;
     const result = await AttendanceService.generateReport(req.schoolId as string, {
       busId,
       tripType,
       dateFrom,
       dateTo,
-      lang
+      lang: (lang === 'ar' || lang === 'en') ? lang : undefined
     });
 
     res.set('Content-Type', 'application/pdf');

@@ -9,6 +9,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import http from 'http';
 import jwt from 'jsonwebtoken';
+import { Socket } from 'socket.io';
+import { getNodeErrorMessage } from './utils/errorUtils';
 
 // Types and Config
 import connectDB from './config/db';
@@ -53,7 +55,7 @@ app.use('/api/notifications', notificationRoutes);
 import { errorHandler } from './middleware/errorHandler';
 app.use(errorHandler);
 
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.send(' SBTS Backend Running Successfully');
 });
 
@@ -66,11 +68,11 @@ const io = socketUtil.init(httpServer, {
   }
 });
 
-io.use((socket: any, next: any) => {
+io.use((socket: Socket, next: (err?: Error) => void) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error('Unauthorized'));
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string; role: string };
     socket.userId = decoded.id;
     socket.userRole = decoded.role;
     next();
@@ -79,7 +81,7 @@ io.use((socket: any, next: any) => {
   }
 });
 
-io.on('connection', async (socket: any) => {
+io.on('connection', async (socket: Socket) => {
   console.log(`Socket connected: ${socket.id} (User: ${socket.userId}, Role: ${socket.userRole})`);
 
   if (socket.userRole === 'parent') {
@@ -90,8 +92,8 @@ io.on('connection', async (socket: any) => {
       if (user?.school) {
         socket.join(`admin_${user.school}`);
       }
-    } catch (e: any) {
-      console.error('Socket admin room join error:', e.message);
+    } catch (e: unknown) {
+      console.error('Socket admin room join error:', getNodeErrorMessage(e));
     }
   }
 

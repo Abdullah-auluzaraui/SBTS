@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -17,18 +16,19 @@ const Login = () => {
     const navigate = useNavigate();
     const { t } = useTranslation();
 
-    const handleLogin = async (e) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         try {
             await login(username, password);
-        } catch (err) {
-            const errorMessages = {
+        } catch (err: unknown) {
+            const errObj = err as { errorCode?: string; message?: string };
+            const errorMessages: Record<string, string> = {
                 INVALID_CREDENTIALS: t('auth.errors.invalidCredentials'),
                 ACCOUNT_INACTIVE: t('auth.errors.accountInactive'),
                 NETWORK_ERROR: t('auth.errors.networkError'),
             };
-            setError(errorMessages[err.errorCode] || err.message || t('auth.errors.loginFailed'));
+            setError(errorMessages[errObj.errorCode || ''] || errObj.message || t('auth.errors.loginFailed'));
         }
     };
 
@@ -61,7 +61,7 @@ const Login = () => {
                             placeholder={t('auth.usernamePlaceholder')}
                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400"
                             value={username}
-                            onChange={(e) => setUsername(e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                             required
                         />
                     </div>
@@ -74,7 +74,7 @@ const Login = () => {
                                 placeholder={t('auth.passwordPlaceholder')}
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder-gray-400 pl-12"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                                 required
                             />
                             <button

@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { haversineDistance, bearingTo, bearingDelta, calculateSpeedKmH } from './geoUtils';
 import NotificationService from './NotificationService';
 import { sendPush } from './FCMService';
@@ -21,6 +22,16 @@ interface Position {
   lat: number;
   lng: number;
   updatedAt: Date;
+}
+
+interface IPendingStudent {
+  _id: mongoose.Types.ObjectId;
+  parentId?: mongoose.Types.ObjectId | null;
+  location?: {
+    type: 'Point';
+    coordinates: number[];
+  } | null;
+  name: string;
 }
 
 /**
@@ -56,9 +67,9 @@ function computeHeading(prevPos: Position | null, currentPos: Position, busId: s
 export async function evaluate(
   currentPos: Position,
   prevPos: Position | null,
-  busId: any,
-  tripId: any,
-  schoolId: any,
+  busId: string | mongoose.Types.ObjectId,
+  tripId: string | mongoose.Types.ObjectId,
+  schoolId: string | mongoose.Types.ObjectId,
   tripType: 'to_school' | 'to_home'
 ): Promise<void> {
   try {
@@ -99,7 +110,7 @@ export async function evaluate(
 
         if (student.parentId) {
           // 6a. FIRST: persist to DB — must succeed before alerting the parent.
-          let savedNotification: any;
+          let savedNotification: { _id: mongoose.Types.ObjectId } | null = null;
           try {
             savedNotification = await NotificationService.create(
               student.parentId,
@@ -115,10 +126,10 @@ export async function evaluate(
                 distanceM: Math.round(distanceM)
               }
             );
-          } catch (dbErr: any) {
+          } catch (dbErr: unknown) {
             // DB write failed — rollback cooldown so we retry on the next tick
             cooldownMap.delete(sid);
-            console.error('[ProximityEngine] DB write failed for BUS_APPROACHING, retrying on next tick:', dbErr.message);
+            console.error('[ProximityEngine] DB write failed for BUS_APPROACHING, retrying on next tick:', dbErr instanceof Error ? dbErr.message : String(dbErr));
             continue;
           }
 
@@ -146,15 +157,19 @@ export async function evaluate(
         }
       }
     }
-  } catch (err: any) {
-    console.error('[ProximityEngine] evaluate error:', err.message);
+  } catch (err: unknown) {
+    console.error('[ProximityEngine] evaluate error:', err instanceof Error ? err.message : String(err));
   }
 }
 
 /**
  * Fetches students on the bus who haven't been resolved yet today.
  */
-export async function getPendingStudents(busId: any, schoolId: any, tripType: string): Promise<any[]> {
+export async function getPendingStudents(
+  busId: string | mongoose.Types.ObjectId,
+  schoolId: string | mongoose.Types.ObjectId,
+  tripType: string
+): Promise<IPendingStudent[]> {
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end   = new Date(); end.setHours(23, 59, 59, 999);
 
@@ -176,9 +191,9 @@ export async function getPendingStudents(busId: any, schoolId: any, tripType: st
     assignedBus: busId,
     school: schoolId,
     isActive: true
-  }).select('_id parentId location name').lean();
+  }).select('_id parentId location name').lean() as unknown as IPendingStudent[];
 
-  return students.filter((s: any) => !resolvedIds.has(String(s._id)));
+  return students.filter(s => !resolvedIds.has(String(s._id)));
 }
 
 /**
@@ -187,22 +202,22 @@ export async function getPendingStudents(busId: any, schoolId: any, tripType: st
  */
 export async function resolveNextTarget(
   busPos: { lat: number; lng: number },
-  busId: any,
-  schoolId: any,
+  busId: string | mongoose.Types.ObjectId,
+  schoolId: string | mongoose.Types.ObjectId,
   tripType: string,
-  currentTarget: any
-): Promise<any | null> {
+  currentTarget: { setBy?: string; studentId?: string | mongoose.Types.ObjectId | null } | null
+): Promise<mongoose.Types.ObjectId | null> {
   // If driver manually set a target, respect it until that student is resolved
   if (currentTarget?.setBy === 'driver' && currentTarget?.studentId) {
-    const isResolved = await isStudentResolved(currentTarget.studentId, busId, schoolId, tripType);
-    if (!isResolved) return currentTarget.studentId; // Honor driver choice
+    const isResolved = await isStudentResolved(String(currentTarget.studentId), busId, schoolId, tripType);
+    if (!isResolved) return currentTarget.studentId as mongoose.Types.ObjectId; // Honor driver choice
   }
 
   // Auto: find nearest unresolved student
   const pending = await getPendingStudents(busId, schoolId, tripType);
   if (!pending.length) return null;
 
-  let nearest = null;
+  let nearest: mongoose.Types.ObjectId | null = null;
   let minDist = Infinity;
 
   for (const student of pending) {
@@ -215,7 +230,12 @@ export async function resolveNextTarget(
   return nearest;
 }
 
-async function isStudentResolved(studentId: string, busId: any, schoolId: any, tripType: string): Promise<boolean> {
+async function isStudentResolved(
+  studentId: string,
+  busId: string | mongoose.Types.ObjectId,
+  schoolId: string | mongoose.Types.ObjectId,
+  tripType: string
+): Promise<boolean> {
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end   = new Date(); end.setHours(23, 59, 59, 999);
   const terminalEvents = tripType === 'to_school'

@@ -1,14 +1,14 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
-import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, MapPin, AlertTriangle, Navigation2, Network } from 'lucide-react';
+import { Bus, Plus, X, Loader2, AlertCircle, Pencil, Ban, CircleCheck, Users, Check, UserCheck, Eye, EyeOff, AlertTriangle, Navigation2, Network } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { IApiBus, IApiDriver, IApiStudent } from '../../types/api';
 
 // Fix leaflet default icons
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -23,25 +23,43 @@ const schoolIcon = new L.Icon({
 
 const BUS_COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
+interface IAssignMsg {
+    type: 'success' | 'partial' | 'error';
+    text: string;
+    blocked?: string[];
+}
+
+interface IAutoPreview {
+    totalEligible: number;
+    assignedCount: number;
+    unassigned: Array<{ _id: string; name: string }>;
+    assignments: Array<{
+        bus: IApiBus;
+        students: Array<{ _id: string; name: string; location: { coordinates: [number, number] } }>;
+        route?: { duration: number; distance: number; polyline: [number, number][] };
+    }>;
+    school: { lat: number; lng: number; name?: string } | null;
+}
+
 const BusManagement = () => {
     const { t } = useTranslation();
-    const [buses, setBuses] = useState([]);
-    const [drivers, setDrivers] = useState([]);
-    const [allStudents, setAllStudents] = useState([]);
+    const [buses, setBuses] = useState<IApiBus[]>([]);
+    const [drivers, setDrivers] = useState<IApiDriver[]>([]);
+    const [allStudents, setAllStudents] = useState<IApiStudent[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Bus form state
     const [showForm, setShowForm] = useState(false);
-    const [editingBus, setEditingBus] = useState(null);
+    const [editingBus, setEditingBus] = useState<string | null>(null);
     const [form, setForm] = useState({ busId: '', capacity: '', driver: '' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
 
     // Student assignment state
-    const [assigningBus, setAssigningBus] = useState(null); // The bus object
-    const [selectedStudents, setSelectedStudents] = useState(new Set());
+    const [assigningBus, setAssigningBus] = useState<IApiBus | null>(null); // The bus object
+    const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
     const [assignLoading, setAssignLoading] = useState(false);
-    const [assignMsg, setAssignMsg] = useState('');
+    const [assignMsg, setAssignMsg] = useState<IAssignMsg | null>(null);
     const [studentSearch, setStudentSearch] = useState('');
 
     const [showAll, setShowAll] = useState(false);
@@ -49,7 +67,7 @@ const BusManagement = () => {
     // Auto-assign state
     const [showAutoAssign, setShowAutoAssign] = useState(false);
     const [autoLoading, setAutoLoading] = useState(false);
-    const [autoPreview, setAutoPreview] = useState(null);
+    const [autoPreview, setAutoPreview] = useState<IAutoPreview | null>(null);
     const [autoError, setAutoError] = useState('');
     const [autoConfirming, setAutoConfirming] = useState(false);
 
@@ -64,13 +82,13 @@ const BusManagement = () => {
             setBuses(busRes.data.buses);
             setDrivers(driverRes.data.drivers);
             setAllStudents(studentsRes.data.students);
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
         finally { setLoading(false); }
     }, [showAll]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // ΓöÇΓöÇΓöÇ Bus Form ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ─── Bus Form ─────────────────────────────────────────────────────
     const resetForm = () => {
         setForm({ busId: '', capacity: '', driver: '' });
         setEditingBus(null);
@@ -78,7 +96,7 @@ const BusManagement = () => {
         setFormError('');
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
         setFormLoading(true);
@@ -94,12 +112,13 @@ const BusManagement = () => {
             }
             resetForm();
             fetchAll();
-        } catch (err) {
-            setFormError(err.response?.data?.message || '╪¡╪»╪½ ╪«╪╖╪ú');
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setFormError(axiosErr.response?.data?.message || 'حدث خطأ');
         } finally { setFormLoading(false); }
     };
 
-    const handleToggleStatus = async (bus) => {
+    const handleToggleStatus = async (bus: IApiBus) => {
         const msg = bus.isActive
             ? t('busManagement.disableConfirm', { busId: bus.busId })
             : t('busManagement.enableConfirm', { busId: bus.busId });
@@ -107,20 +126,20 @@ const BusManagement = () => {
         try {
             await api.patch(`/buses/${bus._id}/status`);
             fetchAll();
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
     };
 
-    const startEdit = (bus) => {
+    const startEdit = (bus: IApiBus) => {
         setEditingBus(bus._id);
         setForm({ busId: bus.busId, capacity: bus.capacity.toString(), driver: bus.driver?._id || '' });
         setShowForm(true);
         setFormError('');
     };
 
-    // ΓöÇΓöÇΓöÇ Student Assignment ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const openAssignModal = (bus) => {
+    // ─── Student Assignment ────────────────────────────────────────────
+    const openAssignModal = (bus: IApiBus) => {
         setAssigningBus(bus);
-        setAssignMsg('');
+        setAssignMsg(null);
         setStudentSearch('');
         // Pre-select students already assigned to this bus
         const alreadyAssigned = new Set(
@@ -129,7 +148,7 @@ const BusManagement = () => {
         setSelectedStudents(alreadyAssigned);
     };
 
-    const toggleStudent = (id) => {
+    const toggleStudent = (id: string) => {
         setSelectedStudents(prev => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id);
@@ -139,13 +158,14 @@ const BusManagement = () => {
     };
 
     const handleAssignSave = async () => {
+        if (!assigningBus) return;
         setAssignLoading(true);
-        setAssignMsg('');
+        setAssignMsg(null);
         try {
             const { data } = await api.put(`/buses/${assigningBus._id}/assign-students`, {
                 studentIds: Array.from(selectedStudents)
             });
-            // Show success ΓÇö may include partial blocks
+            // Show success — may include partial blocks
             if (data.blocked && data.blocked.length > 0) {
                 setAssignMsg({ type: 'partial', text: data.message, blocked: data.blocked });
             } else {
@@ -153,12 +173,13 @@ const BusManagement = () => {
                 setTimeout(() => setAssigningBus(null), 1400);
             }
             fetchAll();
-        } catch (err) {
-            const errData = err.response?.data;
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string; blocked?: string[] } } };
+            const errData = axiosErr.response?.data;
             if (errData?.blocked) {
-                setAssignMsg({ type: 'error', text: errData.message, blocked: errData.blocked });
+                setAssignMsg({ type: 'error', text: errData.message || '', blocked: errData.blocked });
             } else {
-                setAssignMsg({ type: 'error', text: errData?.message || '╪¡╪»╪½ ╪«╪╖╪ú ╪ú╪½┘å╪º╪í ╪¡┘ü╪╕ ╪º┘ä╪¬╪╣┘è┘è┘å╪º╪¬' });
+                setAssignMsg({ type: 'error', text: errData?.message || 'حدث خطأ أثناء حفظ التعيينات' });
             }
         } finally { setAssignLoading(false); }
     };
@@ -168,7 +189,7 @@ const BusManagement = () => {
         s.studentId?.toLowerCase().includes(studentSearch.toLowerCase())
     );
 
-    // ΓöÇΓöÇΓöÇ Auto-assign handlers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ─── Auto-assign handlers ──────────────────────────────────────────
     const handleAutoPreview = async () => {
         setShowAutoAssign(true);
         setAutoLoading(true);
@@ -177,8 +198,9 @@ const BusManagement = () => {
         try {
             const { data } = await api.post('/buses/auto-assign', { confirm: false });
             setAutoPreview(data);
-        } catch (err) {
-            setAutoError(err.response?.data?.message || '╪¡╪»╪½ ╪«╪╖╪ú ╪ú╪½┘å╪º╪í ╪¡╪│╪º╪¿ ╪º┘ä╪¬┘ê╪▓┘è╪╣');
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setAutoError(axiosErr.response?.data?.message || 'حدث خطأ أثناء حساب التوزيع');
         } finally {
             setAutoLoading(false);
         }
@@ -192,8 +214,9 @@ const BusManagement = () => {
             setShowAutoAssign(false);
             setAutoPreview(null);
             fetchAll();
-        } catch (err) {
-            setAutoError(err.response?.data?.message || '╪¡╪»╪½ ╪«╪╖╪ú ╪ú╪½┘å╪º╪í ╪¬╪╖╪¿┘è┘é ╪º┘ä╪¬┘ê╪▓┘è╪╣');
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setAutoError(axiosErr.response?.data?.message || 'حدث خطأ أثناء تطبيق التوزيع');
         } finally {
             setAutoConfirming(false);
         }
@@ -233,7 +256,7 @@ const BusManagement = () => {
                 </div>
             </div>
 
-            {/* ΓöÇΓöÇ Add/Edit Bus Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Add/Edit Bus Modal ────────────────────────────── */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -308,7 +331,7 @@ const BusManagement = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Assign Students Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Assign Students Modal ─────────────────────────── */}
             {assigningBus && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setAssigningBus(null)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
@@ -385,7 +408,7 @@ const BusManagement = () => {
                                 <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                                     <p className="text-amber-700 text-sm font-bold mb-1.5">{assignMsg.text}</p>
                                     <ul className="space-y-0.5">
-                                        {assignMsg.blocked.map((b, i) => <li key={i} className="text-xs text-amber-600">ΓÇó {b}</li>)}
+                                        {assignMsg.blocked?.map((b, i) => <li key={i} className="text-xs text-amber-600">• {b}</li>)}
                                     </ul>
                                 </div>
                             )}
@@ -394,7 +417,7 @@ const BusManagement = () => {
                                     <p className="text-red-600 text-sm font-bold mb-1.5">{assignMsg.text}</p>
                                     {assignMsg.blocked && (
                                         <ul className="space-y-0.5">
-                                            {assignMsg.blocked.map((b, i) => <li key={i} className="text-xs text-red-500">ΓÇó {b}</li>)}
+                                            {assignMsg.blocked?.map((b, i) => <li key={i} className="text-xs text-red-500">• {b}</li>)}
                                         </ul>
                                     )}
                                 </div>
@@ -417,7 +440,7 @@ const BusManagement = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Auto-Assign Preview Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Auto-Assign Preview Modal ─────────────────────── */}
             {showAutoAssign && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !autoConfirming && setShowAutoAssign(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
@@ -554,7 +577,7 @@ const BusManagement = () => {
                                                     icon={schoolIcon}
                                                 >
                                                     <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
-                                                        ≡ƒÅ½ {autoPreview.school.name || t('fleetMap.school')}
+                                                        🏫 {autoPreview.school.name || t('fleetMap.school')}
                                                     </Tooltip>
                                                 </Marker>
                                             )}
@@ -583,7 +606,7 @@ const BusManagement = () => {
                                                             return (
                                                                 <Marker key={s._id} position={[lat, lng]} icon={dotIcon}>
                                                                     <Tooltip direction="top" opacity={0.95} className="font-sans text-xs">
-                                                                        {s.name} ΓÇö {a.bus.busId}
+                                                                        {s.name} — {a.bus.busId}
                                                                     </Tooltip>
                                                                 </Marker>
                                                             );
@@ -626,7 +649,7 @@ const BusManagement = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Buses Table ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Buses Table ────────────────────────────────────── */}
             {loading ? (
                 <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
             ) : buses.length === 0 ? (
@@ -636,7 +659,7 @@ const BusManagement = () => {
                 </div>
             ) : (
                 <>
-                    {/* ΓöÇΓöÇ Mobile: Card List (visible on < md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Mobile: Card List (visible on < md) ───────── */}
                     <div className="md:hidden flex flex-col gap-3">
                         {buses.map(bus => {
                             const studentCount = allStudents.filter(s => s.assignedBus === bus.busId).length;
@@ -677,7 +700,7 @@ const BusManagement = () => {
                                         <div className="text-xs">
                                             {bus.driver ? (
                                                 <span className="flex items-center gap-1.5 text-gray-700 font-medium bg-gray-50 px-2 py-1 rounded-lg">
-                                                    <span className="text-blue-500">≡ƒæñ</span> {bus.driver.name}
+                                                    {bus.driver.name}
                                                 </span>
                                             ) : (
                                                 <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">{t('busManagement.noDriver')}</span>
@@ -706,7 +729,7 @@ const BusManagement = () => {
                         })}
                     </div>
 
-                    {/* ΓöÇΓöÇ Desktop: Table (visible on >= md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Desktop: Table (visible on >= md) ─────────── */}
                     <div className="hidden md:block bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-100">
@@ -742,7 +765,6 @@ const BusManagement = () => {
                                             <td className="px-6 py-4 text-start">
                                                 {bus.driver ? (
                                                     <span className="inline-flex items-center gap-1.5 text-gray-700 font-medium text-sm">
-                                                        <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">≡ƒæñ</span>
                                                         {bus.driver.name}
                                                     </span>
                                                 ) : (

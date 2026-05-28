@@ -1,26 +1,26 @@
-﻿// @ts-nocheck
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-    Bus, MapPin, Navigation2, Loader2, AlertCircle,
-    User, Users, Clock, Link
+    Bus, Navigation2, Loader2, AlertCircle,
+    User, Users, Clock
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/apiService';
 import axios from 'axios';
 import io from 'socket.io-client';
+import { IApiBus, IApiStudent } from '../../types/api';
 
 const getSocketUrl = () => {
     if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
     return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
 };
 
-// ΓöÇΓöÇ Fix default Leaflet icons ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-delete L.Icon.Default.prototype._getIconUrl;
+// ── Fix default Leaflet icons ─────────────────────────────────────────────
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -40,13 +40,13 @@ const busIcon = new L.Icon({
 });
 
 const liveBusMarkerIcon = L.divIcon({
-    html: '<div style="font-size:30px;line-height:1;">≡ƒÜî</div>',
+    html: '<div style="font-size:30px;line-height:1;">🚍</div>',
     className: '',
     iconAnchor: [15, 15]
 });
 
 // Auto-fit bounds when route path changes
-const FitBounds = ({ path }) => {
+const FitBounds = ({ path }: { path: [number, number][] }) => {
     const map = useMap();
     useEffect(() => {
         if (path && path.length > 1) {
@@ -56,8 +56,13 @@ const FitBounds = ({ path }) => {
     return null;
 };
 
-// Auto-center ONCE on first live location ΓÇö then hands-off so admin can pan freely
-const LiveBusController = ({ liveBusLocation }) => {
+interface ILiveBusLocation {
+    lat: number;
+    lng: number;
+}
+
+// Auto-center ONCE on first live location — then hands-off so admin can pan freely
+const LiveBusController = ({ liveBusLocation }: { liveBusLocation: ILiveBusLocation | null }) => {
     const map = useMap();
     const centeredRef = useRef(false);
     useEffect(() => {
@@ -70,27 +75,27 @@ const LiveBusController = ({ liveBusLocation }) => {
 };
 
 // Default fallback center (Riyadh)
-const DEFAULT_CENTER = [24.7136, 46.6753];
+const DEFAULT_CENTER = [24.7136, 46.6753] as [number, number];
 
 const FleetMap = () => {
     const { t } = useTranslation();
-    const [buses, setBuses] = useState([]);
-    const [schoolPos, setSchoolPos] = useState(null); // [lat, lng] from DB
-    const [selectedBus, setSelectedBus] = useState(null);
-    const [students, setStudents] = useState([]);
-    const [routePath, setRoutePath] = useState([]);
-    const [osrmMeta, setOsrmMeta] = useState(null);
+    const [buses, setBuses] = useState<IApiBus[]>([]);
+    const [schoolPos, setSchoolPos] = useState<[number, number] | null>(null); // [lat, lng] from DB
+    const [selectedBus, setSelectedBus] = useState<IApiBus | null>(null);
+    const [students, setStudents] = useState<IApiStudent[]>([]);
+    const [routePath, setRoutePath] = useState<[number, number][]>([]);
+    const [osrmMeta, setOsrmMeta] = useState<{ duration: number; distance: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [routeLoading, setRouteLoading] = useState(false);
     const [error, setError] = useState('');
-    const [liveBusLocation, setLiveBusLocation] = useState(null);
-    const [studentStatusMap, setStudentStatusMap] = useState(new Map());
-    const socketRef = useRef(null);
+    const [liveBusLocation, setLiveBusLocation] = useState<ILiveBusLocation | null>(null);
+    const [studentStatusMap, setStudentStatusMap] = useState<Map<string, string>>(new Map());
+    const socketRef = useRef<any>(null);
 
     // Events that mean the student is no longer at their home stop
     const HIDDEN_EVENTS = new Set(['boarding', 'exit', 'absent', 'no_board', 'arrived_home', 'no_receiver']);
 
-    // ΓöÇΓöÇ Load buses + school location ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ── Load buses + school location ─────────────────────────────────────
     useEffect(() => {
         const init = async () => {
             try {
@@ -103,7 +108,7 @@ const FleetMap = () => {
                 if (loc?.coordinates?.[0] !== 0) {
                     setSchoolPos([loc.coordinates[1], loc.coordinates[0]]); // [lat, lng]
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -112,7 +117,7 @@ const FleetMap = () => {
         init();
     }, []);
 
-    // ΓöÇΓöÇ Socket.io: listen for real-time bus location updates ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ── Socket.io: listen for real-time bus location updates ─────────────
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -120,13 +125,13 @@ const FleetMap = () => {
         const socket = io(getSocketUrl(), { auth: { token } });
         socketRef.current = socket;
 
-        socket.on('bus:location', (payload) => {
+        socket.on('bus:location', (payload: { busId: string; lat: number; lng: number }) => {
             if (selectedBus && String(payload.busId) === String(selectedBus._id)) {
                 setLiveBusLocation({ lat: payload.lat, lng: payload.lng });
             }
         });
 
-        socket.on('student:status', (payload) => {
+        socket.on('student:status', (payload: { busId: string; studentId: string; event: string }) => {
             if (selectedBus && String(payload.busId) === String(selectedBus._id)) {
                 setStudentStatusMap(prev =>
                     new Map(prev).set(String(payload.studentId), payload.event)
@@ -142,8 +147,8 @@ const FleetMap = () => {
         };
     }, [selectedBus]);
 
-    // ΓöÇΓöÇ When a bus is selected, fetch its students and auto-route ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleSelectBus = async (bus) => {
+    // ── When a bus is selected, fetch its students and auto-route ─────────
+    const handleSelectBus = async (bus: IApiBus) => {
         setSelectedBus(bus);
         setLiveBusLocation(null);
         setStudentStatusMap(new Map());
@@ -161,11 +166,11 @@ const FleetMap = () => {
         try {
             const [studentsRes, locationRes] = await Promise.all([
                 api.get(`/students?busId=${bus._id}`),
-                api.get(`/buses/${bus._id}/active-location`).catch(() => ({ data: { lastLocation: null } }))
+                api.get(`/buses/${bus._id}/active-location`).catch(() => ({ data: { lastLocation: null, studentEvents: [] } }))
             ]);
 
             const busStudents = (studentsRes.data.students || []).filter(
-                s => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0
+                (s: IApiStudent) => s.location?.coordinates?.[0] !== 0 && s.location?.coordinates?.[1] !== 0
             );
             setStudents(busStudents);
 
@@ -175,7 +180,7 @@ const FleetMap = () => {
 
             if (locationRes.data.studentEvents?.length > 0) {
                 const statusMap = new Map();
-                locationRes.data.studentEvents.forEach(({ studentId, event }) => {
+                locationRes.data.studentEvents.forEach(({ studentId, event }: { studentId: string; event: string }) => {
                     statusMap.set(String(studentId), event);
                 });
                 setStudentStatusMap(statusMap);
@@ -187,9 +192,9 @@ const FleetMap = () => {
                 return;
             }
 
-            // Route: studentsΓÇÖ homes ΓåÆ school (students are pickup stops, school is destination)
+            // Route: students’ homes → school (students are pickup stops, school is destination)
             const studentCoords = busStudents
-                .map(s => `${s.location.coordinates[0]},${s.location.coordinates[1]}`)
+                .map((s: IApiStudent) => `${s.location!.coordinates[0]},${s.location!.coordinates[1]}`)
                 .join(';');
             // School is the last point [lng, lat]
             const schoolCoord = `${schoolPos[1]},${schoolPos[0]}`;
@@ -200,7 +205,7 @@ const FleetMap = () => {
 
             if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
                 const trip = osrmData.trips[0];
-                const leafletPath = trip.geometry.coordinates.map(c => [c[1], c[0]]);
+                const leafletPath = trip.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
                 setRoutePath(leafletPath);
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
@@ -209,7 +214,7 @@ const FleetMap = () => {
             } else {
                 setError(t('fleetMap.errors.osrmError'));
             }
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
             setError(t('fleetMap.errors.fetchError'));
         } finally {
@@ -221,7 +226,7 @@ const FleetMap = () => {
     const [mobileView, setMobileView] = useState('list');
 
     // When a bus is selected on mobile, switch to map view automatically
-    const handleSelectBusAndView = (bus) => {
+    const handleSelectBusAndView = (bus: IApiBus) => {
         handleSelectBus(bus);
         setMobileView('map');
     };
@@ -245,7 +250,7 @@ const FleetMap = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Mobile Tab Bar (only visible on small screens) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Mobile Tab Bar (only visible on small screens) ─────────── */}
             <div className="flex lg:hidden bg-gray-100 p-1 rounded-xl">
                 <button
                     onClick={() => setMobileView('list')}
@@ -261,7 +266,7 @@ const FleetMap = () => {
                 </button>
             </div>
 
-            {/* ΓöÇΓöÇ Route Info Bar (shown when bus selected) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Route Info Bar (shown when bus selected) ──────────────── */}
             {selectedBus && (
                 <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3 shadow-sm text-sm">
                     <div className="flex items-center gap-2 font-bold text-gray-700">
@@ -293,10 +298,10 @@ const FleetMap = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Main Content: Side-by-side on desktop, tabs on mobile ΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Main Content: Side-by-side on desktop, tabs on mobile ──── */}
             <div className="flex flex-col lg:flex-row gap-4">
 
-                {/* Bus List ΓÇö hidden on mobile when map tab is active */}
+                {/* Bus List — hidden on mobile when map tab is active */}
                 <div className={`w-full lg:w-72 shrink-0 flex flex-col gap-3 ${mobileView === 'map' ? 'hidden lg:flex' : 'flex'}`}>
                     {loading ? (
                         <div className="flex justify-center p-8">
@@ -346,7 +351,7 @@ const FleetMap = () => {
                     )}
                 </div>
 
-                {/* Map ΓÇö hidden on mobile when list tab is active */}
+                {/* Map — hidden on mobile when list tab is active */}
                 <div className={`flex-1 min-w-0 ${mobileView === 'list' ? 'hidden lg:block' : 'block'}`}>
                     <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner z-0"
                         style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
@@ -377,20 +382,20 @@ const FleetMap = () => {
                             {schoolPos && (
                                 <Marker position={schoolPos} icon={busIcon}>
                                     <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
-                                        ≡ƒÅ½ ╪º┘ä┘à╪»╪▒╪│╪⌐
+                                        🏫 ╪º┘ä┘à╪»╪▒╪│╪⌐
                                     </Tooltip>
                                 </Marker>
                             )}
 
                             {students
-                                .filter(s => !HIDDEN_EVENTS.has(studentStatusMap.get(String(s._id))))
+                                .filter(s => !HIDDEN_EVENTS.has(studentStatusMap.get(s.id) || ''))
                                 .map(s => {
-                                    const lat = s.location.coordinates[1];
-                                    const lng = s.location.coordinates[0];
+                                    const lat = s.location!.coordinates[1];
+                                    const lng = s.location!.coordinates[0];
                                     return (
-                                        <Marker key={s._id} position={[lat, lng]} icon={studentIcon}>
+                                        <Marker key={s.id} position={[lat, lng]} icon={studentIcon}>
                                             <Tooltip direction="top" opacity={0.95} className="font-sans font-bold text-xs">
-                                                ≡ƒÅá {s.name}
+                                                🏠 {s.name}
                                             </Tooltip>
                                         </Marker>
                                     );

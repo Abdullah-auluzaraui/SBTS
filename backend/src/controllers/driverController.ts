@@ -3,8 +3,8 @@ import { TripService } from '../services/TripService';
 
 export const getDriverDashboardData = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
-    const { tripType, phase } = req.query as any;
+    const driverId = req.user!._id.toString();
+    const { tripType, phase } = req.query as { tripType?: string; phase?: string };
 
     const data = await TripService.getDriverDashboardData(
       req.schoolId as string,
@@ -24,7 +24,7 @@ export const getDriverDashboardData = async (req: Request, res: Response, next: 
 
 export const getTodayStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const result = await TripService.getTodayStatus(req.schoolId as string, driverId);
     res.json({ success: true, ...result });
   } catch (err) {
@@ -34,7 +34,7 @@ export const getTodayStatus = async (req: Request, res: Response, next: NextFunc
 
 export const startTrip = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const { routePath, tripType } = req.body;
 
     const result = await TripService.startTrip(
@@ -66,7 +66,7 @@ export const startTrip = async (req: Request, res: Response, next: NextFunction)
 
 export const endTrip = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const requestedTripType = req.body?.tripType;
 
     const result = await TripService.endTrip(
@@ -83,7 +83,7 @@ export const endTrip = async (req: Request, res: Response, next: NextFunction): 
 
 export const markManualAttendance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const { studentId, busId, event, tripType, recordedBy } = req.body;
 
     const attendance = await TripService.markManualAttendance(
@@ -104,7 +104,7 @@ export const markManualAttendance = async (req: Request, res: Response, next: Ne
 
 export const updateTripLocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const { lat, lng } = req.body;
 
     const currentTarget = await TripService.updateTripLocation(
@@ -125,7 +125,7 @@ export const updateTripLocation = async (req: Request, res: Response, next: Next
 
 export const setManualTarget = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const { studentId } = req.body;
 
     const currentTarget = await TripService.setManualTarget(
@@ -146,7 +146,7 @@ export const setManualTarget = async (req: Request, res: Response, next: NextFun
 
 export const undoManualAttendance = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const driverId = (req as any).user._id;
+    const driverId = req.user!._id.toString();
     const { studentId, busId, tripType } = req.body;
 
     await TripService.undoManualAttendance(

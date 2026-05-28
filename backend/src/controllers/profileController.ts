@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
-import OTP from '../models/OTP';
+import OTP, { IOTP } from '../models/OTP';
 import { AppError } from '../utils/AppError';
 
 export const getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -177,7 +177,7 @@ export const verifyPhoneChange = async (req: Request, res: Response, next: NextF
       throw new AppError(400, 'VALIDATION_ERROR');
     }
 
-    const otps: any[] = await OTP.find({ phone: newPhone, purpose: 'change-phone' });
+    const otps: IOTP[] = await OTP.find({ phone: newPhone, purpose: 'change-phone' });
     if (otps.length === 0) {
       throw new AppError(400, 'OTP_EXPIRED');
     }

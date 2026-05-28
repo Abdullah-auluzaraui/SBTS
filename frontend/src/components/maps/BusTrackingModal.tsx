@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Navigation2, AlertTriangle, Loader2, MapPin } from 'lucide-react';
 import api from '../../services/apiService';
 import SharedBusMap from './SharedBusMap';
@@ -11,32 +10,49 @@ const getSocketUrl = () => {
     return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
 };
 
-/**
- * BusTrackingModal ΓÇö ┘å╪º┘ü╪░╪⌐ ╪¬╪¬╪¿╪╣ ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ┘ä┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒
- *
- * ╪¬╪¼┘ä╪¿ ╪¿┘è╪º┘å╪º╪¬ ╪º┘ä╪▒╪¡┘ä╪⌐ ┘à┘å /api/parents/bus/:busId/live
- * ┘ê╪¬┘Å┘à╪▒┘É┘æ╪▒┘ç╪º ┘ä┘ä┘à┘â┘ê┘å ╪º┘ä┘à╪┤╪¬╪▒┘â SharedBusMap.
- * ╪╣┘å╪» ╪¬┘ü╪╣┘è┘ä Socket.io ┘ä╪º╪¡┘é╪º┘ï: ┘è┘Å╪│╪¬╪¿╪»┘ä ╪º┘ä┘Ç Polling ╪¿┘Ç socket.on
- *
- * Props:
- *   busId   : String ΓÇö ┘à╪╣╪▒┘ü ╪º┘ä╪¡╪º┘ü┘ä╪⌐
- *   busName : String ΓÇö ╪▒┘é┘à ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ┘ä┘ä╪╣╪▒╪╢
- *   onClose : Function
- */
-const BusTrackingModal = ({ busId, busName, onClose }) => {
+interface Student {
+  _id?: string;
+  name: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+interface School {
+  name: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+interface LiveData {
+  tripActive: boolean;
+  routePath: Array<{ lat: number; lng: number }>;
+  school: School;
+  myStudents: Student[];
+  lastLocation: { lat: number; lng: number } | null;
+}
+
+interface BusTrackingModalProps {
+  busId: string;
+  busName: string;
+  onClose: () => void;
+}
+
+const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onClose }) => {
     const { t } = useTranslation();
-    const [liveData, setLiveData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [liveBusLocation, setLiveBusLocation] = useState(null);
-    const socketRef = useRef(null);
+    const [liveData, setLiveData] = useState<LiveData | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string>('');
+    const [liveBusLocation, setLiveBusLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const socketRef = useRef<any>(null);
 
     const fetchLiveData = useCallback(async () => {
         try {
             const { data } = await api.get(`/parents/bus/${busId}/live`);
             setLiveData(data);
             setError('');
-        } catch (err) {
+        } catch (err: any) {
             const msg = err.response?.data?.message || t('busTracking.loadingData');
             setError(msg);
         } finally {
@@ -68,7 +84,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
         };
     }, [busId]);
 
-    // ┘à┘å╪╣ ╪¬┘à╪▒┘è╪▒ ╪º┘ä╪╡┘ü╪¡╪⌐ ╪«┘ä┘ü ╪º┘ä┘Ç Modal
+    // â”˜Ã â”˜Ã¥â•ªâ•£ â•ªÂ¬â”˜Ã â•ªâ–’â”˜Ã¨â•ªâ–’ â•ªÂºâ”˜Ã¤â•ªâ•¡â”˜Ã¼â•ªÂ¡â•ªâŒ â•ªÂ«â”˜Ã¤â”˜Ã¼ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = ''; };
@@ -84,7 +100,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                 style={{ maxHeight: '90vh' }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* ╪▒╪ú╪│ ╪º┘ä┘Ç Modal */}
+                {/* â•ªâ–’â•ªÃºâ•ªâ”‚ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
@@ -103,7 +119,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                     </button>
                 </div>
 
-                {/* ╪┤╪▒┘è╪╖ ╪º┘ä╪¡╪º┘ä╪⌐ */}
+                {/* â•ªâ”¤â•ªâ–’â”˜Ã¨â•ªâ•– â•ªÂºâ”˜Ã¤â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ */}
                 {!loading && liveData && (
                     <div className={`px-6 py-2.5 shrink-0 flex items-center gap-2 text-sm font-bold ${liveData.tripActive
                             ? 'bg-green-50 text-green-700 border-b border-green-100'
@@ -114,9 +130,9 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                     </div>
                 )}
 
-                {/* ┘à╪¡╪¬┘ê┘ë ╪º┘ä┘Ç Modal */}
+                {/* â”˜Ã â•ªÂ¡â•ªÂ¬â”˜Ãªâ”˜Ã« â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal */}
                 <div className="flex-1 min-h-0">
-                    {/* ╪¡╪º┘ä╪⌐ ╪º┘ä╪¬╪¡┘à┘è┘ä ╪º┘ä╪ú┘ê┘ä┘è */}
+                    {/* â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ â•ªÂºâ”˜Ã¤â•ªÂ¬â•ªÂ¡â”˜Ã â”˜Ã¨â”˜Ã¤ â•ªÂºâ”˜Ã¤â•ªÃºâ”˜Ãªâ”˜Ã¤â”˜Ã¨ */}
                     {loading && (
                         <div className="h-80 flex flex-col items-center justify-center gap-3">
                             <Loader2 size={36} className="text-primary-500 animate-spin" />
@@ -124,7 +140,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                         </div>
                     )}
 
-                    {/* ╪¡╪º┘ä╪⌐ ╪º┘ä╪«╪╖╪ú */}
+                    {/* â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ â•ªÂºâ”˜Ã¤â•ªÂ«â•ªâ•–â•ªÃº */}
                     {!loading && error && (
                         <div className="h-80 flex flex-col items-center justify-center gap-3 px-6">
                             <AlertTriangle size={36} className="text-red-400" />
@@ -138,11 +154,11 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                         </div>
                     )}
 
-                    {/* ╪º┘ä╪«╪▒┘è╪╖╪⌐ */}
+                    {/* â•ªÂºâ”˜Ã¤â•ªÂ«â•ªâ–’â”˜Ã¨â•ªâ•–â•ªâŒ */}
                     {!loading && !error && liveData && (
                         <div className="h-[420px]">
                             {!liveData.tripActive && liveData.routePath.length === 0 ? (
-                                /* ┘ä╪º ╪¬┘ê╪¼╪» ╪▒╪¡┘ä╪⌐ ┘å╪┤╪╖╪⌐ */
+                                /* â”˜Ã¤â•ªÂº â•ªÂ¬â”˜Ãªâ•ªÂ¼â•ªÂ» â•ªâ–’â•ªÂ¡â”˜Ã¤â•ªâŒ â”˜Ã¥â•ªâ”¤â•ªâ•–â•ªâŒ */
                                 <div className="h-full flex flex-col items-center justify-center gap-3 px-6 bg-gray-50">
                                     <MapPin size={40} className="text-gray-300" />
                                     <p className="text-gray-500 font-bold text-center">
@@ -166,7 +182,7 @@ const BusTrackingModal = ({ busId, busName, onClose }) => {
                     )}
                 </div>
 
-                {/* ╪░┘è┘ä ╪º┘ä┘Ç Modal ΓÇö ┘à╪╣┘ä┘ê┘à╪º╪¬ ╪Ñ╪╢╪º┘ü┘è╪⌐ */}
+                {/* â•ªâ–‘â”˜Ã¨â”˜Ã¤ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal Î“Ã‡Ã¶ â”˜Ã â•ªâ•£â”˜Ã¤â”˜Ãªâ”˜Ã â•ªÂºâ•ªÂ¬ â•ªÃ‘â•ªâ•¢â•ªÂºâ”˜Ã¼â”˜Ã¨â•ªâŒ */}
                 {!loading && !error && liveData && liveData.myStudents?.length > 0 && (
                     <div className="px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50">
                         <p className="text-xs text-gray-500 font-medium mb-2">{t('busTracking.myStudents')}</p>

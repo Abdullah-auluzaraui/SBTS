@@ -1,6 +1,13 @@
+import mongoose from 'mongoose';
 import User from '../models/User';
 
-let adminInstance: any = null;
+interface IFirebaseAdmin {
+  messaging: () => {
+    send: (payload: unknown) => Promise<unknown>;
+  };
+}
+
+let adminInstance: IFirebaseAdmin | null | boolean = null;
 let messagingReady = false;
 
 /**
@@ -29,8 +36,8 @@ function initAdmin(): boolean {
     messagingReady = true;
     console.log('[FCMService] Firebase Admin SDK initialized ✅');
     return true;
-  } catch (err: any) {
-    console.error('[FCMService] Failed to initialize Firebase Admin SDK:', err.message);
+  } catch (err: unknown) {
+    console.error('[FCMService] Failed to initialize Firebase Admin SDK:', err instanceof Error ? err.message : String(err));
     adminInstance = false;
     return false;
   }
@@ -45,7 +52,7 @@ function initAdmin(): boolean {
  * @param options
  */
 export async function sendPush(
-  userId: any,
+  userId: string | mongoose.Types.ObjectId,
   options: { title: string; body: string; data?: Record<string, string> }
 ): Promise<void> {
   try {
@@ -55,7 +62,7 @@ export async function sendPush(
     const user = await User.findById(userId).select('fcmToken').lean();
     if (!user?.fcmToken) return; // User has no registered device token
 
-    await adminInstance.messaging().send({
+    await (adminInstance as IFirebaseAdmin).messaging().send({
       token: user.fcmToken,
       notification: { title, body },
       // FCM data values must all be strings
@@ -69,8 +76,8 @@ export async function sendPush(
     });
 
     console.log(`[FCMService] Push sent to user ${userId}: "${title}"`);
-  } catch (err: any) {
+  } catch (err: unknown) {
     // FCM errors are non-fatal — log and continue
-    console.error(`[FCMService] Push failed for user ${userId}:`, err.message);
+    console.error(`[FCMService] Push failed for user ${userId}:`, err instanceof Error ? err.message : String(err));
   }
 }

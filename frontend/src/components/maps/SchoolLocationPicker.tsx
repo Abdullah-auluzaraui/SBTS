@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,7 +6,7 @@ import { MapPin, Check, X, Loader2, Navigation, School } from 'lucide-react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
 
-delete L.Icon.Default.prototype._getIconUrl;
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -20,7 +19,12 @@ const schoolMarkerIcon = new L.Icon({
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
 
-const ClickMarker = ({ position, setPosition }) => {
+interface ClickMarkerProps {
+  position: L.LatLng | { lat: number; lng: number } | null;
+  setPosition: (p: L.LatLng) => void;
+}
+
+const ClickMarker: React.FC<ClickMarkerProps> = ({ position, setPosition }) => {
     useMapEvents({
         click(e) { setPosition(e.latlng); }
     });
@@ -34,27 +38,37 @@ const ClickMarker = ({ position, setPosition }) => {
     ) : null;
 };
 
-const FlyTo = ({ center }) => {
+interface FlyToProps {
+  center: [number, number] | null;
+}
+
+const FlyTo: React.FC<FlyToProps> = ({ center }) => {
     const map = useMap();
     useEffect(() => { if (center) map.flyTo(center, 15); }, [center, map]);
     return null;
 };
 
-// Props:
-//   schoolName  ΓÇô display name
-//   existingLocation ΓÇô { coordinates: [lng, lat] } or null
-//   onClose()
-//   onSaved(position)
-const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }) => {
+interface ExistingLocation {
+  coordinates: [number, number]; // [lng, lat]
+}
+
+interface SchoolLocationPickerProps {
+  schoolName: string;
+  existingLocation: ExistingLocation | null;
+  onClose: () => void;
+  onSaved: (pos: { lat: number; lng: number }) => void;
+}
+
+const SchoolLocationPicker: React.FC<SchoolLocationPickerProps> = ({ schoolName, existingLocation, onClose, onSaved }) => {
     const { t } = useTranslation();
-    const [position, setPosition] = useState(null);
-    const [flyTarget, setFlyTarget] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [geoLoading, setGeoLoading] = useState(false);
-    const [error, setError] = useState('');
+    const [position, setPosition] = useState<L.LatLng | { lat: number; lng: number } | null>(null);
+    const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
+    const [loading, setLoading] = useState<boolean>(false);
+    const [geoLoading, setGeoLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
 
     useEffect(() => {
-        if (existingLocation?.coordinates?.[0] !== 0) {
+        if (existingLocation && existingLocation.coordinates && existingLocation.coordinates[0] !== 0) {
             const [lng, lat] = existingLocation.coordinates;
             const pos = { lat, lng };
             setPosition(pos);
@@ -72,7 +86,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
             return;
         }
 
-        // First attempt: low accuracy (fast ΓÇö uses WiFi/cell triangulation)
+        // First attempt: low accuracy (fast — uses WiFi/cell triangulation)
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -113,7 +127,7 @@ const SchoolLocationPicker = ({ schoolName, existingLocation, onClose, onSaved }
         try {
             await api.put('/admin/school/location', { lat: position.lat, lng: position.lng });
             onSaved(position);
-        } catch (err) {
+        } catch (err: any) {
             setError(err.response?.data?.message || t('schoolLocationPicker.errors.saveFailed'));
         } finally {
             setLoading(false);

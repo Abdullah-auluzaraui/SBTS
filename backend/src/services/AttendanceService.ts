@@ -1,10 +1,35 @@
+import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
 import School from '../models/School';
 import puppeteer from 'puppeteer';
 import { AppError } from '../utils/AppError';
 
 // Bilingual label dictionary for the PDF report
-const REPORT_LABELS: Record<string, any> = {
+interface IReportLabel {
+  dir: 'rtl' | 'ltr';
+  align: 'right' | 'left';
+  font: string;
+  fontLink: string | null;
+  locale: string;
+  title: string;
+  period: string;
+  bus: string;
+  tripTypeLabel: string;
+  toSchool: string;
+  toHome: string;
+  issued: string;
+  totalRecords: string;
+  totalStat: string;
+  events: Record<string, string>;
+  headers: string[];
+  manual: string;
+  footer: string;
+  rangeError: string;
+  sizeError: string;
+  pdfError: string;
+}
+
+const REPORT_LABELS: Record<'ar' | 'en', IReportLabel> = {
   ar: {
     dir: 'rtl', align: 'right', font: "'Cairo', sans-serif",
     fontLink: 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap',
@@ -39,6 +64,42 @@ const REPORT_LABELS: Record<string, any> = {
   }
 };
 
+interface IPopulatedAttendance {
+  _id: mongoose.Types.ObjectId;
+  school: mongoose.Types.ObjectId;
+  student: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    studentId: string;
+  } | null;
+  bus: {
+    _id: mongoose.Types.ObjectId;
+    busId: string;
+  } | null;
+  driver: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+  } | null;
+  trip: mongoose.Types.ObjectId | null;
+  event: 'boarding' | 'exit' | 'absent' | 'arrived_home' | 'no_board' | 'no_receiver';
+  tripType: 'to_school' | 'to_home' | null;
+  timestamp: Date;
+  recordedBy: 'NFC' | 'manual';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface IAttendanceQuery {
+  school: string;
+  bus?: string;
+  student?: string;
+  tripType?: string;
+  timestamp?: {
+    $gte?: Date;
+    $lte?: Date;
+  };
+}
+
 export class AttendanceService {
   static async listAttendance(schoolId: string, filters: {
     busId?: string;
@@ -50,7 +111,7 @@ export class AttendanceService {
     limit?: number;
   }) {
     const { busId, studentId, dateFrom, dateTo, tripType, page = 1, limit = 50 } = filters;
-    const query: any = { school: schoolId };
+    const query: IAttendanceQuery = { school: schoolId };
 
     if (busId) query.bus = busId;
     if (studentId) query.student = studentId;
@@ -101,8 +162,8 @@ export class AttendanceService {
 
     const L = REPORT_LABELS[lang] || REPORT_LABELS.ar;
 
-    const startOfDay = (d: any) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-    const endOfDay   = (d: any) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+    const startOfDay = (d: Date | string | number) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+    const endOfDay   = (d: Date | string | number) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
 
     const today = new Date();
     let dateFromParsed: Date;
@@ -127,7 +188,7 @@ export class AttendanceService {
       throw new AppError(400, 'INVALID_INPUT', L.rangeError);
     }
 
-    const query: any = { school: schoolId, timestamp: { $gte: dateFromParsed, $lte: dateToParsed } };
+    const query: IAttendanceQuery = { school: schoolId, timestamp: { $gte: dateFromParsed, $lte: dateToParsed } };
     if (busId) query.bus = busId;
     if (tripType && ['to_school', 'to_home'].includes(tripType)) query.tripType = tripType;
 
@@ -150,7 +211,8 @@ export class AttendanceService {
     records.forEach(r => { stats[r.event] = (stats[r.event] || 0) + 1; });
 
     const schoolName = school?.name || '';
-    const busLabel = (records.find(r => r.bus) as any)?.bus?.busId || busId || '';
+    const typedRecords = records as unknown as IPopulatedAttendance[];
+    const busLabel = typedRecords.find(r => r.bus)?.bus?.busId || busId || '';
     const filterMeta = [
       `${L.period}: ${dateFromParsed.toLocaleDateString(L.locale)} — ${dateToParsed.toLocaleDateString(L.locale)}`,
       busId    ? `${L.bus}: ${busLabel}`                                              : null,
@@ -165,12 +227,12 @@ export class AttendanceService {
         </div>`)
       .join('');
 
-    const rowsHtml = records.map(r => `
+    const rowsHtml = typedRecords.map(r => `
       <tr>
-        <td>${(r.student as any)?.name || '—'}</td>
-        <td dir="ltr">${(r.student as any)?.studentId || '—'}</td>
-        <td>${(r.bus as any)?.busId || '—'}</td>
-        <td>${(r.driver as any)?.name || '—'}</td>
+        <td>${r.student?.name || '—'}</td>
+        <td dir="ltr">${r.student?.studentId || '—'}</td>
+        <td>${r.bus?.busId || '—'}</td>
+        <td>${r.driver?.name || '—'}</td>
         <td>${r.tripType === 'to_school' ? L.toSchool : r.tripType === 'to_home' ? L.toHome : '—'}</td>
         <td>${L.events[r.event] || r.event}</td>
         <td>${r.recordedBy === 'NFC' ? 'NFC' : L.manual}</td>

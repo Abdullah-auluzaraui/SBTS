@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useState } from 'react';
 import { X, Phone, ShieldCheck, Lock, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,8 +10,12 @@ const STEPS = {
   SUCCESS: 4
 };
 
-const ForgotPasswordModal = ({ onClose }) => {
-  const { t } = useTranslation();
+interface ForgotPasswordModalProps {
+  onClose: () => void;
+}
+
+const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) => {
+  const { t, i18n } = useTranslation();
   const [step, setStep] = useState(STEPS.PHONE);
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
@@ -24,7 +27,7 @@ const ForgotPasswordModal = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRequestOtp = async (e) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!username.trim()) {
@@ -44,14 +47,15 @@ const ForgotPasswordModal = ({ onClose }) => {
         console.log(`========================================\n`);
       }
       setStep(STEPS.OTP);
-    } catch (err) {
-      setError(err.response?.data?.message || t('forgotPassword.errors.genericError'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || t('forgotPassword.errors.genericError'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (otpCode.length !== 6) {
@@ -63,14 +67,15 @@ const ForgotPasswordModal = ({ onClose }) => {
       const { data } = await api.post('/auth/verify-otp', { phone, otpCode });
       setResetToken(data.resetToken);
       setStep(STEPS.NEW_PASSWORD);
-    } catch (err) {
-      setError(err.response?.data?.message || t('forgotPassword.errors.wrongOtp'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || t('forgotPassword.errors.wrongOtp'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetPassword = async (e) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (newPassword.length < 6) {
@@ -85,15 +90,16 @@ const ForgotPasswordModal = ({ onClose }) => {
     try {
       await api.post('/auth/reset-password', { resetToken, newPassword });
       setStep(STEPS.SUCCESS);
-    } catch (err) {
-      setError(err.response?.data?.message || t('forgotPassword.errors.saveFailed'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setError(axiosErr.response?.data?.message || t('forgotPassword.errors.saveFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative">
 
         {step !== STEPS.SUCCESS && (
@@ -254,7 +260,11 @@ const ForgotPasswordModal = ({ onClose }) => {
   );
 };
 
-const ErrorBox = ({ message }) => (
+interface ErrorBoxProps {
+  message: string;
+}
+
+const ErrorBox: React.FC<ErrorBoxProps> = ({ message }) => (
   <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-2">
     <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
     <span className="text-sm text-red-700 font-semibold">{message}</span>

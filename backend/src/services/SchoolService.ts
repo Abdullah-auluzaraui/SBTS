@@ -1,5 +1,5 @@
-import School from '../models/School';
-import Invitation from '../models/Invitation';
+import School, { ISchool, IEmergencyContact } from '../models/School';
+import Invitation, { IInvitation } from '../models/Invitation';
 import User from '../models/User';
 import Student from '../models/Student';
 import Bus from '../models/Bus';
@@ -24,7 +24,7 @@ export class SchoolService {
 
   static async createSchoolInvitation(schoolName: string, contactEmail: string, contactPhone?: string) {
     const schoolId = await this.generateSchoolId();
-    const school: any = await School.create({
+    const school: ISchool = await School.create({
       name: schoolName,
       schoolId,
       contact: { email: contactEmail, phone: contactPhone || undefined },
@@ -57,7 +57,7 @@ export class SchoolService {
       { isUsed: true }
     );
 
-    const lastInvitation: any = await Invitation.findOne({ school: school._id }).sort({ createdAt: -1 });
+    const lastInvitation = await Invitation.findOne({ school: school._id }).sort({ createdAt: -1 }) as IInvitation | null;
     const email = emailOverride || lastInvitation?.email || school.contact?.email;
 
     if (!email) throw new AppError(400, 'NO_EMAIL_FOUND');
@@ -84,12 +84,12 @@ export class SchoolService {
     const schools = await School.find(filter).sort({ createdAt: -1 }).lean();
 
     return Promise.all(
-      schools.map(async (school: any) => {
-        const [studentCount, busCount, adminUser, latestInvitation]: any[] = await Promise.all([
+      schools.map(async (school) => {
+        const [studentCount, busCount, adminUser, latestInvitation] = await Promise.all([
           Student.countDocuments({ school: school._id }),
           Bus.countDocuments({ school: school._id }),
-          User.findOne({ school: school._id, role: 'schooladmin' }).select('username name').lean(),
-          Invitation.findOne({ school: school._id }).sort({ createdAt: -1 }).lean()
+          User.findOne({ school: school._id, role: 'schooladmin' }).select('username name').lean() as Promise<{ username: string; name: string } | null>,
+          Invitation.findOne({ school: school._id }).sort({ createdAt: -1 }).lean() as Promise<IInvitation | null>
         ]);
 
         let invitationStatus = 'none';
@@ -150,7 +150,7 @@ export class SchoolService {
     return school.location;
   }
 
-  static async updateSchoolEmergencyContacts(schoolId: string, contacts: any[]) {
+  static async updateSchoolEmergencyContacts(schoolId: string, contacts: IEmergencyContact[]) {
     if (!Array.isArray(contacts)) {
       throw new AppError(400, 'INVALID_INPUT', 'contacts must be an array');
     }

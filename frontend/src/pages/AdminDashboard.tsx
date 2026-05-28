@@ -1,27 +1,43 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
-import { LayoutDashboard, Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2, School, CheckCircle2, AlertTriangle, Users, ChevronRight } from 'lucide-react';
+import { Bus, MapPin, GraduationCap, ClipboardList, UserCog, Loader2, School, CheckCircle2, AlertTriangle, Users, ChevronRight } from 'lucide-react';
 import SchoolLocationPicker from '../components/maps/SchoolLocationPicker';
 import SchoolContactsManager from '../components/SchoolContactsManager';
 
-const AdminDashboard = () => {
+
+interface SchoolInfo {
+  name: string;
+  location?: {
+    type?: string;
+    coordinates?: [number, number]; // [lng, lat]
+  } | null;
+  emergencyContacts?: Array<{ name: string; phone: string }>;
+}
+
+interface Stats {
+  buses: number;
+  students: number;
+  attendance: number;
+  drivers: number;
+}
+
+const AdminDashboard: React.FC = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
-    const [stats, setStats] = useState({ buses: 0, students: 0, attendance: 0, drivers: 0 });
-    const [loading, setLoading] = useState(true);
-    const [schoolInfo, setSchoolInfo] = useState(null);
-    const [showLocationPicker, setShowLocationPicker] = useState(false);
-    const [showContactsManager, setShowContactsManager] = useState(false);
+    const [stats, setStats] = useState<Stats>({ buses: 0, students: 0, attendance: 0, drivers: 0 });
+    const [loading, setLoading] = useState<boolean>(true);
+    const [schoolInfo, setSchoolInfo] = useState<SchoolInfo | null>(null);
+    const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
+    const [showContactsManager, setShowContactsManager] = useState<boolean>(false);
 
     const fetchSchoolInfo = async () => {
         try {
             const { data } = await api.get('/admin/school');
             setSchoolInfo(data.school);
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
     };
 
     useEffect(() => { fetchSchoolInfo(); }, []);
@@ -41,7 +57,7 @@ const AdminDashboard = () => {
                     attendance: attendanceRes.data.pagination?.total || 0,
                     drivers: driverRes.data.drivers?.length || 0
                 });
-            } catch (err) { console.error(err); }
+            } catch (err: unknown) { console.error(err); }
             finally { setLoading(false); }
         };
         fetchStats();
@@ -57,7 +73,7 @@ const AdminDashboard = () => {
         { title: t('admin.statAttendance'), count: stats.attendance, icon: ClipboardList, color: 'amber', link: '/admin/attendance' },
     ];
 
-    const colorMap = {
+    const colorMap: Record<string, { bg: string; border: string; icon: string; number: string }> = {
         blue: { bg: 'from-blue-50 to-white', border: 'border-blue-100', icon: 'bg-blue-100 text-blue-600', number: 'text-blue-600' },
         purple: { bg: 'from-purple-50 to-white', border: 'border-purple-100', icon: 'bg-purple-100 text-purple-600', number: 'text-purple-600' },
         amber: { bg: 'from-amber-50 to-white', border: 'border-amber-100', icon: 'bg-amber-100 text-amber-600', number: 'text-amber-600' },
@@ -156,8 +172,8 @@ const AdminDashboard = () => {
             {/* School Location Picker Modal */}
             {showLocationPicker && (
                 <SchoolLocationPicker
-                    schoolName={schoolInfo?.name || user?.name}
-                    existingLocation={schoolInfo?.location}
+                    schoolName={schoolInfo?.name || user?.name || ''}
+                    existingLocation={schoolInfo?.location?.coordinates ? { coordinates: schoolInfo.location.coordinates } : null}
                     onClose={() => setShowLocationPicker(false)}
                     onSaved={() => { setShowLocationPicker(false); fetchSchoolInfo(); }}
                 />
@@ -167,7 +183,7 @@ const AdminDashboard = () => {
             {showContactsManager && (
                 <SchoolContactsManager
                     onClose={() => setShowContactsManager(false)}
-                    onSaved={(contacts) => setSchoolInfo(prev => ({ ...(prev || {}), emergencyContacts: contacts }))}
+                    onSaved={(contacts) => setSchoolInfo(prev => prev ? ({ ...prev, emergencyContacts: contacts }) : null)}
                 />
             )}
         </>

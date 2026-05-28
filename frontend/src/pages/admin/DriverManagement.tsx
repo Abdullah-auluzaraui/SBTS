@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
@@ -6,11 +5,12 @@ import {
     UserCog, Plus, X, Loader2, AlertCircle, Eye, EyeOff,
     Ban, CircleCheck, Phone, Check, Pencil
 } from 'lucide-react';
+import { IApiDriver } from '../../types/api';
 
 const DriverManagement = () => {
     const { t } = useTranslation();
     const [showAll, setShowAll] = useState(false);
-    const [drivers, setDrivers] = useState([]);
+    const [drivers, setDrivers] = useState<IApiDriver[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [showForm, setShowForm] = useState(false);
@@ -18,9 +18,9 @@ const DriverManagement = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
-    const [successId, setSuccessId] = useState(null);
+    const [successId, setSuccessId] = useState<string | null>(null);
 
-    const [editDriver, setEditDriver] = useState(null);
+    const [editDriver, setEditDriver] = useState<IApiDriver | null>(null);
     const [editName, setEditName] = useState('');
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
@@ -30,7 +30,7 @@ const DriverManagement = () => {
         try {
             const { data } = await api.get(showAll ? '/users/drivers?all=true' : '/users/drivers');
             setDrivers(data.drivers);
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
         finally { setLoading(false); }
     }, [showAll]);
 
@@ -43,7 +43,7 @@ const DriverManagement = () => {
         setShowPassword(false);
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
         setFormLoading(true);
@@ -53,37 +53,39 @@ const DriverManagement = () => {
             fetchDrivers();
             setSuccessId(data.driver.id);
             setTimeout(() => setSuccessId(null), 3000);
-        } catch (err) {
-            setFormError(err.response?.data?.message || t('driverManagement.errors.createError'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setFormError(axiosErr.response?.data?.message || t('driverManagement.errors.createError'));
         } finally { setFormLoading(false); }
     };
 
-    const openEditDriver = (driver) => {
+    const openEditDriver = (driver: IApiDriver) => {
         setEditDriver(driver);
         setEditName(driver.name);
         setEditError('');
     };
 
-    const handleEditName = async (e) => {
+    const handleEditName = async (e: React.FormEvent) => {
         e.preventDefault();
         setEditError('');
         setEditLoading(true);
         try {
-            await api.patch(`/users/drivers/${editDriver._id}`, { name: editName });
-            setSuccessId(editDriver._id);
+            await api.patch(`/users/drivers/${editDriver!._id}`, { name: editName });
+            setSuccessId(editDriver!._id);
             setTimeout(() => setSuccessId(null), 3000);
             setEditDriver(null);
             fetchDrivers();
-        } catch (err) {
-            setEditError(err.response?.data?.message || t('driverManagement.errors.updateError'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setEditError(axiosErr.response?.data?.message || t('driverManagement.errors.updateError'));
         } finally { setEditLoading(false); }
     };
 
-    const handleToggleStatus = async (driver) => {
+    const handleToggleStatus = async (driver: IApiDriver) => {
         try {
             await api.patch(`/users/drivers/${driver._id}/status`);
             fetchDrivers();
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
     };
 
     return (
@@ -116,7 +118,7 @@ const DriverManagement = () => {
                 </div>
             </div>
 
-            {/* ΓöÇΓöÇ Add Driver Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Add Driver Modal ─────────────────────────────── */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={resetForm}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-8 relative" onClick={e => e.stopPropagation()}>
@@ -201,7 +203,7 @@ const DriverManagement = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Edit Driver Name Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Edit Driver Name Modal ───────────────────────── */}
             {editDriver && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setEditDriver(null)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 sm:p-8 relative" onClick={e => e.stopPropagation()}>
@@ -243,7 +245,7 @@ const DriverManagement = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇ Drivers List ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ── Drivers List ─────────────────────────────────── */}
             {loading ? (
                 <div className="p-12 flex justify-center"><Loader2 size={32} className="animate-spin text-primary-400" /></div>
             ) : drivers.length === 0 ? (
@@ -254,7 +256,7 @@ const DriverManagement = () => {
                 </div>
             ) : (
                 <>
-                    {/* ΓöÇΓöÇ Mobile: Card List (< md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Mobile: Card List (< md) ───────────────── */}
                     <div className="md:hidden flex flex-col gap-3">
                         {drivers.map(driver => (
                             <div
@@ -290,7 +292,7 @@ const DriverManagement = () => {
                                             <Phone size={13} className="text-gray-400" />
                                             <span dir="ltr">{driver.phone}</span>
                                         </a>
-                                    ) : <span className="text-gray-300 text-sm">ΓÇö</span>}
+                                    ) : <span className="text-gray-300 text-sm">—</span>}
 
                                     <div className="flex items-center gap-2">
                                         <button
@@ -318,7 +320,7 @@ const DriverManagement = () => {
                         ))}
                     </div>
 
-                    {/* ΓöÇΓöÇ Desktop: Table (>= md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Desktop: Table (>= md) ─────────────────── */}
                     <div className="hidden md:block bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-100">
@@ -353,7 +355,7 @@ const DriverManagement = () => {
                                                     <Phone size={13} className="text-gray-400 shrink-0" />
                                                     {driver.phone}
                                                 </span>
-                                            ) : 'ΓÇö'}
+                                            ) : '—'}
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {driver.isActive ? (
