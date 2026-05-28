@@ -7,9 +7,14 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "allowJs": true
+    "allowJs": false
   },
   "include": ["src/**/*", "src/types/**/*", "../shared/types/**/*"],
   "exclude": ["node_modules", "dist"]

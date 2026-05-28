@@ -1,6 +1,7 @@
-import Bus from '../models/Bus';
+import mongoose from 'mongoose';
+import Bus, { IBus } from '../models/Bus';
 import User from '../models/User';
-import Student from '../models/Student';
+import Student, { ILocationPoint } from '../models/Student';
 import School from '../models/School';
 import Trip from '../models/Trip';
 import Attendance from '../models/Attendance';
@@ -37,7 +38,7 @@ export class BusService {
   }
 
   static async listBuses(schoolId: string, showAll: boolean) {
-    const filter: any = { school: schoolId };
+    const filter: Record<string, unknown> = { school: schoolId };
     if (!showAll) filter.isActive = true;
 
     return Bus.find(filter)
@@ -54,8 +55,8 @@ export class BusService {
 
     const { capacity, route, driver } = data;
     if (capacity !== undefined) bus.capacity = capacity;
-    if (route !== undefined) bus.route = route as any;
-    if (driver !== undefined) bus.driver = driver as any;
+    if (route !== undefined) bus.route = route ? new mongoose.Types.ObjectId(route) as any : null;
+    if (driver !== undefined) bus.driver = driver ? new mongoose.Types.ObjectId(driver) as any : null;
 
     await bus.save();
     return bus;
@@ -115,18 +116,37 @@ export class BusService {
       throw new AppError(400, 'VALIDATION_ERROR', { key: 'NO_ELIGIBLE_STUDENTS' });
     }
 
-    // 4. Build a mutable pool with flat lat/lng for fast distance comparisons
-    let pool = students.map(s => ({
+    interface IAutoAssignStudent {
+      _id: mongoose.Types.ObjectId;
+      name: string;
+      studentId: string;
+      location: ILocationPoint;
+      lat: number;
+      lng: number;
+    }
+
+    interface IAutoAssignAssignment {
+      bus: IBus;
+      students: IAutoAssignStudent[];
+      route: {
+        polyline: Array<[number, number]>;
+        duration: number;
+        distance: number;
+      } | null;
+    }
+
+    // Build a mutable pool with flat lat/lng for fast distance comparisons
+    let pool: IAutoAssignStudent[] = students.map(s => ({
       _id: s._id,
       name: s.name,
       studentId: s.studentId,
-      location: s.location,
-      lat: s.location!.coordinates[1],
-      lng: s.location!.coordinates[0],
+      location: s.location as ILocationPoint,
+      lat: s.location.coordinates[1],
+      lng: s.location.coordinates[0],
     }));
 
     // 5. Nearest-neighbor seeded clustering
-    const assignments: any[] = [];
+    const assignments: IAutoAssignAssignment[] = [];
 
     for (const bus of buses) {
       if (pool.length === 0) break;
@@ -144,7 +164,7 @@ export class BusService {
         sqDist(b.lat, b.lng, seed.lat, seed.lng)
       );
       const chunk = pool.splice(0, bus.capacity);
-      assignments.push({ bus, students: chunk, route: null as any });
+      assignments.push({ bus, students: chunk, route: null });
     }
 
     const unassigned = [...pool];
@@ -167,13 +187,13 @@ export class BusService {
         if (data.code === 'Ok' && data.trips?.length > 0) {
           const trip = data.trips[0];
           assignment.route = {
-            polyline: trip.geometry.coordinates.map((c: any) => [c[1], c[0]]),
+            polyline: trip.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]),
             duration: Math.ceil(trip.duration / 60),
             distance: parseFloat((trip.distance / 1000).toFixed(1))
           };
         }
-      } catch (osrmErr: any) {
-        console.warn(`OSRM failed for bus ${assignment.bus.busId}:`, osrmErr.message);
+      } catch (osrmErr: unknown) {
+        console.warn(`OSRM failed for bus ${assignment.bus.busId}:`, osrmErr instanceof Error ? osrmErr.message : String(osrmErr));
       }
     }
 
@@ -183,7 +203,7 @@ export class BusService {
       for (const { bus, students: busStudents } of assignments) {
         if (busStudents.length === 0) continue;
         await Student.updateMany(
-          { _id: { $in: busStudents.map((s: any) => s._id) }, school: schoolId },
+          { _id: { $in: busStudents.map(s => s._id) }, school: schoolId },
           { $set: { assignedBus: bus._id } }
         );
       }
@@ -193,7 +213,7 @@ export class BusService {
       confirmed: confirm,
       assignments: assignments.map(a => ({
         bus: { _id: a.bus._id, busId: a.bus.busId, capacity: a.bus.capacity },
-        students: a.students.map((s: any) => ({
+        students: a.students.map(s => ({
           _id: s._id,
           name: s.name,
           studentId: s.studentId,
@@ -227,7 +247,7 @@ export class BusService {
     }).select('name parentId location');
 
     const blocked: string[] = [];
-    const validIds: any[] = [];
+    const validIds: mongoose.Types.ObjectId[] = [];
 
     for (const student of candidates) {
       if (!student.parentId) {
@@ -238,7 +258,7 @@ export class BusService {
         blocked.push(`"${student.name}": لم يقم ولي الأمر بتحديد موقع المنزل بعد`);
         continue;
       }
-      validIds.push(student._id);
+      validIds.push(student._id as mongoose.Types.ObjectId);
     }
 
     if (validIds.length === 0) {
@@ -272,7 +292,7 @@ export class BusService {
 
     const lastLocation = trip?.lastLocation?.lat ? trip.lastLocation : null;
 
-    let studentEvents: any[] = [];
+    let studentEvents: Array<{ studentId: string; event: string }> = [];
     if (trip?.tripType) {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -287,7 +307,7 @@ export class BusService {
         .sort({ timestamp: 1 })
         .lean();
 
-      const eventMap = new Map();
+      const eventMap = new Map<string, string>();
       records.forEach(r => eventMap.set(String(r.student), r.event));
       studentEvents = Array.from(eventMap.entries()).map(([studentId, event]) => ({ studentId, event }));
     }

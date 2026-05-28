@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -6,15 +5,15 @@ import 'leaflet/dist/leaflet.css';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-// ΓöÇΓöÇ Fix default Leaflet icons ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-delete L.Icon.Default.prototype._getIconUrl;
+// Fix default Leaflet icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
     iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
     shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// ΓöÇΓöÇ ╪ú┘è┘é┘ê┘å╪º╪¬ ╪º┘ä╪«╪▒┘è╪╖╪⌐ ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Map Marker Icons
 const schoolIcon = new L.Icon({
     iconUrl:   'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
@@ -28,18 +27,23 @@ const studentIcon = new L.Icon({
 });
 
 const busIcon = L.divIcon({
-    html: '<div style="font-size:30px;line-height:1;">≡ƒÜî</div>',
+    html: '<div style="font-size:30px;line-height:1;">🚌</div>',
     className: '',
     iconAnchor: [15, 15]
 });
 
-// ΓöÇΓöÇ Map camera controller ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+interface MapControllerProps {
+  busLocation: { lat: number; lng: number } | null;
+  leafletPath: L.LatLngExpression[];
+}
+
+// Map camera controller
 // Pre-trip  : fitBounds to show the full route.
 // Navigation: auto-center ONCE on the first live location, then hands-off so
 //             the user can pan freely while the marker continues to move.
-const MapController = ({ busLocation, leafletPath }) => {
+const MapController: React.FC<MapControllerProps> = ({ busLocation, leafletPath }) => {
     const map = useMap();
-    const centeredOnBus = useRef(false);
+    const centeredOnBus = useRef<boolean>(false);
     useEffect(() => {
         if (busLocation?.lat && busLocation?.lng) {
             if (!centeredOnBus.current) {
@@ -53,22 +57,36 @@ const MapController = ({ busLocation, leafletPath }) => {
     return null;
 };
 
-const DEFAULT_CENTER = [24.7136, 46.6753];
+const DEFAULT_CENTER: [number, number] = [24.7136, 46.6753];
 
-/**
- * SharedBusMap ΓÇö ┘à┘â┘ê┘å ╪╣╪▒╪╢ ┘à┘ê╪¡╪» ┘ä┘ä╪«╪▒┘è╪╖╪⌐
- *
- * Props:
- *   routePath    : [{lat, lng}]          ΓÇö ┘à╪│╪º╪▒ ╪º┘ä╪▒╪¡┘ä╪⌐ (┘à┘å ╪º┘ä┘Ç Backend ╪ú┘ê OSRM)
- *   school       : { name, location: {coordinates:[lng,lat]} }
- *   students     : [{ name, location: {coordinates:[lng,lat]} }]  ΓÇö ┘à┘Å┘ü┘ä╪¬┘Ä╪▒╪⌐ ╪¡╪│╪¿ ╪º┘ä╪»┘ê╪▒
- *   busLocation  : { lat, lng } | null   ΓÇö ┘à┘ê┘é╪╣ ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ╪º┘ä╪¡┘è (Socket.io ┘ä╪º╪¡┘é╪º┘ï)
- *   routeLoading : Boolean
- */
-const SharedBusMap = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false, showRouteLine = true }) => {
+interface MapStudent {
+  _id?: string;
+  name: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+interface MapSchool {
+  name: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+interface SharedBusMapProps {
+  routePath?: Array<{ lat: number; lng: number }>;
+  school?: MapSchool;
+  students?: MapStudent[];
+  busLocation?: { lat: number; lng: number } | null;
+  routeLoading?: boolean;
+  showRouteLine?: boolean;
+}
+
+const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false, showRouteLine = true }) => {
     const { t } = useTranslation();
     // ╪¬╪¡┘ê┘è┘ä ╪º┘ä┘à╪│╪º╪▒ ┘à┘å {lat,lng} ╪Ñ┘ä┘ë [lat,lng] ╪º┘ä┘à╪¬┘ê╪º┘ü┘é ┘à╪╣ Leaflet
-    const leafletPath = routePath.map(p => [p.lat, p.lng]);
+    const leafletPath: [number, number][] = routePath.map(p => [p.lat, p.lng]);
 
     return (
         <div className="w-full h-full relative">
@@ -90,7 +108,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                     attribution="&copy; OpenStreetMap contributors &copy; CARTO"
                 />
 
-                {/* ┘à╪│╪º╪▒ ╪º┘ä╪▒╪¡┘ä╪⌐ ΓÇö ┘à╪«┘ü┘è ┘ü┘è ╪╣╪▒╪╢ ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒ */}
+                {/* ┘à╪│╪º╪▒ ╪º┘ä╪▒╪¡┘ä╪⌐ — ┘à╪«┘ü┘è ┘ü┘è ╪╣╪▒╪╢ ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒ */}
                 {showRouteLine && leafletPath.length > 0 && (
                     <>
                         <Polyline positions={leafletPath} color="#0EA5E9" weight={5} opacity={0.6} />
@@ -114,7 +132,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                     </Marker>
                 )}
 
-                {/* ╪╣┘ä╪º┘à╪º╪¬ ╪º┘ä╪╖┘ä╪º╪¿ ΓÇö ┘è┘Å╪╣╪▒╪╢ ┘ü┘é╪╖ ┘à╪º ╪¬┘à ╪¬┘à╪▒┘è╪▒┘ç (╪º┘ä╪│╪º╪ª┘é: ╪º┘ä┘â┘ä╪î ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒: ╪ú╪¿┘å╪º╪ñ┘ç ┘ü┘é╪╖) */}
+                {/* ╪╣┘ä╪º┘à╪º╪¬ ╪º┘ä╪╖┘ä╪º╪¿ — ┘è┘Å╪╣╪▒╪╢ ┘ü┘é╪╖ ┘à╪º ╪¬┘à ╪¬┘à╪▒┘è╪▒┘ç (╪º┘ä╪│╪º╪ª┘é: ╪º┘ä┘â┘ä╪î ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒: ╪ú╪¿┘å╪º╪ñ┘ç ┘ü┘é╪╖) */}
                 {students.map((student, idx) => {
                     const coords = student.location?.coordinates;
                     if (!coords || coords[0] === 0) return null;
@@ -132,7 +150,7 @@ const SharedBusMap = ({ routePath = [], school, students = [], busLocation = nul
                     );
                 })}
 
-                {/* ╪╣┘ä╪º┘à╪⌐ ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ╪º┘ä╪¡┘è╪⌐ ΓÇö ╪¼╪º┘ç╪▓ ┘ä┘ä┘Ç Socket.io (busLocation ┘è╪ú╪¬┘è ┘à┘å ╪º┘ä┘Ç Socket ┘ä╪º╪¡┘é╪º┘ï) */}
+                {/* ╪╣┘ä╪º┘à╪⌐ ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ╪º┘ä╪¡┘è╪⌐ — ╪¼╪º┘ç╪▓ ┘ä┘ä┘Ç Socket.io (busLocation ┘è╪ú╪¬┘è ┘à┘å ╪º┘ä┘Ç Socket ┘ä╪º╪¡┘é╪º┘ï) */}
                 {busLocation?.lat && busLocation?.lng && (
                     <Marker
                         position={[busLocation.lat, busLocation.lng]}

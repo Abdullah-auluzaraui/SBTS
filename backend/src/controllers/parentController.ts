@@ -6,7 +6,7 @@ export const requestLinking = async (req: Request, res: Response, next: NextFunc
     const { nationalId, dob, phone } = req.body;
     const result = await ParentService.requestLinking(
       req.schoolId,
-      (req as any).user,
+      req.user!,
       nationalId,
       dob,
       phone
@@ -27,7 +27,7 @@ export const verifyLinking = async (req: Request, res: Response, next: NextFunct
     const { otp, studentId, phone } = req.body;
     const result = await ParentService.verifyLinking(
       req.schoolId,
-      (req as any).user,
+      req.user!,
       otp,
       studentId,
       phone
@@ -48,7 +48,7 @@ export const updateLocation = async (req: Request, res: Response, next: NextFunc
   try {
     const { lat, lng } = req.body;
     const studentId = req.params.id as string;
-    const parentId = (req as any).user._id;
+    const parentId = req.user!._id.toString();
 
     const location = await ParentService.updateLocation(parentId, studentId, lat, lng);
 
@@ -65,7 +65,7 @@ export const updateLocation = async (req: Request, res: Response, next: NextFunc
 export const relink = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { studentId, nationalId } = req.body || {};
-    const parentId = (req as any).user._id;
+    const parentId = req.user!._id.toString();
 
     const student = await ParentService.relink(parentId, studentId, nationalId);
 
@@ -81,7 +81,7 @@ export const relink = async (req: Request, res: Response, next: NextFunction): P
 
 export const getStudents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const parentId = (req as any).user._id;
+    const parentId = req.user!._id.toString();
     const result = await ParentService.getStudents(parentId);
 
     res.json({
@@ -97,7 +97,7 @@ export const getStudents = async (req: Request, res: Response, next: NextFunctio
 export const getBusLive = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const busId = req.params.busId as string;
-    const parentId = (req as any).user._id;
+    const parentId = req.user!._id.toString();
 
     const result = await ParentService.getBusLive(busId, parentId, req.schoolId);
 

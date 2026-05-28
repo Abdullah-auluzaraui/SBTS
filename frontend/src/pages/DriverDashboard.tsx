@@ -1,9 +1,8 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
-import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, XCircle, PhoneCall, Phone, UserX, Home, School, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
+import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, PhoneCall, Phone, UserX, Home, School, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
@@ -15,95 +14,148 @@ import NoReceiverModal from '../components/NoReceiverModal';
 
 
 
-const DriverDashboard = () => {
+
+interface Student {
+  _id: string;
+  name: string;
+  studentId: string;
+  grade?: string;
+  location?: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+  parentId?: {
+    name?: string | null;
+    phone?: string | null;
+  };
+}
+
+interface Bus {
+  _id: string;
+  busId: string;
+}
+
+interface School {
+  name: string;
+  location: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+  emergencyContacts?: Array<{ name: string; phone: string }>;
+}
+
+interface TodayEvent {
+  student: string;
+  event: string;
+  tripType?: 'to_school' | 'to_home';
+  timestamp: string;
+}
+
+interface DashboardData {
+  bus: Bus;
+  students: Student[];
+  school: School;
+  todayEvents: TodayEvent[];
+}
+
+interface TodayTrip {
+  status: 'active' | 'completed' | 'pending';
+  tripId?: string;
+  routePath?: Array<{ lat: number; lng: number }>;
+}
+
+interface TodayTripStatus {
+  to_school: TodayTrip | null;
+  to_home: TodayTrip | null;
+}
+
+const DriverDashboard: React.FC = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
-    const [dashboardData, setDashboardData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string>('');
 
-    const [tripStarted, setTripStarted] = useState(false);
-    const [routePath, setRoutePath] = useState([]);
-    const [osrmMeta, setOsrmMeta] = useState(null);
-    const [routeLoading, setRouteLoading] = useState(false);
+    const [tripStarted, setTripStarted] = useState<boolean>(false);
+    const [routePath, setRoutePath] = useState<Array<[number, number]>>([]);
+    const [osrmMeta, setOsrmMeta] = useState<{ duration: number; distance: string } | null>(null);
+    const [routeLoading, setRouteLoading] = useState<boolean>(false);
 
-    // ΓöÇΓöÇΓöÇ Today's server-side trip status (source of truth for locking) ΓöÇΓöÇ
+    // — Today's server-side trip status (source of truth for locking) —
     // { to_school: {status, tripId, routePath} | null, to_home: ... }
-    const [todayTripStatus, setTodayTripStatus] = useState({ to_school: null, to_home: null });
-    const [todayStatusLoading, setTodayStatusLoading] = useState(true);
+    const [todayTripStatus, setTodayTripStatus] = useState<TodayTripStatus>({ to_school: null, to_home: null });
+    const [todayStatusLoading, setTodayStatusLoading] = useState<boolean>(true);
     
     // Track boarded status locally for the session
-    const [boardedStudents, setBoardedStudents] = useState(new Set());
-    const [markingAttendance, setMarkingAttendance] = useState(null);
+    const [boardedStudents, setBoardedStudents] = useState<Set<string>>(new Set());
+    const [markingAttendance, setMarkingAttendance] = useState<string | null>(null);
 
     // School contacts modal
-    const [showContacts, setShowContacts] = useState(false);
+    const [showContacts, setShowContacts] = useState<boolean>(false);
 
-    // ΓöÇΓöÇΓöÇ Trip-type & per-student status state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Trip-type & per-student status state —
     // tripType drives which action buttons appear on each card and is sent
     // to the backend (/driver/me?tripType=return) to filter absent students
     // out of the return list.
-    const [tripType, setTripType] = useState(null); // 'to_school' | 'to_home' | null
-    const [showTripTypeModal, setShowTripTypeModal] = useState(false);
+    const [tripType, setTripType] = useState<'to_school' | 'to_home' | null>(null); // 'to_school' | 'to_home' | null
+    const [showTripTypeModal, setShowTripTypeModal] = useState<boolean>(false);
 
-    // ΓöÇΓöÇΓöÇ Return trip two-phase state machine ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Return trip two-phase state machine — sweep
     // returnPhase: null (no trip selected) | 'checkin' (school gate boarding) | 'route' (drop-offs)
-    const [returnPhase, setReturnPhase] = useState(null);
+    const [returnPhase, setReturnPhase] = useState<'checkin' | 'route' | null>(null);
 
     // Session-local mirror of server-side absent records (also written to DB).
-    const [absentStudents, setAbsentStudents] = useState(new Set());
+    const [absentStudents, setAbsentStudents] = useState<Set<string>>(new Set());
     // studentStatuses maps student._id -> the latest action taken on the card
     // ('boarded' | 'absent' | 'arrived_home' | 'no_board' | 'no_receiver').
     // When present, the card is considered "resolved" and moves to Completed.
-    const [studentStatuses, setStudentStatuses] = useState(new Map());
+    const [studentStatuses, setStudentStatuses] = useState<Map<string, string>>(new Map());
 
     // OSRM-derived route order: student._id -> waypoint_index. The smaller the
     // index, the earlier that student is on the route. We pin the smallest
     // unresolved waypoint as the "Active Student".
-    const [routeOrder, setRouteOrder] = useState(new Map());
+    const [routeOrder, setRouteOrder] = useState<Map<string, number>>(new Map());
 
     // Completed section is collapsed by default to keep the screen calm.
-    const [showCompleted, setShowCompleted] = useState(false);
+    const [showCompleted, setShowCompleted] = useState<boolean>(false);
 
 
-    // ΓöÇΓöÇΓöÇ No Receiver Modal state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [noReceiverTarget, setNoReceiverTarget] = useState(null); // student object
-    const [noReceiverAcknowledged, setNoReceiverAcknowledged] = useState(false);
+    // — No Receiver Modal state —
+    const [noReceiverTarget, setNoReceiverTarget] = useState<Student | null>(null); // student object
 
-    // ΓöÇΓöÇΓöÇ Boarding Confirmation Modal state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [boardingConfirmOpen, setBoardingConfirmOpen] = useState(false);
-    const [boardingConfirmStudent, setBoardingConfirmStudent] = useState(null);
 
-    // ΓöÇΓöÇΓöÇ Simulator state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [busLocation, setBusLocation]     = useState(null);  // { lat, lng } live bus pos
-    const [approachingId, setApproachingId] = useState(null);  // student._id within 400 m ring
-    const [currentStudent, setCurrentStudent] = useState(null); // student within 50 m (NFC zone)
+    // — Boarding Confirmation Modal state —
+    const [boardingConfirmOpen, setBoardingConfirmOpen] = useState<boolean>(false);
+    const [boardingConfirmStudent, setBoardingConfirmStudent] = useState<Student | null>(null);
 
-    // ΓöÇΓöÇΓöÇ Success toast state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [successMsg, setSuccessMsg] = useState('');
+    // — Simulator state —
+    const [busLocation, setBusLocation]     = useState<{ lat: number; lng: number } | null>(null);  // { lat, lng } live bus pos
+    const [approachingId, setApproachingId] = useState<string | null>(null);  // student._id within 400 m ring
+    const [currentStudent, setCurrentStudent] = useState<Student | null>(null); // student within 50 m (NFC zone)
+
+    // — Success toast state —
+    const [successMsg, setSuccessMsg] = useState<string>('');
     useEffect(() => {
         if (!successMsg) return;
         const timer = setTimeout(() => setSuccessMsg(''), 3000);
         return () => clearTimeout(timer);
     }, [successMsg]);
 
-    // ΓöÇΓöÇΓöÇ Notification stubs (no API calls yet) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    // Real notification delivery isn't built yet ΓÇö these stubs keep the
+    // — Notification stubs (no API calls yet) —
+    // Real notification delivery isn't built yet — these stubs keep the
     // call-sites in place so they can be swapped out without touching the UI.
-    const notifyAbsent = (student) => {
+    const notifyAbsent = (student: Student) => {
         console.log('[NOTIFY] Absent:', student?.name, student?._id);
     };
-    const notifyNoReceiver = (student) => {
+    const notifyNoReceiver = (student: Student) => {
         console.log('[NOTIFY] No Receiver:', student?.name, student?._id);
     };
 
-    // ΓöÇΓöÇΓöÇ Driver GPS helper ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Driver GPS helper —
     // Resolves to a [lng, lat] tuple in OSRM-friendly order. If the browser
     // doesn't expose geolocation, the user denies the permission, or the
     // request times out, we transparently fall back to `fallbackLngLat` so
     // the routing call always succeeds.
-    const getDriverCoordinate = (fallbackLngLat) => new Promise(resolve => {
-        // Skip real GPS when simulation is already active ΓÇö bus position is controlled by simulator
+    const getDriverCoordinate = (fallbackLngLat: [number, number]): Promise<[number, number]> => new Promise(resolve => {
+        // Skip real GPS when simulation is already active — bus position is controlled by simulator
         if (busLocation !== null) return resolve(fallbackLngLat);
         if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
             return resolve(fallbackLngLat);
@@ -124,10 +176,10 @@ const DriverDashboard = () => {
     //
     // Accepts optional phase parameter for two-phase return trip workflow.
     //
-    // The response now includes `todayEvents` ΓÇö every attendance row for
-    // this bus today ΓÇö so we can rebuild the resolved-student state for
+    // The response now includes `todayEvents` — every attendance row for
+    // this bus today — so we can rebuild the resolved-student state for
     // the active direction (used by the Completed section + active pin).
-    const fetchDashboardData = async (selectedTripType = null, selectedPhase = null) => {
+    const fetchDashboardData = async (selectedTripType: 'to_school' | 'to_home' | null = null, selectedPhase: 'checkin' | 'route' | null = null) => {
         try {
             const params = new URLSearchParams();
             if (selectedTripType === 'to_home') params.append('tripType', 'to_home');
@@ -139,7 +191,7 @@ const DriverDashboard = () => {
             const { data } = await api.get(url);
             setDashboardData(data.data);
             hydrateFromTodayEvents(data.data?.todayEvents, selectedTripType, selectedPhase);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
             setError(t('common.loading'));
         } finally {
@@ -155,11 +207,11 @@ const DriverDashboard = () => {
     //
     // For return trips with Phase 2 auto-restore: if all students have
     // to_home events (boarding or no_board), auto-set returnPhase='route'.
-    const hydrateFromTodayEvents = (todayEvents, selectedTripType, selectedPhase) => {
+    const hydrateFromTodayEvents = (todayEvents: TodayEvent[] | undefined, selectedTripType: 'to_school' | 'to_home' | null, selectedPhase: 'checkin' | 'route' | null) => {
         const directionForHydration = selectedTripType || 'to_school';
 
-        const boarded = new Set();
-        const absent  = new Set();
+        const boarded = new Set<string>();
+        const absent  = new Set<string>();
         const statuses = new Map();
 
         if (!Array.isArray(todayEvents) || todayEvents.length === 0) {
@@ -171,7 +223,7 @@ const DriverDashboard = () => {
 
         // Filter to current direction. Legacy rows with no tripType are
         // accepted as morning events so old data still hydrates.
-        const relevant = todayEvents.filter(e => {
+        const relevant = todayEvents.filter((e: TodayEvent) => {
             if (e.tripType === directionForHydration) return true;
             if (!e.tripType && directionForHydration === 'to_school') return true;
             return false;
@@ -179,7 +231,7 @@ const DriverDashboard = () => {
 
         // Pick the latest event per student.
         const latestByStudent = new Map();
-        relevant.forEach(e => {
+        relevant.forEach((e: TodayEvent) => {
             const key = String(e.student);
             const prev = latestByStudent.get(key);
             const tsCurr = new Date(e.timestamp).getTime();
@@ -187,7 +239,7 @@ const DriverDashboard = () => {
             if (tsCurr >= tsPrev) latestByStudent.set(key, e);
         });
 
-        latestByStudent.forEach((e, sid) => {
+        latestByStudent.forEach((e: TodayEvent, sid: string) => {
             switch (e.event) {
                 case 'boarding':
                     boarded.add(sid);
@@ -244,7 +296,7 @@ const DriverDashboard = () => {
                         setTripType('to_school');
                         setTripStarted(true);
                         if (data.to_school.routePath?.length > 0) {
-                            setRoutePath(data.to_school.routePath.map(p => [p.lat, p.lng]));
+                            setRoutePath(data.to_school.routePath.map((p: { lat: number; lng: number }) => [p.lat, p.lng]));
                         }
                         // Hydrate with morning data so student statuses are restored
                         await fetchDashboardData('to_school', null);
@@ -252,14 +304,14 @@ const DriverDashboard = () => {
                         setTripType('to_home');
                         setTripStarted(true);
                         if (data.to_home.routePath?.length > 0) {
-                            setRoutePath(data.to_home.routePath.map(p => [p.lat, p.lng]));
+                            setRoutePath(data.to_home.routePath.map((p: { lat: number; lng: number }) => [p.lat, p.lng]));
                         }
                         // Critical fix: re-fetch with to_home+route so studentStatuses
                         // gets populated BEFORE returnPhase='route' filters the list.
                         await fetchDashboardData('to_home', 'route');
                         setReturnPhase('route');
                     } else {
-                        // No active trip ΓÇö just fetch the default dashboard
+                        // No active trip — just fetch the default dashboard
                         await fetchDashboardData();
                     }
                 } else {
@@ -273,20 +325,12 @@ const DriverDashboard = () => {
             .finally(() => setTodayStatusLoading(false));
     }, []);
 
-    // Open the trip-type chooser modal. The actual OSRM/start-trip flow runs
-    // only after the driver picks a direction in handleSelectTripType().
-    const handleOpenTripTypeChooser = () => {
-        if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
-            return setError(t('driver.errors.missingData'));
-        }
-        setError('');
-        setShowTripTypeModal(true);
-    };
+
 
     // Driver picked a direction. We close the modal, persist the choice, and
     // (for return trips) enter Phase 1 (checkin) without OSRM yet.
     // Morning trips use the existing flow with immediate OSRM.
-    const handleSelectTripType = async (selected) => {
+    const handleSelectTripType = async (selected: 'to_school' | 'to_home') => {
         setShowTripTypeModal(false);
         setTripType(selected);
         setRouteOrder(new Map());
@@ -294,7 +338,7 @@ const DriverDashboard = () => {
         setCurrentStudent(null);
 
         if (selected === 'to_home') {
-            // Return trip: enter Phase 1 (checkin) ΓÇö fetch all students
+            // Return trip: enter Phase 1 (checkin) — fetch all students
             setReturnPhase('checkin');
             setTripStarted(true); // Trip is "started" but in checkin mode
             await fetchDashboardData('to_home', 'checkin');
@@ -307,13 +351,13 @@ const DriverDashboard = () => {
     };
 
     // Helper: did this student miss the morning trip?
-    const hasMorningAbsence = (studentId) => {
+    const hasMorningAbsence = (studentId: string): boolean => {
         return (dashboardData?.todayEvents || []).some(
             e => e.event === 'no_board' && e.tripType === 'to_school' && String(e.student) === String(studentId)
         );
     };
 
-    // Phase 1 ΓåÆ Phase 2 transition: start the route with boarded students only
+    // Phase 1 → Phase 2 transition: start the route with boarded students only
     const handleStartRoute = async () => {
         if (!dashboardData?.bus || !dashboardData?.students?.length || !dashboardData?.school?.location) {
             return setError(t('driver.errors.missingData'));
@@ -322,9 +366,9 @@ const DriverDashboard = () => {
         setRouteLoading(true);
 
         try {
-            // ΓöÇΓöÇΓöÇ Auto-resolve: bulk-mark unresolved morning-absent students as no_board ΓöÇΓöÇΓöÇ
+            // — Auto-resolve: bulk-mark unresolved morning-absent students as no_board —
             const allStudents = dashboardData.students || [];
-            const isResolved = (id) => studentStatuses.has(id);
+            const isResolved = (id: string) => studentStatuses.has(id);
             const pendingMorningAbsentees = allStudents.filter(
                 s => !isResolved(s._id) && hasMorningAbsence(s._id)
             );
@@ -385,12 +429,12 @@ const DriverDashboard = () => {
                 return;
             }
 
-            // ΓöÇΓöÇΓöÇ Build OSRM coordinate array for return trip ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // — Build OSRM coordinate array for return trip —
             // to_home: [school, ...studentHomes] (last student = destination)
-            const fmt = ([lng, lat]) => `${lng},${lat}`;
+            const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
             const school = dashboardData.school;
             const schoolLngLat  = school.location.coordinates;        // [lng, lat]
-            const studentLngLat = validStudents.map(s => s.location.coordinates);
+            const studentLngLat = validStudents.map(s => s.location!.coordinates);
 
             const orderedCoords = [schoolLngLat, ...studentLngLat];
             const studentIndexOffset = 1; // students start at coord index 1
@@ -401,11 +445,11 @@ const DriverDashboard = () => {
 
             if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
                 const trip = osrmData.trips[0];
-                const pathForMap    = trip.geometry.coordinates.map(c => [c[1], c[0]]);
-                const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+                const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
 
                 setRoutePath(pathForMap);
-                // Fix 4: anchor bus marker at route origin immediately ΓÇö no GPS override
+                // Fix 4: anchor bus marker at route origin immediately — no GPS override
                 setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
@@ -414,7 +458,7 @@ const DriverDashboard = () => {
 
                 const orderMap = new Map();
                 if (Array.isArray(osrmData.waypoints)) {
-                    validStudents.forEach((s, i) => {
+                    validStudents.forEach((s: Student, i: number) => {
                         const wp = osrmData.waypoints[i + studentIndexOffset];
                         if (wp && typeof wp.waypoint_index === 'number') {
                             orderMap.set(String(s._id), wp.waypoint_index);
@@ -428,7 +472,7 @@ const DriverDashboard = () => {
                     if (result.data?.tripId && !result.data?.resumed) {
                         setTodayTripStatus(prev => ({ ...prev, to_home: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
                     }
-                } catch (saveErr) {
+                } catch (saveErr: any) {
                     if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
                         setError(t('driver.errors.returnTripCompleted'));
                         setReturnPhase('checkin');
@@ -440,7 +484,7 @@ const DriverDashboard = () => {
                 setError(t('driver.errors.osrmRouteFailed'));
                 setReturnPhase('checkin');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('OSRM Route Error:', err);
             setError(t('driver.errors.routeDrawError'));
             setReturnPhase('checkin');
@@ -469,10 +513,10 @@ const DriverDashboard = () => {
                 return;
             }
 
-            // ΓöÇΓöÇΓöÇ Build OSRM coordinate array per trip direction ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-            const fmt = ([lng, lat]) => `${lng},${lat}`;
+            // — Build OSRM coordinate array per trip direction —
+            const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
             const schoolLngLat  = school.location.coordinates;
-            const studentLngLat = validStudents.map(s => s.location.coordinates);
+            const studentLngLat = validStudents.map(s => s.location!.coordinates);
 
             let orderedCoords;
             if (tripType === 'to_home') {
@@ -490,11 +534,11 @@ const DriverDashboard = () => {
 
             if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
                 const trip = osrmData.trips[0];
-                const pathForMap    = trip.geometry.coordinates.map(c => [c[1], c[0]]);
-                const pathForBackend = trip.geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+                const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
 
                 setRoutePath(pathForMap);
-                // Fix 4: anchor bus marker at route origin immediately ΓÇö no GPS override
+                // Fix 4: anchor bus marker at route origin immediately — no GPS override
                 setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
                 setOsrmMeta({
                     duration: Math.ceil(trip.duration / 60),
@@ -503,7 +547,7 @@ const DriverDashboard = () => {
 
                 const orderMap = new Map();
                 if (Array.isArray(osrmData.waypoints)) {
-                    validStudents.forEach((s, i) => {
+                    validStudents.forEach((s: Student, i: number) => {
                         const wp = osrmData.waypoints[i + studentIndexOffset];
                         if (wp && typeof wp.waypoint_index === 'number') {
                             orderMap.set(String(s._id), wp.waypoint_index);
@@ -515,9 +559,9 @@ const DriverDashboard = () => {
                 try {
                     const result = await api.post('/driver/trip/start', { routePath: pathForBackend, tripType: tripType || 'to_school' });
                     if (result.data?.tripId && !result.data?.resumed) {
-                        setTodayTripStatus(prev => ({ ...prev, [tripType || 'to_school']: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
+                        setTodayTripStatus(prev => ({ ...prev, [(tripType || 'to_school') as 'to_school' | 'to_home']: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
                     }
-                } catch (saveErr) {
+                } catch (saveErr: any) {
                     if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
                         setError(t('driver.errors.tripAlreadyCompleted'));
                         setTripStarted(false);
@@ -528,7 +572,7 @@ const DriverDashboard = () => {
             } else {
                 setError(t('driver.errors.osrmRouteFailed'));
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('OSRM Route Error:', err);
             setError(t('driver.errors.routeDrawError'));
         } finally {
@@ -537,7 +581,7 @@ const DriverDashboard = () => {
     };
 
 
-    const handleManualBoarding = async (studentId, recordedBy = 'manual') => {
+    const handleManualBoarding = async (studentId: string, recordedBy: string = 'manual') => {
         if (!dashboardData?.bus?._id) return;
 
         // Optimistic update BEFORE the API call so activeStudent shifts to the next
@@ -554,7 +598,7 @@ const DriverDashboard = () => {
                 tripType: tripType || 'to_school',
                 recordedBy
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error('Manual boarding error:', err);
             setError(t('driver.errors.manualAttendanceFailed'));
             // Revert optimistic update on failure
@@ -568,7 +612,7 @@ const DriverDashboard = () => {
     // Mark a student as "did not board" (morning trip only). Persists via the
     // attendance endpoint as 'no_board' so the return-trip refetch can filter
     // them out. Replaces the old 'absent' event for to_school trips.
-    const handleMarkNoBoard = async (student) => {
+    const handleMarkNoBoard = async (student: Student) => {
         if (!dashboardData?.bus?._id || !student?._id) return;
         const studentId = student._id;
 
@@ -592,7 +636,7 @@ const DriverDashboard = () => {
             });
             // Notification side-effect (stub).
             notifyAbsent(student);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Mark no-board error:', err);
             setError(t('driver.errors.markNoBoardFailed'));
         } finally {
@@ -600,10 +644,10 @@ const DriverDashboard = () => {
         }
     };
 
-    // Undo a morning "did not board" status ΓÇö deletes the no_board record
+    // Undo a morning "did not board" status — deletes the no_board record
     // from the DB and removes the student from local resolved state so the
     // card returns to the pending list.
-    const handleUndoNoBoard = async (student) => {
+    const handleUndoNoBoard = async (student: Student) => {
         if (!dashboardData?.bus?._id || !student?._id) return;
         const studentId = student._id;
 
@@ -626,7 +670,7 @@ const DriverDashboard = () => {
                 next.delete(studentId);
                 return next;
             });
-        } catch (err) {
+        } catch (err: any) {
             console.error('Undo no-board error:', err);
             setError(t('driver.errors.undoNoBoardFailed'));
         } finally {
@@ -638,11 +682,11 @@ const DriverDashboard = () => {
     // event via /driver/attendance/manual with the new enum value, then folds
     // the student into the Completed list. 'no_receiver' also fires the
     // notification stub.
-    const handleReturnStatus = async (student, event) => {
+    const handleReturnStatus = async (student: Student, event: string) => {
         if (!dashboardData?.bus?._id || !student?._id) return;
         const sid = String(student._id); // String Force
 
-        // Optimistic update ΓÇö activeStudent must shift BEFORE the API resolves
+        // Optimistic update — activeStudent must shift BEFORE the API resolves
         // so the simulator's next tick sees the correct next student.
         setStudentStatuses(prev => { const m = new Map(prev); m.set(sid, event); return m; });
 
@@ -655,7 +699,7 @@ const DriverDashboard = () => {
                 tripType: tripType || 'to_home'
             });
             if (event === 'no_receiver') notifyNoReceiver(student);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Return status error:', err);
             setError(t('driver.errors.statusUpdateFailed'));
         } finally {
@@ -663,7 +707,7 @@ const DriverDashboard = () => {
         }
     };
 
-    // ΓöÇΓöÇΓöÇ Derived: active student + pending + completed ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Derived: active student + pending + completed —
     // A student is "resolved" if any per-card action has been taken on them.
     // The active student is the smallest-route-order unresolved student
     // (falls back to the first one in list order before OSRM has run).
@@ -673,11 +717,11 @@ const DriverDashboard = () => {
         const allStudents = dashboardData?.students || [];
 
         // Phase-aware "resolved" check:
-        //  - Phase 2 (route/drop-off): a `boarded` student is NOT resolved ΓÇö they
+        //  - Phase 2 (route/drop-off): a `boarded` student is NOT resolved — they
         //    still need a drop-off action. Only arrived_home / no_receiver / no_board
         //    count as completed.
         //  - Phase 1 (checkin) and morning trip: any status counts as resolved.
-        const isResolved = (rawId) => {
+        const isResolved = (rawId: string) => {
             const sid = String(rawId);
             const status = studentStatuses.get(sid);
             if (returnPhase === 'route') {
@@ -686,9 +730,9 @@ const DriverDashboard = () => {
             return studentStatuses.has(sid) || boardedStudents.has(sid) || absentStudents.has(sid);
         };
 
-        // Phase 2: hide students who never boarded ΓÇö they don't appear in the
+        // Phase 2: hide students who never boarded — they don't appear in the
         // drop-off view at all (neither pending nor completed columns).
-        const list = returnPhase === 'route'
+        const list: Student[] = returnPhase === 'route'
             ? allStudents.filter(s => {
                 const st = studentStatuses.get(String(s._id));
                 return st === 'boarded' || st === 'arrived_home' || st === 'no_receiver';
@@ -698,7 +742,7 @@ const DriverDashboard = () => {
         const pending = list.filter(s => !isResolved(s._id));
         const completed = list.filter(s => isResolved(s._id));
 
-        // Sort pending by OSRM waypoint_index ΓÇö String keys guarantee reference-independent lookup.
+        // Sort pending by OSRM waypoint_index — String keys guarantee reference-independent lookup.
         pending.sort((a, b) => {
             const ai = routeOrder.get(String(a._id)) ?? Number.POSITIVE_INFINITY;
             const bi = routeOrder.get(String(b._id)) ?? Number.POSITIVE_INFINITY;
@@ -721,13 +765,14 @@ const DriverDashboard = () => {
         );
     }
 
-    const { bus, students } = dashboardData || {};
+    const bus = dashboardData?.bus;
+    const students = dashboardData?.students || [];
 
-    // ΓöÇΓöÇΓöÇ Shared card renderer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Shared card renderer —
     // Renders a single student card. `mode` is one of:
-    //   'active'    ΓÇö pinned at top with a primary ring + Active badge
-    //   'pending'   ΓÇö standard pending card (still actionable)
-    //   'completed' ΓÇö dimmed read-only card showing the resolved status pill
+    //   'active'    — pinned at top with a primary ring + Active badge
+    //   'pending'   — standard pending card (still actionable)
+    //   'completed' — dimmed read-only card showing the resolved status pill
     const STATUS_PILL = {
         boarded:      { label: t('driver.boarded'),            cls: 'bg-green-100 text-green-700' },
         absent:       { label: t('driver.statusAbsent'),       cls: 'bg-gray-200 text-gray-700' },
@@ -736,21 +781,21 @@ const DriverDashboard = () => {
         no_receiver:  { label: t('driver.statusNoReceiver'),   cls: 'bg-red-100 text-red-700' }
     };
 
-    const renderStudentCard = (student, mode, indexLabel) => {
+    const renderStudentCard = (student: Student | null, mode: 'active' | 'pending' | 'completed', indexLabel: number) => {
         if (!student) return null;
         const id = student._id;
         const isMarking = markingAttendance === id;
         const isActive = mode === 'active';
         const isCompleted = mode === 'completed';
         const status = studentStatuses.get(id);
-        const pill = status ? STATUS_PILL[status] : null;
+        const pill = status ? STATUS_PILL[status as keyof typeof STATUS_PILL] : null;
 
         // Check for morning no_board for warning badge in Phase 1
         const hasMorningNoBoard = (dashboardData?.todayEvents || []).some(
             e => e.event === 'no_board' && e.tripType === 'to_school' && String(e.student) === id
         );
 
-        // In Phase 1 (checkin), suppress the "Active" highlight ΓÇö all cards look the same.
+        // In Phase 1 (checkin), suppress the "Active" highlight — all cards look the same.
         const suppressActive = returnPhase === 'checkin';
 
         // Simulator approach state
@@ -884,7 +929,7 @@ const DriverDashboard = () => {
                                 {isMarking ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
                                 {t('driver.markBoarding')}
                             </button>
-                            {/* Hide [Did Not Board] for morning absentees ΓÇö they're auto-resolved on phase transition */}
+                            {/* Hide [Did Not Board] for morning absentees — they're auto-resolved on phase transition */}
                             {!hasMorningNoBoard && (
                                 <button
                                     type="button"
@@ -913,7 +958,7 @@ const DriverDashboard = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => { setNoReceiverTarget(student); setNoReceiverAcknowledged(false); }}
+                                onClick={() => { setNoReceiverTarget(student); }}
                                 disabled={isMarking}
                                 className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-2 transition-colors disabled:opacity-50 border border-red-100"
                             >
@@ -938,9 +983,7 @@ const DriverDashboard = () => {
                 <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg font-bold">
                     {(() => {
                         if (tripType === 'to_home') {
-                            const dropped = [...studentStatuses.values()].filter(
-                                v => v === 'arrived_home' || v === 'no_receiver'
-                            ).length;
+                            const dropped = [...studentStatuses.values()].filter(v => v === 'arrived_home' || v === 'no_receiver').length;
                             const total = pendingList.length + dropped;
                             return t('driver.dropOffCount', { dropped, total });
                         }
@@ -951,7 +994,7 @@ const DriverDashboard = () => {
 
             {students?.length > 0 ? (
                 <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pb-4">
-                    {/* Current student ΓÇö only rendered when bus is within 50 m (NFC zone) */}
+                    {/* Current student — only rendered when bus is within 50 m (NFC zone) */}
                     {currentStudent && renderStudentCard(currentStudent, 'active', 1)}
 
                     {/* All pending students in route order (current student filtered out to avoid duplicate) */}
@@ -962,7 +1005,7 @@ const DriverDashboard = () => {
                     {/* Empty pending state when everything is resolved */}
                     {!currentStudent && pendingList.length === 0 && completedList.length > 0 && (
                         <div className="text-center text-gray-400 text-sm py-2 font-bold">
-                            {t('driver.completed')} Γ£ô
+                            {t('driver.completed')} {'\u2713'}
                         </div>
                     )}
 
@@ -1004,7 +1047,7 @@ const DriverDashboard = () => {
                 {/* Background accent */}
                 <div className="absolute top-0 right-0 w-full h-32 bg-gradient-to-b from-primary-50/50 to-transparent"></div>
 
-                {/* Header ΓÇö hidden in Zero State to reduce clutter */}
+                {/* Header — hidden in Zero State to reduce clutter */}
                 {tripType && (
                     <div className="mb-8 border-b border-gray-100 pb-6 relative z-10 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white border border-gray-100 rounded-2xl flex items-center justify-center shadow-sm shrink-0">
@@ -1035,7 +1078,7 @@ const DriverDashboard = () => {
                 )}
 
                 {!tripType ? (
-                    /* ΓöÇΓöÇΓöÇ Zero State: direct trip type selection ΓöÇΓöÇΓöÇ */
+                    /* — Zero State: direct trip type selection — */
                     <div className="max-w-sm w-full mx-auto py-10 relative z-10 flex flex-col items-center justify-center">
                         <div className="flex flex-col items-center gap-3 mb-6">
                             <div className="text-center">
@@ -1066,7 +1109,7 @@ const DriverDashboard = () => {
                                                 // Resume: restore state without re-calling API
                                                 setTripType('to_school');
                                                 setTripStarted(true);
-                                                if (s.routePath?.length > 0) setRoutePath(s.routePath.map(p => [p.lat, p.lng]));
+                                                if (s && s.routePath && s.routePath.length > 0) setRoutePath(s.routePath.map((p: any) => [p.lat, p.lng]));
                                             } else {
                                                 handleSelectTripType('to_school');
                                             }
@@ -1081,7 +1124,7 @@ const DriverDashboard = () => {
                                             }`}
                                     >
                                         {isCompleted ? null : isActive ? <Play size={22} className="animate-pulse" /> : <School size={22} />}
-                                        {isCompleted ? `Γ£à ${t('driver.tripToSchool')} (${t('driver.completedStatus')})` : isActive ? `≡ƒöä ${t('driver.resumeTripToSchool')}` : t('driver.tripToSchool')}
+                                        {isCompleted ? `\u2705 ${t('driver.tripToSchool')} (${t('driver.completedStatus')})` : isActive ? `\uD83D\uDD04 ${t('driver.resumeTripToSchool')}` : t('driver.tripToSchool')}
                                     </button>
                                 );
                             })()}
@@ -1091,7 +1134,7 @@ const DriverDashboard = () => {
                                 const s = todayTripStatus.to_home;
                                 const isCompleted = s?.status === 'completed';
                                 const isActive    = s?.status === 'active';
-                                const morningDone = todayTripStatus.to_school?.status === 'completed';
+
                                 return (
                                     <button
                                         type="button"
@@ -1105,7 +1148,7 @@ const DriverDashboard = () => {
                                                 setTripType('to_home');
                                                 setTripStarted(true);
                                                 setReturnPhase('route');
-                                                if (s.routePath?.length > 0) setRoutePath(s.routePath.map(p => [p.lat, p.lng]));
+                                                if (s && s.routePath && s.routePath.length > 0) setRoutePath(s.routePath.map((p: any) => [p.lat, p.lng]));
                                             } else {
                                                 handleSelectTripType('to_home');
                                             }
@@ -1120,7 +1163,7 @@ const DriverDashboard = () => {
                                             }`}
                                     >
                                         {isCompleted ? null : isActive ? <Play size={22} className="animate-pulse" /> : <Home size={22} />}
-                                        {isCompleted ? `Γ£à ${t('driver.tripToHome')} (${t('driver.completedStatus')})` : isActive ? `≡ƒöä ${t('driver.resumeTripToHome')}` : t('driver.tripToHome')}
+                                        {isCompleted ? `\u2705 ${t('driver.tripToHome')} (${t('driver.completedStatus')})` : isActive ? `\uD83D\uDD04 ${t('driver.resumeTripToHome')}` : t('driver.tripToHome')}
                                     </button>
                                 );
                             })()}
@@ -1203,7 +1246,7 @@ const DriverDashboard = () => {
                                                     )
                                                 }) : prev);
                                             }
-                                        } catch (e) {
+                                        } catch (e: any) {
                                             console.warn(t('driver.errors.endTripBackendFailed'), e);
                                             setError(e?.response?.data?.message || e?.message || t('driver.errors.endTripFailed'));
                                             return;
@@ -1212,7 +1255,7 @@ const DriverDashboard = () => {
                                         if (currentTripType) {
                                             setTodayTripStatus(prev => ({
                                                 ...prev,
-                                                [currentTripType]: { ...prev[currentTripType], status: 'completed' }
+                                                [currentTripType as 'to_school' | 'to_home']: { status: 'completed' } as any
                                             }));
                                         }
                                         setTripType(null);
@@ -1259,15 +1302,15 @@ const DriverDashboard = () => {
                         {tripStarted && routePath.length > 0 && returnPhase !== 'checkin' && (
                             <TripSimulator
                                 routePath={routePath}
-                                students={pendingList}
-                                activeStudent={currentStudent}
+                                students={pendingList as any}
+                                activeStudent={currentStudent as any}
                                 busId={dashboardData?.bus?._id}
                                 tripType={tripType}
                                 onBusMove={setBusLocation}
                                 onApproach={setApproachingId}
-                                onCurrentStudent={setCurrentStudent}
+                                onCurrentStudent={(student) => setCurrentStudent(student as any)}
                                 onNfcBoard={(studentId) => handleManualBoarding(studentId, 'NFC')}
-                                onDropOff={(student, event) => handleReturnStatus(student, event)}
+                                onDropOff={(student, event) => handleReturnStatus(student as any, event)}
                             />
                         )}
 
@@ -1283,7 +1326,7 @@ const DriverDashboard = () => {
                 />
             )}
 
-            {/* Trip type chooser ΓÇö opens from the big Start Trip button */}
+            {/* Trip type chooser — opens from the big Start Trip button */}
             {showTripTypeModal && (
                 <TripTypeModal
                     onClose={() => setShowTripTypeModal(false)}
@@ -1295,8 +1338,8 @@ const DriverDashboard = () => {
             {noReceiverTarget && (
                 <NoReceiverModal
                     student={noReceiverTarget}
-                    parentPhone={noReceiverTarget.parentId?.phone || null}
-                    parentName={noReceiverTarget.parentId?.name || null}
+                    parentPhone={noReceiverTarget.parentId?.phone || undefined}
+                    parentName={noReceiverTarget.parentId?.name || undefined}
                     schoolContacts={dashboardData?.school?.emergencyContacts || []}
                     onConfirm={() => {
                         handleReturnStatus(noReceiverTarget, 'no_receiver');
@@ -1316,7 +1359,7 @@ const DriverDashboard = () => {
                             </div>
                             <div className="flex-1">
                                 <h3 className="font-bold text-gray-800 text-lg">{t('driver.confirmBoardingMorningAbsent')}</h3>
-                                <p className="text-sm text-gray-500 mt-1">{boardingConfirmStudent.name} ΓÇö {boardingConfirmStudent.studentId}</p>
+                                <p className="text-sm text-gray-500 mt-1">{boardingConfirmStudent.name} — {boardingConfirmStudent.studentId}</p>
                             </div>
                         </div>
                         <div className="flex items-center justify-end gap-3 mt-6">
@@ -1349,7 +1392,7 @@ const DriverDashboard = () => {
             {/* Fixed Emergency Footer */}
             <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-200 px-4 py-3 z-50 flex justify-center gap-4">
                 <div className="max-w-md w-full flex gap-3 mx-auto">
-                    {/* Contact School ΓÇö calm / trustworthy blue */}
+                    {/* Contact School — calm / trustworthy blue */}
                     <button
                         type="button"
                         onClick={() => setShowContacts(true)}
@@ -1359,12 +1402,12 @@ const DriverDashboard = () => {
                         <span>{t('driver.contactSchool')}</span>
                         {(dashboardData?.school?.emergencyContacts?.length || 0) > 0 && (
                             <span className="ms-1 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-white text-blue-600 rounded-full border border-blue-200 group-hover:bg-blue-100">
-                                {dashboardData.school.emergencyContacts.length}
+                                {dashboardData?.school?.emergencyContacts?.length}
                             </span>
                         )}
                     </button>
 
-                    {/* 911 ΓÇö high-danger red, visually distinct */}
+                    {/* 911 — high-danger red, visually distinct */}
                     <a
                         href="tel:911"
                         className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white transition-all font-bold rounded-lg border border-red-100 text-sm"

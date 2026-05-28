@@ -1,11 +1,10 @@
-﻿// @ts-nocheck
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
-import { Users, AlertCircle, Eye, EyeOff, Loader2, Phone, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Users, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
 
-const Register = () => {
+const Register: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         username: '',
@@ -16,17 +15,17 @@ const Register = () => {
         dob: ''
     });
 
-    const [step, setStep] = useState(1);
-    const [otp, setOtp] = useState('');
-    const [studentId, setStudentId] = useState(null);
+    const [step, setStep] = useState<number>(1);
+    const [otp, setOtp] = useState<string>('');
+    const [studentId, setStudentId] = useState<string | null>(null);
 
-    const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
     const { registerRequest, registerVerify, loading } = useAuth();
     const navigate = useNavigate();
     const { t } = useTranslation();
 
-    const handleRequestOTP = async (e) => {
+    const handleRequestOTP = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -55,28 +54,29 @@ const Register = () => {
                 formData.phone,
                 formData.nationalId,
                 formData.dob
-            );
+            ) as { studentId: string; mockOtp?: string };
 
             setStudentId(data.studentId);
             setStep(2);
             
             if (data.mockOtp) {
                 console.log(`\n========================================`);
-                console.log(`≡ƒöæ MOCK OTP CODE: ${data.mockOtp}`);
+                console.log(`🔑 MOCK OTP CODE: ${data.mockOtp}`);
                 console.log(`========================================\n`);
             }
-        } catch (err) {
-            const errorMessages = {
+        } catch (err: unknown) {
+            const apiErr = err as { errorCode?: string; message?: string };
+            const errorMessages: Record<string, string> = {
                 USER_EXISTS: t('register.errors.userExists'),
                 STUDENT_ALREADY_LINKED: t('register.errors.studentLinked'),
-                VALIDATION_ERROR: err.message || t('register.errors.validationError'),
+                VALIDATION_ERROR: apiErr.message || t('register.errors.validationError'),
                 NETWORK_ERROR: t('register.errors.networkError'),
             };
-            setError(errorMessages[err.errorCode] || err.message || t('register.errors.verifyFailed'));
+            setError(errorMessages[apiErr.errorCode || ''] || apiErr.message || t('register.errors.verifyFailed'));
         }
     };
 
-    const handleVerifyOTP = async (e) => {
+    const handleVerifyOTP = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -93,12 +93,14 @@ const Register = () => {
                 formData.password,
                 formData.phone,
                 otp,
-                studentId
+                studentId || ''
             );
-        } catch (err) {
-            setError(err.message || t('register.errors.wrongOtp'));
+        } catch (err: unknown) {
+            const apiErr = err as { message?: string };
+            setError(apiErr.message || t('register.errors.wrongOtp'));
         }
     };
+
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden py-12 px-4">
@@ -247,7 +249,7 @@ const Register = () => {
                                         className="font-bold text-gray-500 hover:text-gray-800 transition-colors flex items-center justify-center gap-2 mx-auto"
                                     >
                                         <span>{t('register.backToLogin')}</span>
-                                        <span>ΓåÆ</span>
+                                        <span>→</span>
                                     </button>
                                 </p>
                             </div>
@@ -268,7 +270,7 @@ const Register = () => {
                             <div className="flex justify-center">
                                 <input
                                     type="text"
-                                    maxLength="6"
+                                    maxLength={6}
                                     className="w-48 text-center text-3xl tracking-widest px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-0 focus:border-green-500 transition-all font-mono"
                                     placeholder="------"
                                     dir="ltr"

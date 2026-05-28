@@ -31,9 +31,10 @@ const UnlinkParentModal: React.FC<UnlinkParentModalProps> = ({ student, onClose,
     try {
       const { data } = await api.post(`/students/${student.id}/unlink-parent`, { password });
       onSuccess?.(data.student);
-    } catch (err: any) {
-      const code = err.response?.data?.errorCode;
-      setError(code === 'WRONG_PASSWORD' ? t('studentManagement.wrongPassword') : err.response?.data?.message || t('common.error'));
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { errorCode?: string; message?: string } } };
+      const code = axiosErr.response?.data?.errorCode;
+      setError(code === 'WRONG_PASSWORD' ? t('studentManagement.wrongPassword') : axiosErr.response?.data?.message || t('common.error'));
     } finally {
       setSubmitting(false);
     }

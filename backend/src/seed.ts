@@ -58,8 +58,8 @@ const seed = async () => {
     console.log('──────────────────────────────────────────────────\n');
 
     mongoose.connection.close();
-  } catch (err: any) {
-    console.error('❌ حدث خطأ أثناء تصفية القاعدة:', err.message);
+  } catch (err: unknown) {
+    console.error('❌ حدث خطأ أثناء تصفية القاعدة:', err instanceof Error ? err.message : String(err));
     mongoose.connection.close();
     process.exit(1);
   }

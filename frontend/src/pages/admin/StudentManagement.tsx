@@ -1,39 +1,29 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../services/apiService';
 import { useTranslation } from 'react-i18next';
-import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Printer, CheckSquare, Square, Pencil, Check, Lock, Unlink, Link2 } from 'lucide-react';
+import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Users, Search, Eye, EyeOff, ToggleLeft, ToggleRight, Pencil, Check, Lock, Unlink, Link2 } from 'lucide-react';
 import UnlinkParentModal from '../../components/UnlinkParentModal';
 import RelinkParentModal from '../../components/RelinkParentModal';
+import { IApiStudent } from '../../types/api';
 
-// ΓöÇΓöÇΓöÇ Print Styles (injected once) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-const PRINT_STYLES = `
-@media print {
-  body * { visibility: hidden !important; }
-  #print-area, #print-area * { visibility: visible !important; }
-  #print-area {
-    position: fixed !important;
-    inset: 0 !important;
-    padding: 16px !important;
-    background: white !important;
-    direction: rtl !important;
-    font-family: 'Segoe UI', Tahoma, sans-serif !important;
-  }
-}
-`;
-
-function injectPrintStyles() {
-  if (document.getElementById('student-print-styles')) return;
-  const style = document.createElement('style');
-  style.id = 'student-print-styles';
-  style.innerHTML = PRINT_STYLES;
-  document.head.appendChild(style);
+interface ICsvError {
+  key: string;
+  name?: string;
+  message?: string;
 }
 
-// ΓöÇΓöÇΓöÇ Main Component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+interface ICsvResult {
+  success: boolean;
+  message?: string;
+  imported?: number;
+  skipped?: number;
+  errors?: Array<string | ICsvError>;
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────
 const StudentManagement = () => {
     const { t } = useTranslation();
-    const [students, setStudents] = useState([]);
+    const [students, setStudents] = useState<IApiStudent[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showAll, setShowAll] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -42,86 +32,88 @@ const StudentManagement = () => {
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [togglingId, setTogglingId] = useState(null);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
 
-    const [editStudent, setEditStudent] = useState(null);
+    const [editStudent, setEditStudent] = useState<IApiStudent | null>(null);
     const [editForm, setEditForm] = useState({ name: '', nationalId: '' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
 
     // Unlink-parent confirmation modal
-    const [unlinkTarget, setUnlinkTarget] = useState(null);
+    const [unlinkTarget, setUnlinkTarget] = useState<IApiStudent | null>(null);
     // Relink-parent confirmation modal
-    const [relinkTarget, setRelinkTarget] = useState(null);
+    const [relinkTarget, setRelinkTarget] = useState<IApiStudent | null>(null);
 
     // CSV state
     const [csvLoading, setCsvLoading] = useState(false);
-    const [csvResult, setCsvResult] = useState(null);
-    const fileRef = useRef(null);
+    const [csvResult, setCsvResult] = useState<ICsvResult | null>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
 
     const fetchStudents = async () => {
         try {
             const url = showAll ? '/students?all=true' : '/students';
             const { data } = await api.get(url);
             setStudents(data.students);
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
         finally { setLoading(false); }
     };
 
     useEffect(() => { fetchStudents(); }, [showAll]);
 
-    // ΓöÇΓöÇΓöÇ Single Create ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleCreate = async (e) => {
+    // ─── Single Create ─────────────────────────────────────────────────
+    const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setSuccess('');
         setFormLoading(true);
         try {
             const { data } = await api.post('/students', form);
-            setSuccess(`╪¬┘à ╪Ñ╪╢╪º┘ü╪⌐ "${data.student.name}" ╪¿┘å╪¼╪º╪¡.`);
+            setSuccess(`تم إضافة "${data.student.name}" بنجاح.`);
             setForm({ name: '', nationalId: '', dob: '' });
             fetchStudents();
-        } catch (err) {
-            setError(err.response?.data?.message || '╪¡╪»╪½ ╪«╪╖╪ú');
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setError(axiosErr.response?.data?.message || 'حدث خطأ');
         } finally { setFormLoading(false); }
     };
 
-    // ΓöÇΓöÇΓöÇ Toggle Active Status ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleToggleStatus = async (student) => {
+    // ─── Toggle Active Status ──────────────────────────────────────────
+    const handleToggleStatus = async (student: IApiStudent) => {
         setTogglingId(student.id);
         try {
             await api.patch(`/students/${student.id}/status`);
             fetchStudents();
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(err);
         } finally { setTogglingId(null); }
     };
 
-    // ΓöÇΓöÇΓöÇ Edit Student ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const openEditStudent = (s) => {
+    // ─── Edit Student ─────────────────────────────────────────────────
+    const openEditStudent = (s: IApiStudent) => {
         setEditStudent(s);
         setEditForm({ name: s.name, nationalId: '' });
         setEditError('');
     };
 
-    const handleEditStudent = async (e) => {
+    const handleEditStudent = async (e: React.FormEvent) => {
         e.preventDefault();
         setEditError('');
         setEditLoading(true);
         try {
-            await api.patch(`/students/${editStudent.id}`, {
+            await api.patch(`/students/${editStudent!.id}`, {
                 name: editForm.name,
                 nationalId: editForm.nationalId
             });
             setEditStudent(null);
             fetchStudents();
-        } catch (err) {
-            setEditError(err.response?.data?.message || t('studentManagement.errors.updateError'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setEditError(axiosErr.response?.data?.message || t('studentManagement.errors.updateError'));
         } finally { setEditLoading(false); }
     };
 
-    // ΓöÇΓöÇΓöÇ CSV Bulk Upload ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleCSV = async (e) => {
-        const file = e.target.files[0];
+    // ─── CSV Bulk Upload ───────────────────────────────────────────────
+    const handleCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (!file) return;
         setCsvLoading(true); setCsvResult(null);
         const formData = new FormData();
@@ -130,8 +122,9 @@ const StudentManagement = () => {
             const { data } = await api.post('/students/bulk', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setCsvResult(data);
             fetchStudents();
-        } catch (err) {
-            setCsvResult({ success: false, message: err.response?.data?.message || t('studentManagement.csvFailed') });
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setCsvResult({ success: false, message: axiosErr.response?.data?.message || t('studentManagement.csvFailed') });
         } finally {
             setCsvLoading(false);
             if (fileRef.current) fileRef.current.value = '';
@@ -144,7 +137,6 @@ const StudentManagement = () => {
     );
 
     // Students eligible for printing (active + not yet linked)
-    const printableStudents = students.filter(s => s.isActive !== false && !s.parentLinked);
 
     return (
         <div>
@@ -186,11 +178,11 @@ const StudentManagement = () => {
                             {csvResult.success ? t('studentManagement.uploadSuccess', { count: csvResult.imported }) : csvResult.message}
                         </p>
                         {csvResult.imported !== undefined && <p className="text-sm text-gray-600 mt-1">{t('studentManagement.imported', { imported: csvResult.imported, skipped: csvResult.skipped })}</p>}
-                        {csvResult.errors?.length > 0 && (
+                        {csvResult.errors && csvResult.errors.length > 0 && (
                             <ul className="mt-2 space-y-0.5">
                                 {csvResult.errors.map((e, i) => (
                                     <li key={i} className="text-xs text-red-600">
-                                        ΓÇó {typeof e === 'string' ? e : t(`studentManagement.csvErrors.${e.key}`, { name: e.name, message: e.message })}
+                                        • {typeof e === 'string' ? e : t(`studentManagement.csvErrors.${e.key}`, { name: e.name, message: e.message })}
                                     </li>
                                 ))}
                             </ul>
@@ -327,7 +319,7 @@ const StudentManagement = () => {
                                 {editLoading ? t('common.saving') : t('common.save')}
                             </button>
 
-                            {/* Unlink Parent ΓÇö appears only when the student is linked. */}
+                            {/* Unlink Parent — appears only when the student is linked. */}
                             {editStudent.parentLinked && (
                                 <div className="pt-2 border-t border-dashed border-gray-200">
                                     <div className="flex items-center justify-between gap-3 mb-2 px-1">
@@ -349,7 +341,7 @@ const StudentManagement = () => {
                                 </div>
                             )}
 
-                            {/* Relink Parent ΓÇö appears when student was unlinked by admin (has previousParentId) */}
+                            {/* Relink Parent — appears when student was unlinked by admin (has previousParentId) */}
                             {!editStudent.parentLinked && editStudent.previousParentId && (
                                 <div className="pt-2 border-t border-dashed border-gray-200">
                                     <div className="flex items-center justify-between gap-3 mb-2 px-1">
@@ -429,7 +421,7 @@ const StudentManagement = () => {
                         <span className="text-sm text-gray-500 font-bold">{t('studentManagement.total', { count: filteredStudents.length })}</span>
                     </div>
 
-                    {/* ΓöÇΓöÇ Mobile: Card List (< md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Mobile: Card List (< md) ───────────────── */}
                     <div className="md:hidden flex flex-col p-3 gap-3 bg-gray-50/30">
                         {filteredStudents.map(s => (
                             <div key={s.id} className={`bg-white border rounded-xl p-4 shadow-sm ${!s.isActive ? 'border-red-100 opacity-70' : 'border-gray-100'}`}>
@@ -489,7 +481,7 @@ const StudentManagement = () => {
                         ))}
                     </div>
 
-                    {/* ΓöÇΓöÇ Desktop: Table (>= md) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+                    {/* ── Desktop: Table (>= md) ─────────────────── */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50/50">

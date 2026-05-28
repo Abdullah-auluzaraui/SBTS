@@ -1,36 +1,63 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
-import { User, Map, Bus, GraduationCap, Clock, Bell, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin, UserX, CalendarClock, Info, HelpCircle } from 'lucide-react';
+import { User, Map, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapPin, UserX, CalendarClock, Info, HelpCircle } from 'lucide-react';
 import LocationPicker from '../components/maps/LocationPicker';
 import BusTrackingModal from '../components/maps/BusTrackingModal';
 import DriverContactsModal from '../components/DriverContactsModal';
 
-const ParentDashboard = () => {
+
+interface Student {
+  _id: string;
+  name: string;
+  linkStatus?: 'UNLINKED' | 'LINKED';
+  studentId?: string | null;
+  assignedBus?: {
+    _id: string;
+    busId: string;
+    driver?: {
+      name: string;
+      phone?: string | null;
+    } | null;
+  } | null;
+  latestEvent?: string;
+  school?: {
+    emergencyContacts?: Array<{ name: string; phone: string }>;
+  } | null;
+}
+
+interface ChildForm {
+  nationalId: string;
+  dob: string;
+  phone: string;
+  otp: string;
+  studentId: string | null;
+}
+
+const ParentDashboard: React.FC = () => {
     const { user, updateUser } = useAuth();
     const { t, i18n } = useTranslation();
 
 
-    // ΓöÇΓöÇΓöÇ FE-S1-9: Add Another Child Modal State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [showAddChildModal, setShowAddChildModal] = useState(false);
-    const [linkStep, setLinkStep] = useState(1);
-    const [childForm, setChildForm] = useState({ nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
-    const [childLoading, setChildLoading] = useState(false);
-    const [childError, setChildError] = useState('');
-    const [childSuccess, setChildSuccess] = useState('');
+    // — FE-S1-9: Add Another Child Modal State —
+    const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
+    const [linkStep, setLinkStep] = useState<number>(1);
+    const [childForm, setChildForm] = useState<ChildForm>({ nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
+    const [childLoading, setChildLoading] = useState<boolean>(false);
+    const [childError, setChildError] = useState<string>('');
+    const [childSuccess, setChildSuccess] = useState<string>('');
 
-    // ΓöÇΓöÇΓöÇ Maps Feature State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const [students, setStudents] = useState([]);
-    const [studentsLoading, setStudentsLoading] = useState(true);
-    const [selectedStudent, setSelectedStudent] = useState(null);
-    const [pickingLocationFor, setPickingLocationFor] = useState(null);
-    const [deletionScheduledAt, setDeletionScheduledAt] = useState(null);
+    // — Maps Feature State —
+    const [students, setStudents] = useState<Student[]>([]);
+    const [studentsLoading, setStudentsLoading] = useState<boolean>(true);
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+    const [pickingLocationFor, setPickingLocationFor] = useState<Student | null>(null);
+    const [deletionScheduledAt, setDeletionScheduledAt] = useState<string | null>(null);
 
-    // tracking: { busId, busName } | null ΓÇö ┘è┘ü╪¬╪¡ Modal ╪º┘ä╪¬╪¬╪¿╪╣
-    const [tracking, setTracking] = useState(null);
+    // tracking: { busId, busName } | null — ┘è┘ü╪¬╪¡ Modal ╪º┘ä╪¬╪¬╪¿╪╣
+    const [tracking, setTracking] = useState<{ busId: string; busName: string } | null>(null);
 
     // Auto-select first student after fetch
     useEffect(() => {
@@ -41,17 +68,17 @@ const ParentDashboard = () => {
         }
     }, [students]);
 
-    // ΓöÇΓöÇΓöÇ Contact-School state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // — Contact-School state —
     // Contacts modal receives the full contacts array of the clicked ghost's
     // school. We keep it as null when closed, an array when open.
-    const [contactsModal, setContactsModal] = useState(null);
+    const [contactsModal, setContactsModal] = useState<Array<{ name: string; phone: string }> | null>(null);
 
     const fetchStudents = async () => {
         try {
             const { data } = await api.get('/parents/students');
             setStudents(data.students);
             setDeletionScheduledAt(data.account?.deletionScheduledAt || null);
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Failed to fetch students:', err);
         } finally {
             setStudentsLoading(false);
@@ -60,7 +87,7 @@ const ParentDashboard = () => {
 
     // Days-until helper used by the deletion countdown banner.
     // Returns 0 for "today", negative when the deadline has already passed.
-    const daysUntil = (isoDate) => {
+    const daysUntil = (isoDate: string) => {
         if (!isoDate) return null;
         const ms = new Date(isoDate).getTime() - Date.now();
         return Math.ceil(ms / (24 * 60 * 60 * 1000));
@@ -77,8 +104,8 @@ const ParentDashboard = () => {
     useEffect(() => { fetchStudents(); }, []);
 
 
-    // ΓöÇΓöÇΓöÇ FE-S1-9: Handle linking another child (Two-Step) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-    const handleRequestLinking = async (e) => {
+    // — FE-S1-9: Handle linking another child (Two-Step) —
+    const handleRequestLinking = async (e: React.FormEvent) => {
         e.preventDefault();
         setChildError(''); setChildSuccess(''); setChildLoading(true);
         try {
@@ -89,14 +116,15 @@ const ParentDashboard = () => {
             });
             setChildForm(prev => ({ ...prev, studentId: data.studentId }));
             setLinkStep(2);
-        } catch (err) {
-            setChildError(err.response?.data?.message || t('parent.errors.generic'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setChildError(axiosErr.response?.data?.message || t('parent.errors.generic'));
         } finally {
             setChildLoading(false);
         }
     };
 
-    const handleVerifyLinking = async (e) => {
+    const handleVerifyLinking = async (e: React.FormEvent) => {
         e.preventDefault();
         setChildError(''); setChildSuccess(''); setChildLoading(true);
         try {
@@ -115,19 +143,20 @@ const ParentDashboard = () => {
                 setChildForm({ nationalId: '', dob: '', phone: user?.phone || '', otp: '', studentId: null });
                 setChildSuccess('');
             }, 2000);
-        } catch (err) {
-            setChildError(err.response?.data?.message || t('parent.errors.wrongOtp'));
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setChildError(axiosErr.response?.data?.message || t('parent.errors.wrongOtp'));
         } finally {
             setChildLoading(false);
         }
     };
 
-    const handleLocationSaved = (position) => {
+    const handleLocationSaved = () => {
         setPickingLocationFor(null);
         fetchStudents(); // Refresh students to get new coordinates
     };
 
-    const getStatusBadgeProps = (event, assignedBus) => {
+    const getStatusBadgeProps = (event: string | undefined, assignedBus: Student['assignedBus']) => {
         switch (event) {
             case 'boarding':
                 return { text: t('status.on_bus'), bgClass: 'bg-green-50 text-green-700 border-green-200', dotClass: 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)] animate-pulse' };
@@ -364,7 +393,7 @@ const ParentDashboard = () => {
 
             </div>
 
-            {/* ΓöÇΓöÇΓöÇ FE-S1-9: Add Another Child Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* — FE-S1-9: Add Another Child Modal — */}
             {showAddChildModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddChildModal(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative" onClick={e => e.stopPropagation()}>
@@ -457,7 +486,7 @@ const ParentDashboard = () => {
                                     <div className="flex justify-center">
                                         <input
                                             type="text"
-                                            maxLength="6"
+                                            maxLength={6}
                                             className="w-48 text-center text-3xl tracking-widest px-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-0 focus:border-green-500 transition-all font-mono"
                                             placeholder="------"
                                             dir="ltr"
@@ -517,7 +546,7 @@ const ParentDashboard = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇΓöÇ Map Location Picker Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* — Map Location Picker Modal — */}
             {pickingLocationFor && (
                 <LocationPicker
                     student={pickingLocationFor}
@@ -526,7 +555,7 @@ const ParentDashboard = () => {
                 />
             )}
 
-            {/* ΓöÇΓöÇΓöÇ Bus Tracking Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* — Bus Tracking Modal — */}
             {tracking && (
                 <BusTrackingModal
                     busId={tracking.busId}
@@ -535,7 +564,7 @@ const ParentDashboard = () => {
                 />
             )}
 
-            {/* ΓöÇΓöÇΓöÇ Internal School Contacts (reused from Driver Dashboard) ΓöÇΓöÇΓöÇ */}
+            {/* — Internal School Contacts (reused from Driver Dashboard) — */}
             {contactsModal !== null && (
                 <DriverContactsModal
                     contacts={contactsModal}

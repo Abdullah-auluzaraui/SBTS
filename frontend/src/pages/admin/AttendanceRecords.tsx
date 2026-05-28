@@ -1,25 +1,33 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import api from '../../services/apiService';
 import { ClipboardList, Filter, Loader2, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { IAttendanceRecord, IApiBus, IPagination } from '../../types/api';
+
+interface IFilters {
+    dateFrom: string;
+    dateTo: string;
+    busId: string;
+    studentId: string;
+    tripType: string;
+}
 
 const AttendanceRecords = () => {
     const { t, i18n } = useTranslation();
-    const [records, setRecords] = useState([]);
-    const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
+    const [records, setRecords] = useState<IAttendanceRecord[]>([]);
+    const [pagination, setPagination] = useState<IPagination>({ total: 0, page: 1, pages: 1 });
     const [loading, setLoading] = useState(true);
 
     // Filters
-    const [filters, setFilters] = useState({ dateFrom: '', dateTo: '', busId: '', studentId: '', tripType: '' });
-    const [buses, setBuses] = useState([]);
+    const [filters, setFilters] = useState<IFilters>({ dateFrom: '', dateTo: '', busId: '', studentId: '', tripType: '' });
+    const [buses, setBuses] = useState<IApiBus[]>([]);
     const [downloading, setDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState('');
 
     const fetchData = async (page = 1) => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({ page, limit: 25 });
+            const params = new URLSearchParams({ page: String(page), limit: '25' });
             if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
             if (filters.dateTo) params.append('dateTo', filters.dateTo);
             if (filters.busId) params.append('busId', filters.busId);
@@ -29,17 +37,17 @@ const AttendanceRecords = () => {
             const { data } = await api.get(`/attendance?${params}`);
             setRecords(data.attendance);
             setPagination(data.pagination);
-        } catch (err) { console.error(err); }
+        } catch (err: unknown) { console.error(err); }
         finally { setLoading(false); }
     };
 
     const fetchBuses = async () => {
-        try { const { data } = await api.get('/buses'); setBuses(data.buses); } catch (err) { console.error(err); }
+        try { const { data } = await api.get('/buses'); setBuses(data.buses); } catch (err: unknown) { console.error(err); }
     };
 
     useEffect(() => { fetchData(); fetchBuses(); }, []);
 
-    const handleFilter = (e) => {
+    const handleFilter = (e: React.FormEvent) => {
         e.preventDefault();
         setDownloadError('');
         fetchData(1);
@@ -67,9 +75,10 @@ const AttendanceRecords = () => {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        } catch (err) {
+        } catch (err: unknown) {
             try {
-                const text = await err.response?.data?.text();
+                const axiosErr = err as { response?: { data?: { text?: () => Promise<string> } } };
+                const text = await axiosErr.response?.data?.text?.() || '';
                 const { message } = JSON.parse(text);
                 setDownloadError(message);
             } catch {
@@ -101,7 +110,7 @@ const AttendanceRecords = () => {
     };
     // recordedBy enum: 'manual' | 'NFC' (case-sensitive in DB).
     const methodLabel = { manual: t('attendance.methodManual'), NFC: t('attendance.methodNfc') };
-    // tripType badge styles + labels. Legacy rows without tripType render as ΓÇö.
+    // tripType badge styles + labels. Legacy rows without tripType render as —.
     const tripTypeLabel = { to_school: t('attendance.tripToSchool'), to_home: t('attendance.tripToHome') };
     const tripTypeClass = {
         to_school: 'bg-sky-50 text-sky-700 border-sky-200',
@@ -176,7 +185,7 @@ const AttendanceRecords = () => {
                         <span className="text-xs text-gray-400">{t('attendance.page', { page: pagination.page, pages: pagination.pages })}</span>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[900px]">
                             <thead className="bg-gray-50/50">
                                 <tr className="text-gray-500 font-bold">
                                     <th className="px-6 py-3 text-start">{t('attendance.studentCol')}</th>
@@ -192,20 +201,22 @@ const AttendanceRecords = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {records.map(r => (
                                     <tr key={r._id} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-gray-800 text-start">{r.student?.name || 'ΓÇö'}</td>
-                                        <td className="px-6 py-4 text-xs font-mono text-gray-500 text-start" dir="ltr">{r.student?.studentId || 'ΓÇö'}</td>
-                                        <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100">{r.bus?.busId || 'ΓÇö'}</span></td>
-                                        <td className="px-6 py-4 text-center text-xs text-gray-700 font-bold">{r.driver?.name || 'ΓÇö'}</td>
-                                        <td className="px-6 py-4 text-center">
+                                        <td className="px-6 py-4 font-bold text-gray-800 text-start whitespace-nowrap">{r.student?.name || '—'}</td>
+                                        <td className="px-6 py-4 text-xs font-mono text-gray-500 text-start whitespace-nowrap" dir="ltr">{r.student?.studentId || '—'}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap"><span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-100 whitespace-nowrap">{r.bus?.busId || '—'}</span></td>
+                                        <td className="px-6 py-4 text-center text-xs text-gray-700 font-bold whitespace-nowrap">{r.driver?.name || '—'}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
                                             {r.tripType ? (
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${tripTypeClass[r.tripType] || ''}`}>{tripTypeLabel[r.tripType]}</span>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${tripTypeClass[r.tripType] || ''}`}>{tripTypeLabel[r.tripType]}</span>
                                             ) : (
-                                                <span className="text-gray-300 text-xs">ΓÇö</span>
+                                                <span className="text-gray-300 text-xs">—</span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${eventClass[r.event] || ''}`}>{eventLabel[r.event] || r.event}</span></td>
-                                        <td className="px-6 py-4 text-center text-xs text-gray-500">{methodLabel[r.recordedBy] || r.recordedBy}</td>
-                                        <td className="px-6 py-4 text-center text-xs text-gray-600" dir="ltr">{new Date(r.timestamp).toLocaleString('ar-SA')}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap"><span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${eventClass[r.event] || ''}`}>{eventLabel[r.event] || r.event}</span></td>
+                                        <td className="px-6 py-4 text-center text-xs text-gray-500 whitespace-nowrap">{methodLabel[r.recordedBy] || r.recordedBy}</td>
+                                        <td className="px-6 py-4 text-center text-xs text-gray-600 whitespace-nowrap" dir="ltr">
+                                            {new Date(r.timestamp).toLocaleString(i18n.language.startsWith('ar') ? 'ar-SA' : 'en-US')}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

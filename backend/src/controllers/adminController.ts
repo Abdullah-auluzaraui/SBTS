@@ -3,7 +3,7 @@ import { SchoolService } from '../services/SchoolService';
 
 export const getDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    res.json({ success: true, message: `Welcome Admin ${(req as any).user.name}` });
+    res.json({ success: true, message: `Welcome Admin ${req.user!.name}` });
   } catch (err) {
     next(err);
   }

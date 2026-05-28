@@ -1,15 +1,17 @@
+import mongoose from 'mongoose';
 import Student from '../models/Student';
-import OTP from '../models/OTP';
+import OTP, { IOTP } from '../models/OTP';
 import User from '../models/User';
 import Bus from '../models/Bus';
 import Trip from '../models/Trip';
 import Attendance from '../models/Attendance';
-import { encrypt, decrypt } from '../utils/crypto';
+import { ISchool } from '../models/School';
+import { decrypt } from '../utils/crypto';
 import { AppError } from '../utils/AppError';
 import { StudentService } from './StudentService';
 
 export class ParentService {
-  static async requestLinking(schoolId: string | undefined, parentUser: any, nationalId: string, dob: string, phoneInput?: string) {
+  static async requestLinking(schoolId: string | undefined, parentUser: { _id: mongoose.Types.ObjectId; phone?: string }, nationalId: string, dob: string, phoneInput?: string) {
     const phone = parentUser.phone || phoneInput;
     if (!phone) {
       throw new AppError(400, 'INVALID_INPUT', 'جميع الحقول مطلوبة (الهوية، تاريخ الميلاد، رقم الجوال)');
@@ -62,20 +64,20 @@ export class ParentService {
     return { studentId: student._id };
   }
 
-  static async verifyLinking(schoolId: string | undefined, parentUser: any, otp: string, studentId: string, phoneInput?: string) {
+  static async verifyLinking(schoolId: string | undefined, parentUser: { _id: mongoose.Types.ObjectId; phone?: string }, otp: string, studentId: string, phoneInput?: string) {
     const phone = parentUser.phone || phoneInput;
     if (!phone || !otp || !studentId) {
       throw new AppError(400, 'INVALID_INPUT', 'البيانات غير مكتملة');
     }
 
-    const otps = await OTP.find({ phone, studentId });
+    const otps: IOTP[] = await OTP.find({ phone, studentId });
     if (otps.length === 0) {
       throw new AppError(400, 'INVALID_OTP', 'رمز التحقق غير صالح أو منتهي الصلاحية');
     }
 
-    let validOtpDoc = null;
+    let validOtpDoc: IOTP | null = null;
     for (const doc of otps) {
-      const isMatch = await (doc as any).matchOTP(otp);
+      const isMatch = await doc.matchOTP(otp);
       if (isMatch) {
         validOtpDoc = doc;
         break;
@@ -169,7 +171,7 @@ export class ParentService {
       throw new AppError(400, 'INVALID_INPUT', 'الهوية الوطنية غير مطابقة');
     }
 
-    student.parentId = parentId as any;
+    student.parentId = new mongoose.Types.ObjectId(parentId);
     student.previousParentId = null;
     student.unlinkedAt = null;
     student.unlinkedBy = null;
@@ -216,7 +218,7 @@ export class ParentService {
 
     const tagged = students.map(s => {
       const isLinked = String(s.parentId || '') === String(parentId);
-      const obj = s.toObject() as any;
+      const obj = s.toObject() as unknown as Record<string, unknown> & { linkStatus?: string; latestEvent?: string | null; assignedBus?: unknown };
       obj.linkStatus = isLinked ? 'LINKED' : 'UNLINKED';
       obj.latestEvent = latestEventByStudent[String(s._id)] || null;
       
@@ -242,7 +244,7 @@ export class ParentService {
       throw new AppError(403, 'ACCESS_DENIED', 'ليس لديك إذن لتتبع هذه الحافلة');
     }
 
-    const bus = await Bus.findOne({ _id: busId, school: schoolId }).populate('school', 'name location');
+    const bus = await Bus.findOne({ _id: busId, school: schoolId }).populate<{ school: ISchool }>('school', 'name location');
     if (!bus) {
       throw new AppError(404, 'NOT_FOUND', 'الحافلة غير موجودة');
     }
@@ -257,8 +259,8 @@ export class ParentService {
       routePath: trip ? trip.routePath : [],
       lastLocation: trip ? trip.lastLocation : null,
       school: bus.school ? {
-        name: (bus.school as any).name,
-        location: (bus.school as any).location
+        name: bus.school.name,
+        location: bus.school.location
       } : null,
       myStudents
     };

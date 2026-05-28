@@ -1,18 +1,23 @@
-﻿// @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../services/apiService';
 import { Shield, School, Loader2, AlertCircle, Lock, Mail, Phone } from 'lucide-react';
 
+interface IInvitation {
+    schoolName: string;
+    schoolId: string;
+    email: string;
+}
+
 const Onboarding = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const token = searchParams.get('token');
 
     const [verifying, setVerifying] = useState(true);
-    const [invitation, setInvitation] = useState(null);
+    const [invitation, setInvitation] = useState<IInvitation | null>(null);
     const [verifyError, setVerifyError] = useState('');
 
     const [form, setForm] = useState({ username: '', phone: '', password: '', confirmPassword: '' });
@@ -30,14 +35,15 @@ const Onboarding = () => {
             try {
                 const { data } = await api.get(`/auth/verify-invitation?token=${token}`);
                 setInvitation(data.invitation);
-            } catch (err) {
-                const code = err.response?.data?.errorCode;
-                const messages = {
+            } catch (err: unknown) {
+                const axiosErr = err as { response?: { data?: { errorCode?: string; message?: string } } };
+                const code = axiosErr.response?.data?.errorCode;
+                const messages: Record<string, string> = {
                     INVALID_TOKEN: t('onboarding.errors.invalidToken'),
                     TOKEN_USED: t('onboarding.errors.tokenUsed'),
                     TOKEN_EXPIRED: t('onboarding.errors.tokenExpired')
                 };
-                setVerifyError(messages[code] || err.response?.data?.message || t('onboarding.errors.verifyError'));
+                setVerifyError(messages[code || ''] || axiosErr.response?.data?.message || t('onboarding.errors.verifyError'));
             } finally {
                 setVerifying(false);
             }
@@ -45,7 +51,7 @@ const Onboarding = () => {
         verify();
     }, [token, t]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError('');
 
@@ -74,22 +80,23 @@ const Onboarding = () => {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             window.location.href = '/admin';
-        } catch (err) {
-            const code = err.response?.data?.errorCode;
-            const messages = {
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { errorCode?: string; message?: string } } };
+            const code = axiosErr.response?.data?.errorCode;
+            const messages: Record<string, string> = {
                 INVALID_TOKEN: t('onboarding.errors.invalidToken'),
                 TOKEN_USED: t('onboarding.errors.tokenUsedShort'),
                 TOKEN_EXPIRED: t('onboarding.errors.tokenExpiredShort'),
                 USER_EXISTS: t('onboarding.errors.usernameTaken')
             };
-            setFormError(messages[code] || err.response?.data?.message || t('onboarding.errors.createError'));
+            setFormError(messages[code || ''] || axiosErr.response?.data?.message || t('onboarding.errors.createError'));
         } finally {
             setFormLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 flex items-center justify-center p-4" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 flex items-center justify-center p-4" dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
                     <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/30">
@@ -159,7 +166,7 @@ const Onboarding = () => {
                                     <div className="relative">
                                         <Lock size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input type="password" required value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó" />
+                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="••••••••" />
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
@@ -167,7 +174,7 @@ const Onboarding = () => {
                                     <div className="relative">
                                         <Lock size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input type="password" required value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó" />
+                                            className="w-full pr-10 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left" dir="ltr" placeholder="••••••••" />
                                     </div>
                                 </div>
 

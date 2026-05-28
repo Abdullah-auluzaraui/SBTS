@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Student from '../models/Student';
 import User from '../models/User';
 import { AppError } from '../utils/AppError';
@@ -30,7 +31,7 @@ export class StudentService {
         await parent.save();
       }
     } else if (parent.accountDeletionScheduledAt) {
-      parent.accountDeletionScheduledAt = null as any;
+      parent.accountDeletionScheduledAt = null as unknown as Date;
       await parent.save();
     }
   }
@@ -104,7 +105,7 @@ export class StudentService {
   }
 
   static async listStudents(schoolId: string, busId?: string, showAll?: boolean) {
-    const filter: any = { school: schoolId };
+    const filter: Record<string, unknown> = { school: schoolId };
     if (busId) filter.assignedBus = busId;
     if (!showAll) filter.isActive = { $ne: false };
 
@@ -127,10 +128,10 @@ export class StudentService {
         studentId: s.studentId,
         nationalId: decryptedNationalId ? maskData(decryptedNationalId) : null,
         parentLinked: !!s.parentId,
-        parentName: (s.parentId as any)?.name || null,
-        previousParentId: (s.previousParentId as any)?._id || null,
-        previousParentName: (s.previousParentId as any)?.name || null,
-        assignedBus: (s.assignedBus as any)?.busId || null,
+        parentName: (s.parentId as unknown as { name: string })?.name || null,
+        previousParentId: (s.previousParentId as unknown as { _id: string })?._id || null,
+        previousParentName: (s.previousParentId as unknown as { name: string })?.name || null,
+        assignedBus: (s.assignedBus as unknown as { busId: string })?.busId || null,
         location: s.location || null,
         isActive: s.isActive !== false
       };
@@ -197,7 +198,7 @@ export class StudentService {
     student.previousParentId = formerParentId;
     student.parentId = null;
     student.unlinkedAt = new Date();
-    student.unlinkedBy = admin._id as any;
+    student.unlinkedBy = admin._id as unknown as mongoose.Types.ObjectId;
     await student.save();
 
     await this.refreshParentDeletionSchedule(String(formerParentId));
@@ -287,7 +288,7 @@ export class StudentService {
       throw new AppError(400, 'NO_FILE');
     }
 
-    const rows: any[] = [];
+    const rows: Array<Record<string, string>> = [];
     const stream = Readable.from(fileBuffer.toString());
 
     const firstLine = fileBuffer.toString().split('\n')[0] || '';
@@ -299,8 +300,8 @@ export class StudentService {
           separator: separator,
           headers: ['name', 'nationalId', 'dob']
         }))
-        .on('data', (row: any) => {
-          const cleanRow: any = {};
+        .on('data', (row: Record<string, string>) => {
+          const cleanRow: Record<string, string> = {};
           for (const key in row) {
             let val = row[key];
             if (typeof val === 'string') {
@@ -320,7 +321,7 @@ export class StudentService {
 
     let imported = 0;
     let skipped = 0;
-    const errors: any[] = [];
+    const errors: Array<{ key: string; name?: string; message?: string }> = [];
 
     const existingStudents = await Student.find({ school: schoolId }).select('name');
     const existingNameSet = new Set(existingStudents.map(s => s.name));
@@ -391,12 +392,13 @@ export class StudentService {
 
         existingNameSet.add(name);
         imported++;
-      } catch (insertErr: any) {
+      } catch (insertErr: unknown) {
         skipped++;
-        if (insertErr.code === 11000 && insertErr.keyPattern && insertErr.keyPattern.studentId) {
+        const err = insertErr as { code?: number; keyPattern?: Record<string, unknown>; message?: string };
+        if (err.code === 11000 && err.keyPattern && err.keyPattern.studentId) {
           errors.push({ key: 'skipIdConflict', name });
         } else {
-          errors.push({ key: 'skipGeneric', name, message: insertErr.message });
+          errors.push({ key: 'skipGeneric', name, message: err.message });
         }
       }
     }

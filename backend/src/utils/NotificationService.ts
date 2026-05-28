@@ -44,7 +44,7 @@ export const create = async (
 
 export const handleNoBoard = async (
   studentId: mongoose.Types.ObjectId | string,
-  busId: mongoose.Types.ObjectId | string,
+  _busId: mongoose.Types.ObjectId | string,
   parentId: mongoose.Types.ObjectId | string,
   schoolId: mongoose.Types.ObjectId | string
 ) => {

@@ -99,7 +99,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     if (!resetToken || !newPassword) {
       throw new AppError(400, 'VALIDATION_ERROR');
     }
-    const result = await AuthService.resetPassword(resetToken, newPassword);
+    await AuthService.resetPassword(resetToken, newPassword);
     res.json({ success: true, message: 'تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.' });
   } catch (err) {
     next(err);

@@ -1,5 +1,4 @@
-﻿// @ts-nocheck
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
@@ -9,31 +8,58 @@ import {
     ToggleLeft, ToggleRight, Copy, RefreshCw, Bus, Link2, Clock, Eye, EyeOff
 } from 'lucide-react';
 
-const SuperAdminDashboard = () => {
+
+interface School {
+  _id: string;
+  name: string;
+  schoolId: string;
+  studentCount: number;
+  busCount: number;
+  invitationStatus: 'accepted' | 'pending' | 'expired' | 'none';
+  isActive: boolean;
+  admin?: {
+    name: string;
+  } | null;
+}
+
+interface InviteForm {
+  schoolName: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
+interface InviteSuccess {
+  schoolId: string;
+  schoolName: string;
+  link: string;
+  email: string;
+}
+
+const SuperAdminDashboard: React.FC = () => {
     const { user } = useAuth();
     const { t } = useTranslation();
 
-    const [schools, setSchools] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [showAll, setShowAll] = useState(false);
+    const [schools, setSchools] = useState<School[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [showAll, setShowAll] = useState<boolean>(false);
 
-    const [showInviteModal, setShowInviteModal] = useState(false);
-    const [inviteForm, setInviteForm] = useState({ schoolName: '', contactEmail: '', contactPhone: '' });
-    const [inviteLoading, setInviteLoading] = useState(false);
-    const [inviteError, setInviteError] = useState('');
-    const [inviteSuccess, setInviteSuccess] = useState(null);
+    const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
+    const [inviteForm, setInviteForm] = useState<InviteForm>({ schoolName: '', contactEmail: '', contactPhone: '' });
+    const [inviteLoading, setInviteLoading] = useState<boolean>(false);
+    const [inviteError, setInviteError] = useState<string>('');
+    const [inviteSuccess, setInviteSuccess] = useState<InviteSuccess | null>(null);
 
-    const [resendModal, setResendModal] = useState(null);
-    const [resendResult, setResendResult] = useState(null);
-    const [resendLoading, setResendLoading] = useState(false);
+    const [resendModal, setResendModal] = useState<string | null>(null);
+    const [resendResult, setResendResult] = useState<string | null>(null);
+    const [resendLoading, setResendLoading] = useState<boolean>(false);
 
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState<boolean>(false);
 
     const fetchSchools = async () => {
         try {
             const { data } = await api.get(showAll ? '/super/schools?all=true' : '/super/schools');
             setSchools(data.schools);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to fetch schools:', err);
         } finally {
             setLoading(false);
@@ -42,15 +68,15 @@ const SuperAdminDashboard = () => {
 
     useEffect(() => { fetchSchools(); }, [showAll]);
 
-    const fullLink = (path) => `${window.location.origin}${path}`;
+    const fullLink = (path: string) => `${window.location.origin}${path}`;
 
-    const copyLink = (link) => {
+    const copyLink = (link: string) => {
         navigator.clipboard.writeText(link);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleInvite = async (e) => {
+    const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         setInviteError('');
         setInviteSuccess(null);
@@ -65,36 +91,36 @@ const SuperAdminDashboard = () => {
             });
             setInviteForm({ schoolName: '', contactEmail: '', contactPhone: '' });
             fetchSchools();
-        } catch (err) {
+        } catch (err: any) {
             setInviteError(err.response?.data?.message || t('superadmin.errors.createError'));
         } finally {
             setInviteLoading(false);
         }
     };
 
-    const handleToggle = async (schoolId) => {
+    const handleToggle = async (schoolId: string) => {
         try {
             await api.patch(`/super/schools/${schoolId}/status`);
             fetchSchools();
-        } catch (err) {
+        } catch (err: any) {
             console.error('Toggle failed:', err);
         }
     };
 
-    const handleResend = async (schoolId) => {
+    const handleResend = async (schoolId: string) => {
         setResendLoading(true);
         setResendResult(null);
         try {
             const { data } = await api.post(`/super/invitations/${schoolId}/resend`);
             setResendResult(fullLink(data.invitation.link));
-        } catch (err) {
+        } catch (err: any) {
             setResendResult('╪«╪╖╪ú: ' + (err.response?.data?.message || '┘ü╪┤┘ä ╪Ñ╪╣╪º╪»╪⌐ ╪º┘ä╪Ñ╪▒╪│╪º┘ä'));
         } finally {
             setResendLoading(false);
         }
     };
 
-    const statusBadge = (status) => {
+    const statusBadge = (status: 'accepted' | 'pending' | 'expired' | 'none') => {
         const map = {
             accepted: { label: t('superadmin.statusAccepted'), classes: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
             pending: { label: t('superadmin.statusPending'), classes: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
@@ -256,7 +282,7 @@ const SuperAdminDashboard = () => {
                 </div>
             </div>
 
-            {/* ΓöÇΓöÇΓöÇ Invite School Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ─── Invite School Modal ──────────────────────────────────────── */}
             {showInviteModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative" onClick={e => e.stopPropagation()}>
@@ -330,7 +356,7 @@ const SuperAdminDashboard = () => {
                 </div>
             )}
 
-            {/* ΓöÇΓöÇΓöÇ Resend Invitation Modal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
+            {/* ─── Resend Invitation Modal ─────────────────────────────────── */}
             {resendModal && (
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setResendModal(null)}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 relative text-center" onClick={e => e.stopPropagation()}>
