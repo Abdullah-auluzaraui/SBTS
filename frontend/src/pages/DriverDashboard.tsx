@@ -10,6 +10,7 @@ import TripSimulator from '../components/TripSimulator';
 import DriverContactsModal from '../components/DriverContactsModal';
 import TripTypeModal from '../components/TripTypeModal';
 import NoReceiverModal from '../components/NoReceiverModal';
+import { haversineMeters } from '../utils/haversine';
 
 
 
@@ -429,63 +430,116 @@ const DriverDashboard: React.FC = () => {
                 return;
             }
 
-            // — Build OSRM coordinate array for return trip —
+            // Helper to calculate routing via OSRM with automatic fallback on network drop / ERR_NETWORK_CHANGED
+            const calculateTripRoute = async (
+                coords: Array<[number, number]>,
+                studentsToRoute: Student[],
+                offset: number
+            ) => {
+                const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
+                const coordsString = coords.map(fmt).join(';');
+                const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
+
+                try {
+                    const { data: osrmData } = await axios.get(osrmUrl, { timeout: 6000 });
+                    if (osrmData.code === 'Ok' && osrmData.trips?.length > 0) {
+                        const trip = osrmData.trips[0];
+                        const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                        const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
+
+                        const orderMap = new Map<string, number>();
+                        if (Array.isArray(osrmData.waypoints)) {
+                            studentsToRoute.forEach((s: Student, i: number) => {
+                                const wp = osrmData.waypoints[i + offset];
+                                if (wp && typeof wp.waypoint_index === 'number') {
+                                    orderMap.set(String(s._id), wp.waypoint_index);
+                                }
+                            });
+                        }
+
+                        return {
+                            pathForMap,
+                            pathForBackend,
+                            osrmMeta: {
+                                duration: Math.ceil(trip.duration / 60),
+                                distance: (trip.distance / 1000).toFixed(1)
+                            },
+                            orderMap
+                        };
+                    }
+                } catch (osrmErr: any) {
+                    console.warn('OSRM network/timeout issue, activating smooth fallback route:', osrmErr?.message || osrmErr);
+                }
+
+                // Fallback: Generate smooth interpolated path directly through the waypoints
+                const waypoints: Array<[number, number]> = coords.map(([lng, lat]) => [lat, lng]);
+                const pathForMap: Array<[number, number]> = [];
+                let totalDistMeters = 0;
+
+                for (let i = 0; i < waypoints.length - 1; i++) {
+                    const [lat1, lng1] = waypoints[i];
+                    const [lat2, lng2] = waypoints[i + 1];
+                    totalDistMeters += haversineMeters(lat1, lng1, lat2, lng2);
+
+                    const steps = 15;
+                    for (let s = 0; s < steps; s++) {
+                        const t = s / steps;
+                        pathForMap.push([
+                            lat1 + (lat2 - lat1) * t,
+                            lng1 + (lng2 - lng1) * t
+                        ]);
+                    }
+                }
+                pathForMap.push(waypoints[waypoints.length - 1]);
+
+                const pathForBackend = pathForMap.map(([lat, lng]) => ({ lat, lng }));
+                const orderMap = new Map<string, number>();
+                studentsToRoute.forEach((s, idx) => {
+                    orderMap.set(String(s._id), idx + offset);
+                });
+
+                return {
+                    pathForMap,
+                    pathForBackend,
+                    osrmMeta: {
+                        duration: Math.max(5, Math.ceil((totalDistMeters / 1000 / 25) * 60)),
+                        distance: (totalDistMeters / 1000).toFixed(1)
+                    },
+                    orderMap
+                };
+            };
+
+            // — Build coordinate array for return trip —
             // to_home: [school, ...studentHomes] (last student = destination)
-            const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
             const school = dashboardData.school;
             const schoolLngLat  = school.location.coordinates;        // [lng, lat]
             const studentLngLat = validStudents.map(s => s.location!.coordinates);
 
             const orderedCoords = [schoolLngLat, ...studentLngLat];
-            const studentIndexOffset = 1; // students start at coord index 1
-            const coordsString = orderedCoords.map(fmt).join(';');
-            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
+            const studentIndexOffset = 1;
 
-            const { data: osrmData } = await axios.get(osrmUrl);
+            const routeResult = await calculateTripRoute(orderedCoords, validStudents, studentIndexOffset);
 
-            if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
-                const trip = osrmData.trips[0];
-                const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
-                const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
+            setRoutePath(routeResult.pathForMap);
+            setBusLocation({ lat: routeResult.pathForMap[0][0], lng: routeResult.pathForMap[0][1] });
+            setOsrmMeta(routeResult.osrmMeta);
+            setRouteOrder(routeResult.orderMap);
 
-                setRoutePath(pathForMap);
-                // Fix 4: anchor bus marker at route origin immediately — no GPS override
-                setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
-                setOsrmMeta({
-                    duration: Math.ceil(trip.duration / 60),
-                    distance: (trip.distance / 1000).toFixed(1)
-                });
-
-                const orderMap = new Map();
-                if (Array.isArray(osrmData.waypoints)) {
-                    validStudents.forEach((s: Student, i: number) => {
-                        const wp = osrmData.waypoints[i + studentIndexOffset];
-                        if (wp && typeof wp.waypoint_index === 'number') {
-                            orderMap.set(String(s._id), wp.waypoint_index);
-                        }
-                    });
+            try {
+                const result = await api.post('/driver/trip/start', { routePath: routeResult.pathForBackend, tripType: 'to_home' });
+                if (result.data?.tripId && !result.data?.resumed) {
+                    setTodayTripStatus(prev => ({ ...prev, to_home: { status: 'active', tripId: result.data.tripId, routePath: routeResult.pathForBackend } }));
                 }
-                setRouteOrder(orderMap);
-
-                try {
-                    const result = await api.post('/driver/trip/start', { routePath: pathForBackend, tripType: 'to_home' });
-                    if (result.data?.tripId && !result.data?.resumed) {
-                        setTodayTripStatus(prev => ({ ...prev, to_home: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
-                    }
-                } catch (saveErr: any) {
-                    if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
-                        setError(t('driver.errors.returnTripCompleted'));
-                        setReturnPhase('checkin');
-                        return;
-                    }
-                    console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
+            } catch (saveErr: any) {
+                if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
+                    setError(t('driver.errors.returnTripCompleted'));
+                    setReturnPhase('checkin');
+                    return;
                 }
-            } else {
-                setError(t('driver.errors.osrmRouteFailed'));
-                setReturnPhase('checkin');
+                console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
             }
         } catch (err: any) {
-            console.error('OSRM Route Error:', err);
+            console.error('Trip Start Error:', err);
             setError(t('driver.errors.routeDrawError'));
             setReturnPhase('checkin');
         } finally {
@@ -513,12 +567,11 @@ const DriverDashboard: React.FC = () => {
                 return;
             }
 
-            // — Build OSRM coordinate array per trip direction —
-            const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
+            // — Build coordinate array per trip direction —
             const schoolLngLat  = school.location.coordinates;
             const studentLngLat = validStudents.map(s => s.location!.coordinates);
 
-            let orderedCoords;
+            let orderedCoords: Array<[number, number]>;
             if (tripType === 'to_home') {
                 orderedCoords = [schoolLngLat, ...studentLngLat];
             } else {
@@ -527,53 +580,108 @@ const DriverDashboard: React.FC = () => {
             }
 
             const studentIndexOffset = 1;
-            const coordsString = orderedCoords.map(fmt).join(';');
-            const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
 
-            const { data: osrmData } = await axios.get(osrmUrl);
-
-            if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
-                const trip = osrmData.trips[0];
-                const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
-                const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
-
-                setRoutePath(pathForMap);
-                // Fix 4: anchor bus marker at route origin immediately — no GPS override
-                setBusLocation({ lat: pathForMap[0][0], lng: pathForMap[0][1] });
-                setOsrmMeta({
-                    duration: Math.ceil(trip.duration / 60),
-                    distance: (trip.distance / 1000).toFixed(1)
-                });
-
-                const orderMap = new Map();
-                if (Array.isArray(osrmData.waypoints)) {
-                    validStudents.forEach((s: Student, i: number) => {
-                        const wp = osrmData.waypoints[i + studentIndexOffset];
-                        if (wp && typeof wp.waypoint_index === 'number') {
-                            orderMap.set(String(s._id), wp.waypoint_index);
-                        }
-                    });
-                }
-                setRouteOrder(orderMap);
+            // Helper to calculate routing via OSRM with automatic fallback on network drop / ERR_NETWORK_CHANGED
+            const calculateTripRoute = async (
+                coords: Array<[number, number]>,
+                studentsToRoute: Student[],
+                offset: number
+            ) => {
+                const fmt = ([lng, lat]: [number, number]) => `${lng},${lat}`;
+                const coordsString = coords.map(fmt).join(';');
+                const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=first&destination=last&geometries=geojson&overview=full`;
 
                 try {
-                    const result = await api.post('/driver/trip/start', { routePath: pathForBackend, tripType: tripType || 'to_school' });
-                    if (result.data?.tripId && !result.data?.resumed) {
-                        setTodayTripStatus(prev => ({ ...prev, [(tripType || 'to_school') as 'to_school' | 'to_home']: { status: 'active', tripId: result.data.tripId, routePath: pathForBackend } }));
+                    const { data: osrmData } = await axios.get(osrmUrl, { timeout: 6000 });
+                    if (osrmData.code === 'Ok' && osrmData.trips?.length > 0) {
+                        const trip = osrmData.trips[0];
+                        const pathForMap: Array<[number, number]> = trip.geometry.coordinates.map((c: any) => [c[1], c[0]]);
+                        const pathForBackend = trip.geometry.coordinates.map((c: any) => ({ lat: c[1], lng: c[0] }));
+
+                        const orderMap = new Map<string, number>();
+                        if (Array.isArray(osrmData.waypoints)) {
+                            studentsToRoute.forEach((s: Student, i: number) => {
+                                const wp = osrmData.waypoints[i + offset];
+                                if (wp && typeof wp.waypoint_index === 'number') {
+                                    orderMap.set(String(s._id), wp.waypoint_index);
+                                }
+                            });
+                        }
+
+                        return {
+                            pathForMap,
+                            pathForBackend,
+                            osrmMeta: {
+                                duration: Math.ceil(trip.duration / 60),
+                                distance: (trip.distance / 1000).toFixed(1)
+                            },
+                            orderMap
+                        };
                     }
-                } catch (saveErr: any) {
-                    if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
-                        setError(t('driver.errors.tripAlreadyCompleted'));
-                        setTripStarted(false);
-                        return;
-                    }
-                    console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
+                } catch (osrmErr: any) {
+                    console.warn('OSRM network/timeout issue, activating smooth fallback route:', osrmErr?.message || osrmErr);
                 }
-            } else {
-                setError(t('driver.errors.osrmRouteFailed'));
+
+                // Fallback: Generate smooth interpolated path directly through the waypoints
+                const waypoints: Array<[number, number]> = coords.map(([lng, lat]) => [lat, lng]);
+                const pathForMap: Array<[number, number]> = [];
+                let totalDistMeters = 0;
+
+                for (let i = 0; i < waypoints.length - 1; i++) {
+                    const [lat1, lng1] = waypoints[i];
+                    const [lat2, lng2] = waypoints[i + 1];
+                    totalDistMeters += haversineMeters(lat1, lng1, lat2, lng2);
+
+                    const steps = 15;
+                    for (let s = 0; s < steps; s++) {
+                        const t = s / steps;
+                        pathForMap.push([
+                            lat1 + (lat2 - lat1) * t,
+                            lng1 + (lng2 - lng1) * t
+                        ]);
+                    }
+                }
+                pathForMap.push(waypoints[waypoints.length - 1]);
+
+                const pathForBackend = pathForMap.map(([lat, lng]) => ({ lat, lng }));
+                const orderMap = new Map<string, number>();
+                studentsToRoute.forEach((s, idx) => {
+                    orderMap.set(String(s._id), idx + offset);
+                });
+
+                return {
+                    pathForMap,
+                    pathForBackend,
+                    osrmMeta: {
+                        duration: Math.max(5, Math.ceil((totalDistMeters / 1000 / 25) * 60)),
+                        distance: (totalDistMeters / 1000).toFixed(1)
+                    },
+                    orderMap
+                };
+            };
+
+            const routeResult = await calculateTripRoute(orderedCoords, validStudents, studentIndexOffset);
+
+            setRoutePath(routeResult.pathForMap);
+            setBusLocation({ lat: routeResult.pathForMap[0][0], lng: routeResult.pathForMap[0][1] });
+            setOsrmMeta(routeResult.osrmMeta);
+            setRouteOrder(routeResult.orderMap);
+
+            try {
+                const result = await api.post('/driver/trip/start', { routePath: routeResult.pathForBackend, tripType: tripType || 'to_school' });
+                if (result.data?.tripId && !result.data?.resumed) {
+                    setTodayTripStatus(prev => ({ ...prev, [(tripType || 'to_school') as 'to_school' | 'to_home']: { status: 'active', tripId: result.data.tripId, routePath: routeResult.pathForBackend } }));
+                }
+            } catch (saveErr: any) {
+                if (saveErr.response?.data?.code === 'TRIP_ALREADY_COMPLETED') {
+                    setError(t('driver.errors.tripAlreadyCompleted'));
+                    setTripStarted(false);
+                    return;
+                }
+                console.warn(t('driver.errors.saveRouteBackendFailed'), saveErr);
             }
         } catch (err: any) {
-            console.error('OSRM Route Error:', err);
+            console.error('Trip Start Error:', err);
             setError(t('driver.errors.routeDrawError'));
         } finally {
             setRouteLoading(false);

@@ -56,7 +56,7 @@ const ParentDashboard: React.FC = () => {
     const [pickingLocationFor, setPickingLocationFor] = useState<Student | null>(null);
     const [deletionScheduledAt, setDeletionScheduledAt] = useState<string | null>(null);
 
-    // tracking: { busId, busName } | null — ┘è┘ü╪¬╪¡ Modal ╪º┘ä╪¬╪¬╪¿╪╣
+    // tracking: { busId, busName } | null — opens tracking modal
     const [tracking, setTracking] = useState<{ busId: string; busName: string } | null>(null);
 
     // Auto-select first student after fetch

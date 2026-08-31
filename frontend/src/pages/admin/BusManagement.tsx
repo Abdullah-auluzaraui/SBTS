@@ -577,7 +577,7 @@ const BusManagement = () => {
                                                     icon={schoolIcon}
                                                 >
                                                     <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
-                                                        🏫 {autoPreview.school.name || t('fleetMap.school')}
+                                                        {autoPreview.school.name || t('fleetMap.school')}
                                                     </Tooltip>
                                                 </Marker>
                                             )}
@@ -714,11 +714,11 @@ const BusManagement = () => {
                                                 </button>
                                             )}
                                             {bus.isActive ? (
-                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-colors" title="╪¬╪╣╪╖┘è┘ä ╪º┘ä╪¡╪º┘ü┘ä╪⌐">
+                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-red-50 text-red-500 border border-red-100 hover:bg-red-100 transition-colors" title={t('busManagement.deactivate', 'تعطيل الحافلة')}>
                                                     <Ban size={14} />
                                                 </button>
                                             ) : (
-                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-green-50 text-green-600 border border-green-100 hover:bg-green-100 transition-colors" title="╪Ñ╪╣╪º╪»╪⌐ ╪¬┘ü╪╣┘è┘ä ╪º┘ä╪¡╪º┘ü┘ä╪⌐">
+                                                <button onClick={() => handleToggleStatus(bus)} className="p-1.5 rounded-lg bg-green-50 text-green-600 border border-green-100 hover:bg-green-100 transition-colors" title={t('busManagement.activate', 'إعادة تفعيل الحافلة')}>
                                                     <CircleCheck size={14} />
                                                 </button>
                                             )}

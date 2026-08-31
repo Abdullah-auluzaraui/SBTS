@@ -124,21 +124,34 @@ const seed = async () => {
     Bus.deleteMany({ busId: { $in: ['BUS-001', 'BUS-002', 'BUS-003', 'BUS-004', 'BUS-005'] } }),
     User.deleteMany({
       $or: [
-        { role: { $in: ['driver', 'parent'] } },
+        { role: { $in: ['driver', 'parent', 'superadmin'] } },
         { role: 'schooladmin', school: school._id },
-        { username: 's_admin' }
+        { username: { $in: ['s_admin', 'superadmin'] } }
       ]
     }),
     Student.deleteMany({ studentId: { $regex: /^S26/ } }),
   ]);
   console.log(
     `🗑️   Cleared: ${delBuses.deletedCount} buses, ` +
-    `${delUsers.deletedCount} users (including schooladmin), ` +
+    `${delUsers.deletedCount} users (including schooladmin & superadmin), ` +
     `${delStudents.deletedCount} students`
   );
 
   // 4. Hash passwords once
   const sharedHash = await bcrypt.hash('Aa1234', 10);
+
+  // Create Super Administrator (superadmin)
+  const superAdmin = await User.create({
+    username: 'superadmin',
+    email: 'superadmin@sbts.com',
+    password: sharedHash,
+    name: 'مدير النظام العام التجريبي',
+    role: 'superadmin',
+    school: null,
+    phone: '+966500000001',
+    isActive: true
+  });
+  console.log(`✅  Created Super Admin: ${superAdmin.username}`);
 
   // 5. Create 5 drivers
   const driverRecords = [
@@ -202,11 +215,13 @@ const seed = async () => {
   });
   console.log(`✅  Created School Admin: ${schoolAdmin.username}`);
 
-  // 8. Create 100 students 
+  // 8. Create 100 students (20 assigned to each of the 5 buses)
   const students = await Student.create(
     ALL_COORDS.map((coord, i) => {
       const num = String(i + 1).padStart(6, '0');
       const validNationalId = `1${String(100000000 + i + 1)}`;
+      const busIndex = Math.min(Math.floor(i / 20), buses.length - 1);
+      const assignedBusId = buses[busIndex]._id;
 
       return {
         name: studentName(i),
@@ -221,18 +236,19 @@ const seed = async () => {
           coordinates: [coord.lng, coord.lat],
         },
         nfcTagId: generateNfcTag(),
-        assignedBus: null,
+        assignedBus: assignedBusId,
         isActive: true,
       };
     })
   );
-  console.log(`✅  Created ${students.length} students (Three-part names, DOBs 2010-2014)`);
+  console.log(`✅  Created ${students.length} students (Assigned 20 to each bus)`);
 
   // ── Summary ──────────────────────────────────────────────────────────────
   console.log('\n══════════════════════════════════════════════════');
   console.log('📋  Demo data ready!');
   console.log('──────────────────────────────────────────────────');
-  console.log('   School Admin : s-admin');
+  console.log('   Super Admin  : superadmin');
+  console.log('   School Admin : s_admin');
   console.log('   Password     : Aa1234');
   console.log('──────────────────────────────────────────────────');
   console.log('   Drivers  : driver01 ... driver05');
@@ -246,11 +262,21 @@ const seed = async () => {
   );
   console.log('══════════════════════════════════════════════════\n');
 
-  mongoose.connection.close();
+  return { success: true };
 };
 
-seed().catch((err: any) => {
-  console.error('❌  Seed failed:', err.message);
-  mongoose.connection.close();
-  process.exit(1);
-});
+export const runSeed = seed;
+
+// Run directly if called from command line
+if (require.main === module) {
+  seed()
+    .then(() => {
+      mongoose.connection.close();
+      process.exit(0);
+    })
+    .catch((err: any) => {
+      console.error('❌  Seed failed:', err.message);
+      mongoose.connection.close();
+      process.exit(1);
+    });
+}

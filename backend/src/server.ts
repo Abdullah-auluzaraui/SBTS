@@ -30,6 +30,8 @@ import driverRoutes from './routes/driverRoutes';
 import parentRoutes from './routes/parentRoutes';
 import adminRoutes from './routes/adminRoutes';
 import userRoutes from './routes/userRoutes';
+import demoRoutes from './routes/demoRoutes';
+import demoGuard from './middleware/demoGuard';
 
 const app = express();
 
@@ -38,6 +40,7 @@ connectDB();
 app.use(express.json());
 app.use(cors());
 app.use(helmet());
+app.use(demoGuard);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -51,6 +54,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/demo', demoRoutes);
 
 import { errorHandler } from './middleware/errorHandler';
 app.use(errorHandler);

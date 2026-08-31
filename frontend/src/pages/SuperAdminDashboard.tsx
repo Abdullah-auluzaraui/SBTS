@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
@@ -114,7 +114,7 @@ const SuperAdminDashboard: React.FC = () => {
             const { data } = await api.post(`/super/invitations/${schoolId}/resend`);
             setResendResult(fullLink(data.invitation.link));
         } catch (err: any) {
-            setResendResult('╪«╪╖╪ú: ' + (err.response?.data?.message || '┘ü╪┤┘ä ╪Ñ╪╣╪º╪»╪⌐ ╪º┘ä╪Ñ╪▒╪│╪º┘ä'));
+            setResendResult('خطأ: ' + (err.response?.data?.message || 'فشل إعادة الإرسال'));
         } finally {
             setResendLoading(false);
         }
@@ -370,7 +370,7 @@ const SuperAdminDashboard: React.FC = () => {
 
                         {resendResult ? (
                             <div className="mt-4">
-                                {resendResult.startsWith('╪«╪╖╪ú') ? (
+                                {resendResult.startsWith('خطأ') ? (
                                     <p className="text-sm text-red-600 font-bold">{resendResult}</p>
                                 ) : (
                                     <>

@@ -85,12 +85,12 @@ interface SharedBusMapProps {
 
 const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, students = [], busLocation = null, routeLoading = false, showRouteLine = true }) => {
     const { t } = useTranslation();
-    // ╪¬╪¡┘ê┘è┘ä ╪º┘ä┘à╪│╪º╪▒ ┘à┘å {lat,lng} ╪Ñ┘ä┘ë [lat,lng] ╪º┘ä┘à╪¬┘ê╪º┘ü┘é ┘à╪╣ Leaflet
+    // Transform route from {lat,lng} to [lat,lng] for Leaflet
     const leafletPath: [number, number][] = routePath.map(p => [p.lat, p.lng]);
 
     return (
         <div className="w-full h-full relative">
-            {/* ╪╖╪¿┘é╪⌐ ╪º┘ä╪¬╪¡┘à┘è┘ä */}
+            {/* Loading Overlay */}
             {routeLoading && (
                 <div className="absolute inset-0 z-[1000] bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl">
                     <Loader2 size={40} className="text-primary-500 animate-spin mb-3" />
@@ -108,7 +108,7 @@ const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, stu
                     attribution="&copy; OpenStreetMap contributors &copy; CARTO"
                 />
 
-                {/* ┘à╪│╪º╪▒ ╪º┘ä╪▒╪¡┘ä╪⌐ — ┘à╪«┘ü┘è ┘ü┘è ╪╣╪▒╪╢ ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒ */}
+                {/* Route line */}
                 {showRouteLine && leafletPath.length > 0 && (
                     <>
                         <Polyline positions={leafletPath} color="#0EA5E9" weight={5} opacity={0.6} />
@@ -118,21 +118,21 @@ const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, stu
 
                 <MapController busLocation={busLocation} leafletPath={leafletPath} />
 
-                {/* ╪╣┘ä╪º┘à╪⌐ ╪º┘ä┘à╪»╪▒╪│╪⌐ */}
+                {/* School Marker */}
                 {school?.location?.coordinates && (
                     <Marker
                         position={[school.location.coordinates[1], school.location.coordinates[0]]}
                         icon={schoolIcon}
                     >
-                        <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
+                        <Tooltip direction="top" offset={[0, -42]} opacity={1} permanent>
                             <div className="font-bold text-gray-800 p-1 text-center">
-                                {t('fleetMap.school')}: {school.name}
+                                {school.name || t('fleetMap.school')}
                             </div>
                         </Tooltip>
                     </Marker>
                 )}
 
-                {/* ╪╣┘ä╪º┘à╪º╪¬ ╪º┘ä╪╖┘ä╪º╪¿ — ┘è┘Å╪╣╪▒╪╢ ┘ü┘é╪╖ ┘à╪º ╪¬┘à ╪¬┘à╪▒┘è╪▒┘ç (╪º┘ä╪│╪º╪ª┘é: ╪º┘ä┘â┘ä╪î ┘ê┘ä┘è ╪º┘ä╪ú┘à╪▒: ╪ú╪¿┘å╪º╪ñ┘ç ┘ü┘é╪╖) */}
+                {/* Student Markers */}
                 {students.map((student, idx) => {
                     const coords = student.location?.coordinates;
                     if (!coords || coords[0] === 0) return null;
@@ -142,7 +142,7 @@ const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, stu
                             position={[coords[1], coords[0]]}
                             icon={studentIcon}
                         >
-                            <Tooltip direction="top" offset={[0, -20]}>
+                            <Tooltip direction="top" offset={[0, -34]}>
                                 <div className="font-bold">{student.name}</div>
                                 <div className="text-xs text-gray-500">{t('parent.homeLocation')}</div>
                             </Tooltip>
@@ -150,14 +150,14 @@ const SharedBusMap: React.FC<SharedBusMapProps> = ({ routePath = [], school, stu
                     );
                 })}
 
-                {/* ╪╣┘ä╪º┘à╪⌐ ╪º┘ä╪¡╪º┘ü┘ä╪⌐ ╪º┘ä╪¡┘è╪⌐ — ╪¼╪º┘ç╪▓ ┘ä┘ä┘Ç Socket.io (busLocation ┘è╪ú╪¬┘è ┘à┘å ╪º┘ä┘Ç Socket ┘ä╪º╪¡┘é╪º┘ï) */}
+                {/* Live Bus Marker */}
                 {busLocation?.lat && busLocation?.lng && (
                     <Marker
                         position={[busLocation.lat, busLocation.lng]}
                         icon={busIcon}
                     >
-                        <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
-                            <div className="font-bold text-blue-700 p-1">≡ƒÜî {t('busTracking.title')}</div>
+                        <Tooltip direction="top" offset={[0, -18]} opacity={1} permanent>
+                            <div className="font-bold text-blue-700 p-1">{t('busTracking.title')}</div>
                         </Tooltip>
                     </Marker>
                 )}

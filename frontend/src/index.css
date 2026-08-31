@@ -2,4 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Additional global styles can go here */
+/* Leaflet RTL isolation & Tooltip precision fix */
+.leaflet-container {
+    direction: ltr !important;
+}
+
+.leaflet-tooltip {
+    direction: rtl;
+    text-align: center;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.leaflet-popup-content {
+    direction: rtl;
+    text-align: right;
+    font-family: inherit;
+}

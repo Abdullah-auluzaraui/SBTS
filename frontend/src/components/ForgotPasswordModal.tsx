@@ -43,7 +43,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
       const { data } = await api.post('/auth/forgot-password', { username, phone });
       if (data.mockOtp) {
         console.log(`\n========================================`);
-        console.log(`≡ƒöæ MOCK OTP [forgot-password]: ${data.mockOtp}`);
+        console.log(`[MOCK OTP forgot-password]: ${data.mockOtp}`);
         console.log(`========================================\n`);
       }
       setStep(STEPS.OTP);
