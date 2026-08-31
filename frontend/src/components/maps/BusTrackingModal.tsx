@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Navigation2, AlertTriangle, Loader2, MapPin } from 'lucide-react';
 import api from '../../services/apiService';
 import SharedBusMap from './SharedBusMap';
@@ -84,7 +84,7 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
         };
     }, [busId]);
 
-    // â”˜Ã â”˜Ã¥â•ªâ•£ â•ªÂ¬â”˜Ã â•ªâ–’â”˜Ã¨â•ªâ–’ â•ªÂºâ”˜Ã¤â•ªâ•¡â”˜Ã¼â•ªÂ¡â•ªâŒ â•ªÂ«â”˜Ã¤â”˜Ã¼ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal
+    // Prevent background scrolling when modal is open
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = ''; };
@@ -100,7 +100,7 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                 style={{ maxHeight: '90vh' }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* â•ªâ–’â•ªÃºâ•ªâ”‚ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal */}
+                {/* Modal Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
@@ -119,7 +119,7 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                     </button>
                 </div>
 
-                {/* â•ªâ”¤â•ªâ–’â”˜Ã¨â•ªâ•– â•ªÂºâ”˜Ã¤â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ */}
+                {/* Status Bar */}
                 {!loading && liveData && (
                     <div className={`px-6 py-2.5 shrink-0 flex items-center gap-2 text-sm font-bold ${liveData.tripActive
                             ? 'bg-green-50 text-green-700 border-b border-green-100'
@@ -130,9 +130,9 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                     </div>
                 )}
 
-                {/* â”˜Ã â•ªÂ¡â•ªÂ¬â”˜Ãªâ”˜Ã« â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal */}
+                {/* Modal Body */}
                 <div className="flex-1 min-h-0">
-                    {/* â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ â•ªÂºâ”˜Ã¤â•ªÂ¬â•ªÂ¡â”˜Ã â”˜Ã¨â”˜Ã¤ â•ªÂºâ”˜Ã¤â•ªÃºâ”˜Ãªâ”˜Ã¤â”˜Ã¨ */}
+                    {/* Loading State */}
                     {loading && (
                         <div className="h-80 flex flex-col items-center justify-center gap-3">
                             <Loader2 size={36} className="text-primary-500 animate-spin" />
@@ -140,7 +140,7 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                         </div>
                     )}
 
-                    {/* â•ªÂ¡â•ªÂºâ”˜Ã¤â•ªâŒ â•ªÂºâ”˜Ã¤â•ªÂ«â•ªâ•–â•ªÃº */}
+                    {/* Error State */}
                     {!loading && error && (
                         <div className="h-80 flex flex-col items-center justify-center gap-3 px-6">
                             <AlertTriangle size={36} className="text-red-400" />
@@ -154,11 +154,10 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                         </div>
                     )}
 
-                    {/* â•ªÂºâ”˜Ã¤â•ªÂ«â•ªâ–’â”˜Ã¨â•ªâ•–â•ªâŒ */}
+                    {/* Map Content */}
                     {!loading && !error && liveData && (
                         <div className="h-[420px]">
                             {!liveData.tripActive && liveData.routePath.length === 0 ? (
-                                /* â”˜Ã¤â•ªÂº â•ªÂ¬â”˜Ãªâ•ªÂ¼â•ªÂ» â•ªâ–’â•ªÂ¡â”˜Ã¤â•ªâŒ â”˜Ã¥â•ªâ”¤â•ªâ•–â•ªâŒ */
                                 <div className="h-full flex flex-col items-center justify-center gap-3 px-6 bg-gray-50">
                                     <MapPin size={40} className="text-gray-300" />
                                     <p className="text-gray-500 font-bold text-center">
@@ -182,7 +181,7 @@ const BusTrackingModal: React.FC<BusTrackingModalProps> = ({ busId, busName, onC
                     )}
                 </div>
 
-                {/* â•ªâ–‘â”˜Ã¨â”˜Ã¤ â•ªÂºâ”˜Ã¤â”˜Ã‡ Modal Î“Ã‡Ã¶ â”˜Ã â•ªâ•£â”˜Ã¤â”˜Ãªâ”˜Ã â•ªÂºâ•ªÂ¬ â•ªÃ‘â•ªâ•¢â•ªÂºâ”˜Ã¼â”˜Ã¨â•ªâŒ */}
+                {/* Modal Footer */}
                 {!loading && !error && liveData && liveData.myStudents?.length > 0 && (
                     <div className="px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50">
                         <p className="text-xs text-gray-500 font-medium mb-2">{t('busTracking.myStudents')}</p>

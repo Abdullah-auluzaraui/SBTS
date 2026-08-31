@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Bus, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import DemoLoginBar from '../components/DemoLoginBar';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -32,16 +33,33 @@ const Login = () => {
         }
     };
 
+    const handleDemoLogin = async (demoUsername: string, demoPassword: string) => {
+        setError('');
+        setUsername(demoUsername);
+        setPassword(demoPassword);
+        try {
+            await login(demoUsername, demoPassword);
+        } catch (err: unknown) {
+            const errObj = err as { errorCode?: string; message?: string };
+            const errorMessages: Record<string, string> = {
+                INVALID_CREDENTIALS: t('auth.errors.invalidCredentials'),
+                ACCOUNT_INACTIVE: t('auth.errors.accountInactive'),
+                NETWORK_ERROR: t('auth.errors.networkError'),
+            };
+            setError(errorMessages[errObj.errorCode || ''] || errObj.message || t('auth.errors.loginFailed'));
+        }
+    };
+
     return (
         <>
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden py-10 px-4">
             <div className="absolute top-4 right-4 z-20">
                 <LanguageSwitcher />
             </div>
             <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
 
-            <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-md relative z-10 border border-gray-100">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] w-full max-w-lg relative z-10 border border-gray-100">
 
                 <div className="text-center mb-8">
                     <div className="w-20 h-20 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
@@ -125,8 +143,10 @@ const Login = () => {
                     </div>
                 </form>
 
+                <DemoLoginBar onDemoLogin={handleDemoLogin} loading={loading} />
+
                 {error && (
-                    <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl">
+                    <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
                         <p className="text-sm text-red-700 flex items-start gap-2">
                             <AlertCircle size={16} strokeWidth={2} className="text-red-500 mt-0.5 shrink-0" />
                             <span className="font-semibold">{error}</span>

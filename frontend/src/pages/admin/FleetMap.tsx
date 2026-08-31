@@ -13,6 +13,7 @@ import api from '../../services/apiService';
 import axios from 'axios';
 import io from 'socket.io-client';
 import { IApiBus, IApiStudent } from '../../types/api';
+import { haversineMeters } from '../../utils/haversine';
 
 const getSocketUrl = () => {
     if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
@@ -35,6 +36,12 @@ const studentIcon = new L.Icon({
 
 const busIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+});
+
+const schoolIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
     iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
 });
@@ -80,6 +87,7 @@ const DEFAULT_CENTER = [24.7136, 46.6753] as [number, number];
 const FleetMap = () => {
     const { t } = useTranslation();
     const [buses, setBuses] = useState<IApiBus[]>([]);
+    const [school, setSchool] = useState<{ name?: string; location?: any } | null>(null);
     const [schoolPos, setSchoolPos] = useState<[number, number] | null>(null); // [lat, lng] from DB
     const [selectedBus, setSelectedBus] = useState<IApiBus | null>(null);
     const [students, setStudents] = useState<IApiStudent[]>([]);
@@ -104,7 +112,9 @@ const FleetMap = () => {
                     api.get('/admin/school')
                 ]);
                 setBuses(busRes.data.buses);
-                const loc = schoolRes.data.school?.location;
+                const schoolData = schoolRes.data.school;
+                setSchool(schoolData);
+                const loc = schoolData?.location;
                 if (loc?.coordinates?.[0] !== 0) {
                     setSchoolPos([loc.coordinates[1], loc.coordinates[0]]); // [lat, lng]
                 }
@@ -201,19 +211,44 @@ const FleetMap = () => {
             const coordsString = `${studentCoords};${schoolCoord}`;
 
             const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordsString}?roundtrip=false&source=any&destination=last&geometries=geojson`;
-            const { data: osrmData } = await axios.get(osrmUrl);
-
-            if (osrmData.code === 'Ok' && osrmData.trips.length > 0) {
-                const trip = osrmData.trips[0];
-                const leafletPath = trip.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
-                setRoutePath(leafletPath);
-                setOsrmMeta({
-                    duration: Math.ceil(trip.duration / 60),
-                    distance: (trip.distance / 1000).toFixed(1)
-                });
-            } else {
-                setError(t('fleetMap.errors.osrmError'));
+            try {
+                const { data: osrmData } = await axios.get(osrmUrl, { timeout: 6000 });
+                if (osrmData.code === 'Ok' && osrmData.trips?.length > 0) {
+                    const trip = osrmData.trips[0];
+                    const leafletPath = trip.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+                    setRoutePath(leafletPath);
+                    setOsrmMeta({
+                        duration: Math.ceil(trip.duration / 60),
+                        distance: (trip.distance / 1000).toFixed(1)
+                    });
+                    return;
+                }
+            } catch (osrmErr) {
+                console.warn('FleetMap OSRM unreachable, using interpolated fallback:', osrmErr);
             }
+
+            // Fallback: direct interpolation
+            const rawCoords: Array<[number, number]> = [
+                ...busStudents.map((s: IApiStudent) => [s.location!.coordinates[1], s.location!.coordinates[0]] as [number, number]),
+                [schoolPos[0], schoolPos[1]] as [number, number]
+            ];
+            const leafletPath: Array<[number, number]> = [];
+            let totalMeters = 0;
+            for (let i = 0; i < rawCoords.length - 1; i++) {
+                const [lat1, lng1] = rawCoords[i];
+                const [lat2, lng2] = rawCoords[i + 1];
+                totalMeters += haversineMeters(lat1, lng1, lat2, lng2);
+                for (let s = 0; s < 15; s++) {
+                    const t = s / 15;
+                    leafletPath.push([lat1 + (lat2 - lat1) * t, lng1 + (lng2 - lng1) * t]);
+                }
+            }
+            leafletPath.push(rawCoords[rawCoords.length - 1]);
+            setRoutePath(leafletPath);
+            setOsrmMeta({
+                duration: Math.max(5, Math.ceil((totalMeters / 1000 / 25) * 60)),
+                distance: (totalMeters / 1000).toFixed(1)
+            });
         } catch (err: unknown) {
             console.error(err);
             setError(t('fleetMap.errors.fetchError'));
@@ -380,9 +415,9 @@ const FleetMap = () => {
                             />
 
                             {schoolPos && (
-                                <Marker position={schoolPos} icon={busIcon}>
-                                    <Tooltip direction="top" permanent opacity={0.95} className="font-sans font-bold text-xs">
-                                        🏫 ╪º┘ä┘à╪»╪▒╪│╪⌐
+                                <Marker position={schoolPos} icon={schoolIcon}>
+                                    <Tooltip direction="top" offset={[0, -42]} permanent opacity={0.95} className="font-sans font-bold text-xs">
+                                        {school?.name || t('fleetMap.school', 'المدرسة')}
                                     </Tooltip>
                                 </Marker>
                             )}
@@ -394,8 +429,8 @@ const FleetMap = () => {
                                     const lng = s.location!.coordinates[0];
                                     return (
                                         <Marker key={s.id} position={[lat, lng]} icon={studentIcon}>
-                                            <Tooltip direction="top" opacity={0.95} className="font-sans font-bold text-xs">
-                                                🏠 {s.name}
+                                            <Tooltip direction="top" offset={[0, -34]} opacity={0.95} className="font-sans font-bold text-xs">
+                                                {s.name}
                                             </Tooltip>
                                         </Marker>
                                     );
@@ -415,7 +450,7 @@ const FleetMap = () => {
                                     icon={liveBusMarkerIcon}
                                 >
                                     <Tooltip direction="top" offset={[0, -30]} opacity={1} permanent>
-                                        <span className="font-bold text-blue-700">≡ƒÜî {selectedBus?.busId}</span>
+                                        <span className="font-bold text-blue-700">{selectedBus?.busId}</span>
                                     </Tooltip>
                                 </Marker>
                             )}

@@ -138,7 +138,7 @@ const PhoneChangeModal: React.FC<PhoneChangeModalProps> = ({ onClose, onSuccess 
       const { data } = await api.post('/profile/phone/request', { newPhone });
       if (data.mockOtp) {
         console.log(`\n========================================`);
-        console.log(`≡ƒöæ MOCK OTP [change-phone]: ${data.mockOtp}`);
+        console.log(`[MOCK OTP change-phone]: ${data.mockOtp}`);
         console.log(`========================================\n`);
       }
       setStep(2);

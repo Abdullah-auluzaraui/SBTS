@@ -27,8 +27,8 @@ interface TripSimulatorProps {
   onCurrentStudent?: (student: SimulatorStudent | null) => void;
 }
 
-const APPROACH_THRESHOLD = 400; // metres — pulsing amber ring, sim continues
-const BOARDING_THRESHOLD = 150; // metres — NFC fire (raised: OSRM waypoints land on road, not doorstep)
+const APPROACH_THRESHOLD = 180; // metres — pulsing amber ring when approaching stop
+const BOARDING_THRESHOLD = 45;  // metres — accurate NFC scan when bus reaches doorstep / stop
 const TICK_MS            = 300; // interval cadence (ms)
 
 // Fixed advance steps per speed setting (indices per tick)
@@ -161,11 +161,21 @@ const TripSimulator: React.FC<TripSimulatorProps> = ({
             s => s.location?.coordinates && !boardedRef.current.has(String(s._id))
         );
 
-        // 3a. Boarding check: segment A→B sweep catches students even when nodes are sparse
-        const boardingTarget = unboarded.find(s => {
+        // 3a. Boarding check: find closest unboarded student within BOARDING_THRESHOLD (45m)
+        let boardingTarget: SimulatorStudent | null = null;
+        let minBoardingDist = Infinity;
+
+        for (const s of unboarded) {
             const [sLng, sLat] = s.location!.coordinates;
-            return pointToSegmentMeters(sLat, sLng, aLat, aLng, lat, lng) <= BOARDING_THRESHOLD;
-        });
+            const distSeg = pointToSegmentMeters(sLat, sLng, aLat, aLng, lat, lng);
+            const distDirect = haversineMeters(lat, lng, sLat, sLng);
+            const effectiveDist = Math.min(distSeg, distDirect);
+
+            if (effectiveDist <= BOARDING_THRESHOLD && effectiveDist < minBoardingDist) {
+                minBoardingDist = effectiveDist;
+                boardingTarget = s;
+            }
+        }
 
         if (boardingTarget) {
             const sid = String(boardingTarget._id);
@@ -269,7 +279,7 @@ const TripSimulator: React.FC<TripSimulatorProps> = ({
             {nfcFlashStudent && (
                 <div className="mb-3 flex items-center gap-2 bg-green-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm animate-pulse">
                     <Radio size={16} />
-                    <span>≡ƒôí {t('simulator.card_scanned')} {nfcFlashStudent.name}</span>
+                    <span>{t('simulator.card_scanned', 'تم مسح بطاقة الطالب:')} {nfcFlashStudent.name}</span>
                 </div>
             )}
 

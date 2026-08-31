@@ -21,6 +21,7 @@ import StudentManagement from './pages/admin/StudentManagement';
 import AttendanceRecords from './pages/admin/AttendanceRecords';
 import DriverManagement from './pages/admin/DriverManagement';
 import ProfilePage from './pages/ProfilePage';
+import DemoRoleSwitcher from './components/DemoRoleSwitcher';
 
 function App(): React.JSX.Element {
   useAuth(); // ensures AuthContext is initialized (interceptors registered in context)
@@ -33,47 +34,50 @@ function App(): React.JSX.Element {
   }, [i18n.language]);
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/onboarding" element={<Onboarding />} />
+    <>
+      <DemoRoleSwitcher />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/onboarding" element={<Onboarding />} />
 
-      {/* /super → requires role: 'superadmin' */}
-      <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
-        <Route path="/super" element={<SuperAdminDashboard />} />
-      </Route>
-
-      {/* /admin → requires role: 'schooladmin' — nested sub-routes */}
-      <Route element={<ProtectedRoute allowedRoles={['schooladmin']} />}>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="buses" element={<BusManagement />} />
-          <Route path="routes" element={<FleetMap />} />
-          <Route path="students" element={<StudentManagement />} />
-          <Route path="attendance" element={<AttendanceRecords />} />
-          <Route path="drivers" element={<DriverManagement />} />
+        {/* /super → requires role: 'superadmin' */}
+        <Route element={<ProtectedRoute allowedRoles={['superadmin']} />}>
+          <Route path="/super" element={<SuperAdminDashboard />} />
         </Route>
-        {/* Profile is a standalone full-page route — NOT nested inside AdminLayout */}
-        <Route path="/admin/profile" element={<ProfilePage />} />
-      </Route>
 
-      {/* /driver → requires role: 'driver' */}
-      <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
-        <Route path="/driver" element={<DriverDashboard />} />
-        <Route path="/driver/profile" element={<ProfilePage />} />
-      </Route>
+        {/* /admin → requires role: 'schooladmin' — nested sub-routes */}
+        <Route element={<ProtectedRoute allowedRoles={['schooladmin']} />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="buses" element={<BusManagement />} />
+            <Route path="routes" element={<FleetMap />} />
+            <Route path="students" element={<StudentManagement />} />
+            <Route path="attendance" element={<AttendanceRecords />} />
+            <Route path="drivers" element={<DriverManagement />} />
+          </Route>
+          {/* Profile is a standalone full-page route — NOT nested inside AdminLayout */}
+          <Route path="/admin/profile" element={<ProfilePage />} />
+        </Route>
 
-      {/* /parent → requires role: 'parent' */}
-      <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
-        <Route path="/parent" element={<ParentDashboard />} />
-        <Route path="/parent/profile" element={<ProfilePage />} />
-      </Route>
+        {/* /driver → requires role: 'driver' */}
+        <Route element={<ProtectedRoute allowedRoles={['driver']} />}>
+          <Route path="/driver" element={<DriverDashboard />} />
+          <Route path="/driver/profile" element={<ProfilePage />} />
+        </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        {/* /parent → requires role: 'parent' */}
+        <Route element={<ProtectedRoute allowedRoles={['parent']} />}>
+          <Route path="/parent" element={<ParentDashboard />} />
+          <Route path="/parent/profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </>
   );
 }
 

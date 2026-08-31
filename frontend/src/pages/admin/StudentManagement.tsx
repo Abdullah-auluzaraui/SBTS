@@ -222,7 +222,7 @@ const StudentManagement = () => {
                             <div className="space-y-1.5">
                                 <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.studentNameLabel')}</label>
                                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="╪«╪º┘ä╪» ┘à╪¡┘à╪» ╪º┘ä╪╣╪¬┘è╪¿┘è" />
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="خالد محمد العتيبي" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">

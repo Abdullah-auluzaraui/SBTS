@@ -1,4 +1,47 @@
 {
+  "demo": {
+    "sectionTitle": "Interactive Demo Access",
+    "quickAccess": "Instant one-click demo login",
+    "roles": {
+      "superadmin": "Super Admin",
+      "schooladmin": "School Admin",
+      "driver": "Bus Driver",
+      "parent": "Parent"
+    },
+    "descriptions": {
+      "superadmin": "Manage schools & invitations",
+      "schooladmin": "Fleet, smart routes & reports",
+      "driver": "Route map, simulator & NFC",
+      "parent": "Live student bus tracking & ETA"
+    },
+    "liveShowcase": "Live Sync Showcase",
+    "showcaseBadge": "Live",
+    "showcaseSubtitle": "Driver Simulator and Live Parent Map side-by-side",
+    "floatingBar": {
+      "currentRole": "Current Role",
+      "switchRole": "Switch Demo Account",
+      "showcase": "Live Showcase",
+      "reset": "Reset Demo Data",
+      "resetConfirm": "Are you sure you want to reset all demo data to initial state?",
+      "resetSuccess": "Demo data reset successfully!",
+      "resetError": "Failed to reset demo data, please try again later.",
+      "loggingIn": "Switching role..."
+    },
+    "health": {
+      "corruptedTitle": "Notice: Demo data needs reset",
+      "corruptedDesc": "Some demo accounts or buses are missing, click to auto-repair.",
+      "fixNow": "Repair Now"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "startSim": "Start Trip Simulation",
+      "nfcBoard": "Simulate Student NFC Boarding",
+      "trackBus": "Track Active Bus",
+      "fleetMap": "Live Fleet Map",
+      "exportPdf": "Export Attendance PDF",
+      "inviteSchool": "Create School Invite"
+    }
+  },
   "simulator": {
     "card_scanned": "Card Scanned —",
     "trip_completed": "Trip Completed",

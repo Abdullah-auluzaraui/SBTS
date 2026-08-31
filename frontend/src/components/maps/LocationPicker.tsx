@@ -101,7 +101,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ student, onClose, onSav
       return;
     }
 
-    // First attempt: low accuracy (fast Î“Ã‡Ã¶ uses WiFi/cell triangulation, < 2 seconds)
+    // First attempt: low accuracy (fast - uses WiFi/cell triangulation, < 2 seconds)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
