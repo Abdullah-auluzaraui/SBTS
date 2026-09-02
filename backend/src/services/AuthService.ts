@@ -226,6 +226,8 @@ export class AuthService {
     invitation.isUsed = true;
     await invitation.save();
 
+    await School.findByIdAndUpdate(invitation.school._id, { isActive: true });
+
     const jwtToken = generateToken(user);
 
     return {

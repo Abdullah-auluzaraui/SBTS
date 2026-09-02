@@ -28,7 +28,7 @@ export class SchoolService {
       name: schoolName,
       schoolId,
       contact: { email: contactEmail, phone: contactPhone || undefined },
-      isActive: true
+      isActive: false
     });
 
     const token = this.generateInvitationToken();
@@ -116,6 +116,11 @@ export class SchoolService {
   static async toggleStatus(id: string) {
     const school = await School.findById(id);
     if (!school) throw new AppError(404, 'SCHOOL_NOT_FOUND');
+
+    const hasAdmin = await User.exists({ school: school._id, role: 'schooladmin' });
+    if (!hasAdmin && !school.isActive) {
+      throw new AppError(400, 'SCHOOL_NOT_ONBOARDED', 'لا يمكن تفعيل المدرسة قبل إتمام تسجيل مدير المدرسة عبر رابط الدعوة');
+    }
 
     school.isActive = !school.isActive;
     await school.save();

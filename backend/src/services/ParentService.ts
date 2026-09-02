@@ -238,20 +238,36 @@ export class ParentService {
     };
   }
 
-  static async getBusLive(busId: string, parentId: string, schoolId: string | undefined) {
-    const myStudentInBus = await Student.findOne({ assignedBus: busId, parentId });
-    if (!myStudentInBus) {
-      throw new AppError(403, 'ACCESS_DENIED', 'ليس لديك إذن لتتبع هذه الحافلة');
+  static async getBusLive(busId: string, parentId: string, schoolId?: string) {
+    let bus = null;
+    if (mongoose.Types.ObjectId.isValid(busId)) {
+      bus = await Bus.findById(busId).populate<{ school: ISchool }>('school', 'name location');
     }
-
-    const bus = await Bus.findOne({ _id: busId, school: schoolId }).populate<{ school: ISchool }>('school', 'name location');
+    if (!bus) {
+      bus = await Bus.findOne({ busId }).populate<{ school: ISchool }>('school', 'name location');
+    }
     if (!bus) {
       throw new AppError(404, 'NOT_FOUND', 'الحافلة غير موجودة');
     }
 
-    const trip = await Trip.findOne({ bus: busId, status: 'active', school: schoolId });
+    const myStudentInBus = await Student.findOne({
+      assignedBus: bus._id,
+      parentId
+    });
+    if (!myStudentInBus) {
+      throw new AppError(403, 'ACCESS_DENIED', 'ليس لديك إذن لتتبع هذه الحافلة');
+    }
 
-    const myStudents = await Student.find({ assignedBus: busId, parentId })
+    const tripQuery: any = { bus: bus._id, status: 'active' };
+    if (schoolId) {
+      tripQuery.school = schoolId;
+    } else if (bus.school) {
+      tripQuery.school = (bus.school as any)._id || bus.school;
+    }
+
+    const trip = await Trip.findOne(tripQuery);
+
+    const myStudents = await Student.find({ assignedBus: bus._id, parentId })
       .select('name location');
 
     return {

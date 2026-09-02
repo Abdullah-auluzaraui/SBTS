@@ -9,9 +9,9 @@ const router = Router();
 const DEMO_ACCOUNTS: Record<string, { username: string; name: string; role: string; roleAr: string }> = {
   superadmin: {
     username: 'superadmin',
-    name: 'مدير النظام العام',
+    name: 'مدير النظام',
     role: 'superadmin',
-    roleAr: 'مدير النظام العام (Super Admin)'
+    roleAr: 'مدير النظام (Super Admin)'
   },
   schooladmin: {
     username: 's_admin',
@@ -33,13 +33,21 @@ const DEMO_ACCOUNTS: Record<string, { username: string; name: string; role: stri
   }
 };
 
-const RESET_COOLDOWN_MS = 5 * 60 * 1000;
-let lastResetTimestamp = 0;
+const isDemoEnabled = (): boolean =>
+  process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'demo';
 
 /**
  * GET /api/demo/credentials
  */
 router.get('/credentials', (_req: Request, res: Response): void => {
+  if (!isDemoEnabled()) {
+    res.status(403).json({
+      success: false,
+      errorCode: 'DEMO_DISABLED',
+      message: 'الوضع التجريبي غير مفعّل في هذه البيئة.'
+    });
+    return;
+  }
   res.json({
     success: true,
     data: {
@@ -99,22 +107,16 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
  * POST /api/demo/reset
  */
 router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
-  const now = Date.now();
-  const timeSinceLast = now - lastResetTimestamp;
-
-  if (timeSinceLast < RESET_COOLDOWN_MS) {
-    const remainingSeconds = Math.ceil((RESET_COOLDOWN_MS - timeSinceLast) / 1000);
-    res.status(429).json({
+  if (!isDemoEnabled()) {
+    res.status(403).json({
       success: false,
-      errorCode: 'COOLDOWN_ACTIVE',
-      message: `يرجى الانتظار ${remainingSeconds} ثانية قبل إعادة ضبط البيانات مرة أخرى.`,
-      remainingSeconds
+      errorCode: 'DEMO_DISABLED',
+      message: 'إعادة ضبط البيانات متاحة فقط في بيئة العرض التجريبي (Demo Mode).'
     });
     return;
   }
 
   try {
-    lastResetTimestamp = now;
     await runSeed();
     res.json({
       success: true,
