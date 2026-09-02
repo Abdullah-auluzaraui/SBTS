@@ -7,6 +7,7 @@ import { User, Map, Phone, X, UserPlus, Loader2, AlertCircle, CheckCircle2, MapP
 import LocationPicker from '../components/maps/LocationPicker';
 import BusTrackingModal from '../components/maps/BusTrackingModal';
 import DriverContactsModal from '../components/DriverContactsModal';
+import { isValidSaudiId, sanitizeSaudiId } from '../utils/validation';
 
 
 interface Student {
@@ -107,7 +108,14 @@ const ParentDashboard: React.FC = () => {
     // — FE-S1-9: Handle linking another child (Two-Step) —
     const handleRequestLinking = async (e: React.FormEvent) => {
         e.preventDefault();
-        setChildError(''); setChildSuccess(''); setChildLoading(true);
+        setChildError(''); setChildSuccess('');
+
+        if (!isValidSaudiId(childForm.nationalId)) {
+            setChildError('رقم الهوية الوطنية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 (للسعوديين) أو 2 (للمقيمين).');
+            return;
+        }
+
+        setChildLoading(true);
         try {
             const { data } = await api.post('/parents/link-request', {
                 nationalId: childForm.nationalId,
@@ -417,13 +425,18 @@ const ParentDashboard: React.FC = () => {
                                 <form onSubmit={handleRequestLinking} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <label className="block text-gray-700 font-bold text-sm px-1">{t('parent.nationalId')}</label>
+                                            <label className="block text-gray-700 font-bold text-sm px-1">
+                                                {t('parent.nationalId')} <span className="text-xs font-normal text-gray-400">(10 أرقام)</span>
+                                            </label>
                                             <input
                                                 type="text"
-                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
+                                                inputMode="numeric"
+                                                maxLength={10}
+                                                placeholder="10xxxxxxxx"
+                                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-mono text-left tracking-wider"
                                                 dir="ltr"
                                                 value={childForm.nationalId}
-                                                onChange={(e) => setChildForm({ ...childForm, nationalId: e.target.value })}
+                                                onChange={(e) => setChildForm({ ...childForm, nationalId: sanitizeSaudiId(e.target.value) })}
                                                 required
                                             />
                                         </div>

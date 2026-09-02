@@ -24,6 +24,7 @@ export type ErrorCode =
   
   // School errors
   | 'SCHOOL_NOT_FOUND'
+  | 'SCHOOL_NOT_ONBOARDED'
 
   // Fleet & Infrastructure
   | 'BUS_NOT_FOUND'
@@ -38,6 +39,7 @@ export type ErrorCode =
   | 'NO_PREVIOUS_PARENT'
   | 'ALREADY_LINKED'
   | 'NATIONAL_ID_LOCKED'
+  | 'INVALID_NATIONAL_ID'
   | 'NO_FILE'
   | 'EMPTY_FILE'
 

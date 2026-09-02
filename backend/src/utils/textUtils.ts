@@ -25,3 +25,15 @@ export const normalizeArabicName = (text: string): string => {
     .replace(/\s+/g, ' ')
     .trim();
 };
+
+/**
+ * Validates a Saudi National ID (مواطن) or Resident ID (مقيم).
+ * Criteria:
+ * - Exactly 10 digits.
+ * - Starts with 1 (Saudi Citizen) or 2 (Resident).
+ * - Numeric only.
+ */
+export const isValidSaudiId = (id: string): boolean => {
+  if (!id || typeof id !== 'string') return false;
+  return /^[12]\d{9}$/.test(id.trim());
+};

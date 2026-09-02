@@ -3,7 +3,7 @@ import Student from '../models/Student';
 import User from '../models/User';
 import { AppError } from '../utils/AppError';
 import { encrypt, decrypt, maskData } from '../utils/crypto';
-import { normalizeArabicName } from '../utils/textUtils';
+import { normalizeArabicName, isValidSaudiId } from '../utils/textUtils';
 import NotificationService from '../utils/NotificationService';
 import bcrypt from 'bcryptjs';
 import csvParser from 'csv-parser';
@@ -63,21 +63,26 @@ export class StudentService {
     const { name, nationalId, dob, assignedBus, grade } = data;
 
     if (!name || name.trim() === '') {
-      throw new AppError(400, 'VALIDATION_ERROR');
+      throw new AppError(400, 'VALIDATION_ERROR', 'اسم الطالب مطلوب');
     }
 
     if (!nationalId || !dob) {
-      throw new AppError(400, 'VALIDATION_ERROR');
+      throw new AppError(400, 'VALIDATION_ERROR', 'رقم الهوية وتاريخ الميلاد حقول إجبارية');
+    }
+
+    const cleanedNationalId = nationalId.toString().trim();
+    if (!isValidSaudiId(cleanedNationalId)) {
+      throw new AppError(400, 'INVALID_NATIONAL_ID', 'رقم الهوية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 أو 2');
     }
 
     const nameParts = name.trim().split(/\s+/);
     if (nameParts.length < 3) {
-      throw new AppError(400, 'VALIDATION_ERROR');
+      throw new AppError(400, 'VALIDATION_ERROR', 'يجب إدخال الاسم الثلاثي للطالب (مثال: خالد محمد العتيبي)');
     }
 
     const existingName = await Student.findOne({ school: schoolId, name: name.trim() });
     if (existingName) {
-      throw new AppError(400, 'DUPLICATE_NAME');
+      throw new AppError(400, 'DUPLICATE_NAME', 'يوجد طالب مسجل بنفس هذا الاسم في المدرسة بالفعل');
     }
 
     const yearStr = new Date().getFullYear().toString().slice(-2);
@@ -163,7 +168,11 @@ export class StudentService {
       if (student.parentId) {
         throw new AppError(403, 'NATIONAL_ID_LOCKED');
       }
-      student.nationalId = encrypt(nationalId.trim());
+      const cleaned = nationalId.trim();
+      if (!isValidSaudiId(cleaned)) {
+        throw new AppError(400, 'INVALID_NATIONAL_ID', 'رقم الهوية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 أو 2');
+      }
+      student.nationalId = encrypt(cleaned);
     }
 
     await student.save();
@@ -344,6 +353,13 @@ export class StudentService {
       if (!rawNationalId || !rawDob) {
         skipped++;
         errors.push({ key: 'skipMissingData', name: rawName.trim() });
+        continue;
+      }
+
+      const cleanedNationalId = rawNationalId.toString().trim();
+      if (!isValidSaudiId(cleanedNationalId)) {
+        skipped++;
+        errors.push({ key: 'skipInvalidNationalId', name: rawName.trim() });
         continue;
       }
 

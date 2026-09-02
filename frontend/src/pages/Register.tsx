@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Users, AlertCircle, Eye, EyeOff, Loader2, CheckCircle, ShieldCheck } from 'lucide-react';
+import { isValidSaudiId, sanitizeSaudiId } from '../utils/validation';
 
 const Register: React.FC = () => {
     const [formData, setFormData] = useState({
@@ -43,6 +44,11 @@ const Register: React.FC = () => {
 
         if (formData.password.length < 6) {
             setError(t('register.errors.shortPassword'));
+            return;
+        }
+
+        if (!isValidSaudiId(formData.nationalId)) {
+            setError('رقم الهوية الوطنية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 (للسعوديين) أو 2 (للمقيمين).');
             return;
         }
 
@@ -203,13 +209,18 @@ const Register: React.FC = () => {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="block text-gray-700 font-bold text-sm px-1">{t('register.nationalId')}</label>
+                                        <label className="block text-gray-700 font-bold text-sm px-1">
+                                            {t('register.nationalId')} <span className="text-xs font-normal text-gray-400">(10 أرقام)</span>
+                                        </label>
                                         <input
                                             type="text"
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-sans text-left"
+                                            inputMode="numeric"
+                                            maxLength={10}
+                                            placeholder="10xxxxxxxx"
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-mono text-left tracking-wider"
                                             dir="ltr"
                                             value={formData.nationalId}
-                                            onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, nationalId: sanitizeSaudiId(e.target.value) })}
                                             required
                                         />
                                     </div>

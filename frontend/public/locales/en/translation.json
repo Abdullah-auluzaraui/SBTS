@@ -10,7 +10,7 @@
     },
     "descriptions": {
       "superadmin": "Manage schools & invitations",
-      "schooladmin": "Fleet, smart routes & reports",
+      "schooladmin": "Bus operations, routes & reports",
       "driver": "Route map, simulator & NFC",
       "parent": "Live student bus tracking & ETA"
     },
@@ -37,9 +37,108 @@
       "startSim": "Start Trip Simulation",
       "nfcBoard": "Simulate Student NFC Boarding",
       "trackBus": "Track Active Bus",
-      "fleetMap": "Live Fleet Map",
+      "fleetMap": "Live Bus Tracking",
       "exportPdf": "Export Attendance PDF",
       "inviteSchool": "Create School Invite"
+    }
+  },
+  "guide": {
+    "badge": "Interactive Demo Guide",
+    "stepOf": "Step {{current}} of {{total}}",
+    "next": "Next",
+    "prev": "Previous",
+    "skip": "Close Guide",
+    "finish": "Finish Tour",
+    "tourComplete": "Tour completed successfully! Feel free to explore all system capabilities.",
+    "tryNow": "Experience This Role Now",
+    "activeHere": "You are currently in this role",
+    "capabilities": "Key Features to Explore",
+    "tryYourself": "Suggested Steps to Try",
+    "techSideNote": "Technical Overview (Optional)",
+    "welcome": {
+      "badge": "Guided Tour",
+      "title": "Welcome to Smart Bus Tracking System (SBTS)",
+      "subtitle": "An end-to-end intelligent platform for school fleet management and real-time student bus tracking, built for school admins, drivers, and parents with effortless clarity.",
+      "duration": "Quick 2-minute walkthrough to discover the complete system",
+      "startTour": "Start Guided Tour",
+      "stats": {
+        "schools": "30+ Registered Schools",
+        "students": "100+ Seeded Students",
+        "roles": "4 Dedicated Personas"
+      },
+      "techStack": "Built with: React · TypeScript · Node.js · Express · MongoDB · WebSockets · OSRM"
+    },
+    "superadmin": {
+      "roleName": "System Admin",
+      "tagline": "Central governance and oversight across all schools",
+      "desc": "Dedicated platform administration view to monitor institutions, manage school lifecycles, and securely onboard new educational organizations.",
+      "features": [
+        "Comprehensive dashboard showcasing 30+ demo schools with live status indicators",
+        "Quick filter tabs: Active, Pending Activation, Expired Invites, and Disabled",
+        "Integrated invitation workflow generating secure onboarding links for schools",
+        "Robust business logic guards preventing activation before official admin registration"
+      ],
+      "steps": [
+        "Browse the school table and test the status filters (Active, Pending, Expired)",
+        "Search for any school name using the instant search bar",
+        "Click «Add School» to issue an invitation and generate an onboarding link"
+      ],
+      "tech": "Architecture: Strict RBAC enforcement, cryptographically signed invitation tokens, and domain integrity guards."
+    },
+    "schooladmin": {
+      "roleName": "School Admin",
+      "tagline": "Bus operations, student management, and attendance",
+      "desc": "Operational command center for school administrators to oversee bus routes, student allocations, driver assignments, and daily attendance logs.",
+      "features": [
+        "Real-time KPIs for buses, enrolled students, drivers, and daily attendance records",
+        "Live Bus Tracking view to monitor school buses and smart routes simultaneously",
+        "Student directory with geolocation mapping for residential pickup points",
+        "Exportable attendance records with per-bus and date filtering"
+      ],
+      "steps": [
+        "Review the high-level KPI cards on the dashboard home",
+        "Navigate to «Bus Tracking» via the menu to view active bus positions",
+        "Browse «Student Management» to view 100 students and their home coordinates",
+        "Open «Attendance Records» to inspect board/drop-off audit logs"
+      ],
+      "tech": "Architecture: Aggregated metrics pipelines, relational integrity constraints, and geospatial mapping integration."
+    },
+    "driver": {
+      "roleName": "Bus Driver",
+      "badge": "Most Interactive Experience ⭐",
+      "tagline": "Active trip navigation, live simulation, and boarding verification",
+      "desc": "Field-ready driver interface providing route guidance, live trip simulation, proximity alerts, and automated stop-by-stop boarding.",
+      "features": [
+        "Start morning or afternoon trips with turnkey road network routing",
+        "Built-in live GPS trip simulator illustrating real-time bus movement on map",
+        "Visual proximity alerts when nearing each student's designated stop",
+        "Automated boarding verification updating attendance records upon arrival",
+        "Direct parent emergency contacts and no-receiver exception handling"
+      ],
+      "steps": [
+        "Click «Start Trip» and choose destination (To School or To Home)",
+        "Run the «Trip Simulator» and watch the bus navigate the road route",
+        "Observe the orange proximity badge as the bus nears each stop",
+        "Watch automatic student boarding and live counter increments"
+      ],
+      "tech": "Architecture: OSRM road network routing engine, Haversine geospatial calculations, and low-latency WebSocket position broadcasts."
+    },
+    "parent": {
+      "roleName": "Parent",
+      "tagline": "Live reassurance and transparent trip tracking for guardians",
+      "desc": "Peace of mind portal for parents to track their children's bus in real time, check arrival estimates, and stay informed on every trip.",
+      "features": [
+        "Child status cards showing real-time boarding state and latest bus event",
+        "Live bus tracking modal showing current position and animated route",
+        "Interactive map location picker to precisely update residential pickup address",
+        "Direct one-click contact details for assigned driver and school administration"
+      ],
+      "steps": [
+        "Review your child's card and current transit status",
+        "Click «Track Bus» to open the live tracking map",
+        "💡 Pro Tip: Open the site in two different browsers (or an incognito window) — run the Driver Simulator in one, and watch the bus move live in real-time right here!"
+      ],
+      "tech": "Architecture: Private WebSocket rooms per parent ensuring strict data isolation, minimal payload overhead, and real-time sync."
     }
   },
   "simulator": {
