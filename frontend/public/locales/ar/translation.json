@@ -89,7 +89,7 @@
     "notAssigned": "غير معين"
   },
   "roles": {
-    "superadmin": "مدير النظام العام",
+    "superadmin": "مدير النظام",
     "schooladmin": "مدير مدرسة",
     "driver": "سائق",
     "parent": "ولي أمر"
@@ -391,12 +391,18 @@
   },
   "superadmin": {
     "welcomeTitle": "أهلاً بك، {{name}}",
-    "subtitle": "مدير النظام العام (Super Admin)",
+    "subtitle": "مدير النظام (Super Admin)",
     "inviteNewSchool": "دعوة مدرسة جديدة",
     "registeredSchools": "المدارس المسجلة",
     "totalStudents": "إجمالي الطلاب",
     "totalBuses": "إجمالي الحافلات",
+    "searchSchoolPlaceholder": "بحث باسم المدرسة أو المعرّف...",
     "schoolsTable": "المدارس المسجلة",
+    "tabAll": "الكل",
+    "tabActive": "النشطة",
+    "tabPending": "بانتظار التفعيل",
+    "tabExpired": "دعوات منتهية",
+    "tabDisabled": "معطلة إدارياً",
     "schoolName": "المدرسة",
     "schoolId": "معرّف المدرسة",
     "studentsCol": "الطلاب",

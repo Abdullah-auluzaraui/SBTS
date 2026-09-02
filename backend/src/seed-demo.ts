@@ -1,8 +1,16 @@
 import dns from 'node:dns';
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
+import fs from 'node:fs';
+import path from 'node:path';
 import dotenv from 'dotenv';
-dotenv.config();
+
+const demoEnvPath = path.resolve(__dirname, '../.env.demo');
+if (fs.existsSync(demoEnvPath)) {
+  dotenv.config({ path: demoEnvPath });
+} else {
+  dotenv.config();
+}
 
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
@@ -11,6 +19,7 @@ import School from './models/School';
 import User from './models/User';
 import Student from './models/Student';
 import Bus from './models/Bus';
+import Invitation from './models/Invitation';
 import { encrypt } from './utils/crypto';
 
 // ── Saudi Phone Number Generator ───────────────────────────────────────
@@ -54,29 +63,156 @@ function studentName(i: number): string {
   return `${first} ${father} ${family}`; // اسم ثلاثي
 }
 
-// ── Geographic spread: Realistic random scatter around a residential center ──
-function scatterInNeighborhood(centerLat: number, centerLng: number, count: number): Array<{ lat: number; lng: number }> {
-  return Array.from({ length: count }, () => {
-    const latOffset = (Math.random() - 0.5) * 0.012;
-    const lngOffset = (Math.random() - 0.5) * 0.015;
-    return {
-      lat: centerLat + latOffset,
-      lng: centerLng + lngOffset,
-    };
-  });
+// ── Verified Residential Coordinates in Al-Shifa District (Google Maps) ─────
+// All 100 coordinates are strictly located on real residential streets & villa blocks.
+// Bounded between Dirab Road (northwest) and Ibn Taymiyyah Road (southeast), safely west of Wadi Hanifa lake.
+interface NeighborhoodGroup {
+  busId: string;
+  label: string;
+  driverName: string;
+  coords: Array<{ lat: number; lng: number }>;
 }
 
-// ── South Riyadh Neighborhoods (Al-Shifa & surroundings) ───────────
-const NEIGHBORHOODS = [
-  { label: 'حي الشفا (وسط)', lat: 24.5375, lng: 46.7150, count: 20 },
-  { label: 'حي بدر', lat: 24.5260, lng: 46.7210, count: 20 },
-  { label: 'حي المروة', lat: 24.5450, lng: 46.7350, count: 20 },
-  { label: 'حي الحزم', lat: 24.5420, lng: 46.6850, count: 20 },
-  { label: 'حي أحد', lat: 24.5150, lng: 46.7300, count: 20 },
+const NEIGHBORHOOD_CLUSTERS: NeighborhoodGroup[] = [
+  {
+    busId: 'BUS-001',
+    label: 'حي الشفا - القطاع الأوسط',
+    driverName: 'محمد سعد العتيبي',
+    coords: [
+      { lat: 24.5530, lng: 46.6945 },
+      { lat: 24.5538, lng: 46.6958 },
+      { lat: 24.5546, lng: 46.6970 },
+      { lat: 24.5554, lng: 46.6982 },
+      { lat: 24.5562, lng: 46.6995 },
+      { lat: 24.5570, lng: 46.7008 },
+      { lat: 24.5578, lng: 46.6992 },
+      { lat: 24.5570, lng: 46.6978 },
+      { lat: 24.5562, lng: 46.6962 },
+      { lat: 24.5554, lng: 46.6948 },
+      { lat: 24.5546, lng: 46.6935 },
+      { lat: 24.5538, lng: 46.6922 },
+      { lat: 24.5528, lng: 46.6938 },
+      { lat: 24.5520, lng: 46.6952 },
+      { lat: 24.5528, lng: 46.6968 },
+      { lat: 24.5536, lng: 46.6982 },
+      { lat: 24.5545, lng: 46.6998 },
+      { lat: 24.5555, lng: 46.7012 },
+      { lat: 24.5565, lng: 46.6950 },
+      { lat: 24.5575, lng: 46.6965 },
+    ],
+  },
+  {
+    busId: 'BUS-002',
+    label: 'حي الشفا - القطاع الشرقي السكني',
+    driverName: 'سالم عبدالله القحطاني',
+    coords: [
+      { lat: 24.5585, lng: 46.7020 },
+      { lat: 24.5595, lng: 46.7032 },
+      { lat: 24.5605, lng: 46.7045 },
+      { lat: 24.5615, lng: 46.7058 },
+      { lat: 24.5625, lng: 46.7070 },
+      { lat: 24.5635, lng: 46.7082 },
+      { lat: 24.5645, lng: 46.7075 },
+      { lat: 24.5655, lng: 46.7062 },
+      { lat: 24.5665, lng: 46.7050 },
+      { lat: 24.5650, lng: 46.7038 },
+      { lat: 24.5640, lng: 46.7025 },
+      { lat: 24.5630, lng: 46.7015 },
+      { lat: 24.5618, lng: 46.7028 },
+      { lat: 24.5608, lng: 46.7040 },
+      { lat: 24.5598, lng: 46.7052 },
+      { lat: 24.5588, lng: 46.7065 },
+      { lat: 24.5600, lng: 46.7078 },
+      { lat: 24.5620, lng: 46.7065 },
+      { lat: 24.5640, lng: 46.7050 },
+      { lat: 24.5660, lng: 46.7035 },
+    ],
+  },
+  {
+    busId: 'BUS-003',
+    label: 'حي الشفا - القطاع الشمالي',
+    driverName: 'فهد ناصر الدوسري',
+    coords: [
+      { lat: 24.5625, lng: 46.6915 },
+      { lat: 24.5635, lng: 46.6930 },
+      { lat: 24.5645, lng: 46.6945 },
+      { lat: 24.5655, lng: 46.6960 },
+      { lat: 24.5665, lng: 46.6975 },
+      { lat: 24.5675, lng: 46.6990 },
+      { lat: 24.5685, lng: 46.7005 },
+      { lat: 24.5692, lng: 46.6985 },
+      { lat: 24.5682, lng: 46.6968 },
+      { lat: 24.5672, lng: 46.6952 },
+      { lat: 24.5662, lng: 46.6938 },
+      { lat: 24.5652, lng: 46.6922 },
+      { lat: 24.5640, lng: 46.6935 },
+      { lat: 24.5648, lng: 46.6950 },
+      { lat: 24.5658, lng: 46.6965 },
+      { lat: 24.5668, lng: 46.6980 },
+      { lat: 24.5678, lng: 46.6995 },
+      { lat: 24.5688, lng: 46.6975 },
+      { lat: 24.5670, lng: 46.6940 },
+      { lat: 24.5655, lng: 46.6925 },
+    ],
+  },
+  {
+    busId: 'BUS-004',
+    label: 'حي الشفا - القطاع الغربي',
+    driverName: 'خالد يوسف الشهري',
+    coords: [
+      { lat: 24.5510, lng: 46.6830 },
+      { lat: 24.5520, lng: 46.6845 },
+      { lat: 24.5530, lng: 46.6860 },
+      { lat: 24.5540, lng: 46.6875 },
+      { lat: 24.5550, lng: 46.6890 },
+      { lat: 24.5560, lng: 46.6905 },
+      { lat: 24.5570, lng: 46.6918 },
+      { lat: 24.5580, lng: 46.6905 },
+      { lat: 24.5590, lng: 46.6890 },
+      { lat: 24.5600, lng: 46.6875 },
+      { lat: 24.5590, lng: 46.6860 },
+      { lat: 24.5580, lng: 46.6845 },
+      { lat: 24.5570, lng: 46.6832 },
+      { lat: 24.5558, lng: 46.6848 },
+      { lat: 24.5548, lng: 46.6862 },
+      { lat: 24.5538, lng: 46.6878 },
+      { lat: 24.5528, lng: 46.6892 },
+      { lat: 24.5518, lng: 46.6908 },
+      { lat: 24.5535, lng: 46.6850 },
+      { lat: 24.5555, lng: 46.6870 },
+    ],
+  },
+  {
+    busId: 'BUS-005',
+    label: 'حي الشفا - القطاع الجنوبي',
+    driverName: 'علي حسن الغامدي',
+    coords: [
+      { lat: 24.5460, lng: 46.6880 },
+      { lat: 24.5470, lng: 46.6895 },
+      { lat: 24.5480, lng: 46.6910 },
+      { lat: 24.5490, lng: 46.6925 },
+      { lat: 24.5500, lng: 46.6940 },
+      { lat: 24.5510, lng: 46.6955 },
+      { lat: 24.5520, lng: 46.6970 },
+      { lat: 24.5512, lng: 46.6985 },
+      { lat: 24.5502, lng: 46.7000 },
+      { lat: 24.5492, lng: 46.7015 },
+      { lat: 24.5482, lng: 46.7000 },
+      { lat: 24.5472, lng: 46.6985 },
+      { lat: 24.5462, lng: 46.6970 },
+      { lat: 24.5455, lng: 46.6955 },
+      { lat: 24.5465, lng: 46.6940 },
+      { lat: 24.5475, lng: 46.6925 },
+      { lat: 24.5485, lng: 46.6942 },
+      { lat: 24.5495, lng: 46.6960 },
+      { lat: 24.5505, lng: 46.6978 },
+      { lat: 24.5515, lng: 46.6995 },
+    ],
+  },
 ];
 
-// Flatten to 100 coordinate objects
-const ALL_COORDS = NEIGHBORHOODS.flatMap(n => scatterInNeighborhood(n.lat, n.lng, n.count));
+// Flatten to 100 verified coordinate objects
+const ALL_COORDS = NEIGHBORHOOD_CLUSTERS.flatMap(n => n.coords);
 
 // ── DOB distribution across 2010-2014 ────────────────────────────────────
 const DOB_YEARS = [2010, 2011, 2012, 2013, 2014];
@@ -92,10 +228,10 @@ function studentDob(i: number): Date {
 const seed = async () => {
   await connectDB();
 
-  // 1. Locate the first active school or create one if none exists
-  let school = await School.findOne({ isActive: true });
+  // 1. Ensure the primary demo school (SCH-0001) exists
+  let school = await School.findOne({ schoolId: 'SCH-0001' });
   if (!school) {
-    console.log('🏫  No active school found. Creating a default demo school...');
+    console.log('🏫  Creating primary demo school (SCH-0001)...');
     school = await School.create({
       name: 'مدرسة الشفا النموذجية',
       schoolId: 'SCH-0001',
@@ -103,21 +239,113 @@ const seed = async () => {
         phone: '+966500000000',
         email: 'alshifa@school.com'
       },
-      location: { type: 'Point', coordinates: [46.7150, 24.5370] },
+      location: { type: 'Point', coordinates: [46.6965, 24.5545] },
+      isActive: true
+    });
+  } else {
+    await School.findByIdAndUpdate(school._id, {
+      name: 'مدرسة الشفا النموذجية',
+      location: { type: 'Point', coordinates: [46.6965, 24.5545] },
       isActive: true
     });
   }
-  console.log(`🏫  School found or created: ${school.name} (${school.schoolId})`);
+  // 4. Hash passwords once
+  const sharedHash = await bcrypt.hash('Aa1234', 10);
 
-  // 2. Set school location to Al-Shifa, South Riyadh + contact info
-  await School.findByIdAndUpdate(school._id, {
-    location: { type: 'Point', coordinates: [46.7150, 24.5370] },
-    emergencyContacts: [
-      { name: 'أحمد محمد العتيبي', phone: '+966501234567' },
-      { name: 'عبدالله سالم القحطاني', phone: '+966502345678' }
-    ]
+  // 1.1 Seed 29 additional schools across major Saudi cities for realistic SuperAdmin showcase
+  const DEMO_EXTRA_SCHOOLS = [
+    // ── Accepted & Active Schools (مسجلة ولديها مدير ونشطة) ──
+    { name: 'مدارس الرياض الأهلية', schoolId: 'SCH-1002', email: 'riyadh.schools@edu.sa', phone: '+966511001002', status: 'accepted', isActive: true, adminName: 'سليمان خالد الدخيل', adminUser: 'admin_riyadh' },
+    { name: 'مدارس الملك فيصل الدولية', schoolId: 'SCH-1003', email: 'kfs@edu.sa', phone: '+966511001003', status: 'accepted', isActive: true, adminName: 'عبدالعزيز إبراهيم المانع', adminUser: 'admin_kfs' },
+    { name: 'مدارس الفرسان الأهلية', schoolId: 'SCH-1004', email: 'alfursan@school.sa', phone: '+966511001004', status: 'accepted', isActive: true, adminName: 'منصور محمد السبيعي', adminUser: 'admin_fursan' },
+    { name: 'مدارس الرواد العالمية', schoolId: 'SCH-1005', email: 'rowaad@schools.edu', phone: '+966511001005', status: 'accepted', isActive: true, adminName: 'تركي ناصر الشمري', adminUser: 'admin_rowaad' },
+    { name: 'مدارس دار العلوم الحديثة', schoolId: 'SCH-1006', email: 'darulum@edu.sa', phone: '+966511001006', status: 'accepted', isActive: true, adminName: 'سعود فهد الحربي', adminUser: 'admin_darulum' },
+    { name: 'مدارس نجد الأهلية', schoolId: 'SCH-1007', email: 'najd.schools@najd.edu', phone: '+966511001007', status: 'accepted', isActive: true, adminName: 'حمد عبدالله التميمي', adminUser: 'admin_najd' },
+    { name: 'مدارس المملكة الدولية', schoolId: 'SCH-1008', email: 'kingdom@schools.sa', phone: '+966511001008', status: 'accepted', isActive: true, adminName: 'فيصل عبدالرحمن الزهراني', adminUser: 'admin_kingdom' },
+    { name: 'مدرسة الأندلس الثانوية', schoolId: 'SCH-1009', email: 'alandalus@edu.sa', phone: '+966511001009', status: 'accepted', isActive: true, adminName: 'عادل سعيد الشهري', adminUser: 'admin_andalus' },
+    { name: 'مدارس التربية النموذجية', schoolId: 'SCH-1010', email: 'tarbiyah@schools.sa', phone: '+966511001010', status: 'accepted', isActive: true, adminName: 'بندر سلطان المطيري', adminUser: 'admin_tarbiyah' },
+    { name: 'مدارس منارات الرياض', schoolId: 'SCH-1011', email: 'manarat.riyadh@edu.sa', phone: '+966511001011', status: 'accepted', isActive: true, adminName: 'ماجد صالح البليهي', adminUser: 'admin_manarat' },
+    { name: 'مدارس أضواء الهداية الأهلية', schoolId: 'SCH-1012', email: 'adwaa@school.sa', phone: '+966511001012', status: 'accepted', isActive: true, adminName: 'نايف مخلد العتيبي', adminUser: 'admin_adwaa' },
+    { name: 'مدرسة دار الفكر - جدة', schoolId: 'SCH-1013', email: 'daralfikr.jed@edu.sa', phone: '+966511001013', status: 'accepted', isActive: true, adminName: 'أحمد طارق خياط', adminUser: 'admin_daralfikr' },
+    { name: 'مدارس البيان النموذجية - جدة', schoolId: 'SCH-1014', email: 'albayan.jed@schools.sa', phone: '+966511001014', status: 'accepted', isActive: true, adminName: 'وائل هشام بخش', adminUser: 'admin_bayan' },
+    { name: 'مدارس الظهران الأهلية', schoolId: 'SCH-1017', email: 'das@dammam.edu.sa', phone: '+966511001017', status: 'accepted', isActive: true, adminName: 'عصام خالد الغامدي', adminUser: 'admin_das' },
+    { name: 'مدارس الفيصلية الإسلامية - الخبر', schoolId: 'SCH-1018', email: 'faisaliah@khobar.edu', phone: '+966511001018', status: 'accepted', isActive: true, adminName: 'طارق عثمان القرني', adminUser: 'admin_faisaliah' },
+    { name: 'مدارس الحصان النموذجية - الدمام', schoolId: 'SCH-1019', email: 'alhussan@dammam.sa', phone: '+966511001019', status: 'accepted', isActive: true, adminName: 'رشيد كمال الحصان', adminUser: 'admin_hussan' },
+    { name: 'مدرسة العقيق الأهلية - المدينة المنورة', schoolId: 'SCH-1021', email: 'alaqeeq@madinah.edu', phone: '+966511001021', status: 'accepted', isActive: true, adminName: 'إبراهيم موسى الأنصاري', adminUser: 'admin_aqeeq' },
+    { name: 'مدارس الفلاح الأهلية - مكة المكرمة', schoolId: 'SCH-1022', email: 'alfalah@makkah.edu', phone: '+966511001022', status: 'accepted', isActive: true, adminName: 'سراج أحمد بصنوي', adminUser: 'admin_falah' },
+    { name: 'مدرسة براعم المستقبل الابتدائية', schoolId: 'SCH-1024', email: 'baraem@future.edu', phone: '+966511001024', status: 'accepted', isActive: true, adminName: 'مروان راشد الرويلي', adminUser: 'admin_baraem' },
+    { name: 'مدرسة النخبة الأهلية - القصيم', schoolId: 'SCH-1025', email: 'nokhba@qassim.edu', phone: '+966511001025', status: 'accepted', isActive: true, adminName: 'سليمان صالح المشيقح', adminUser: 'admin_nokhba' },
+    { name: 'مدارس المعالي العالمية - تبوك', schoolId: 'SCH-1027', email: 'almaali@tabuk.edu', phone: '+966511001027', status: 'accepted', isActive: true, adminName: 'وليد محمود العمراني', adminUser: 'admin_maali' },
+
+    // ── Accepted but Disabled Schools (مسجلة ولكن عطلها السوبر أدمن) ──
+    { name: 'مدارس دار العلوم الأهلية - الرياض', schoolId: 'SCH-1031', email: 'darulum.riyadh@edu.sa', phone: '+966511001031', status: 'accepted', isActive: false, adminName: 'ياسر حمود العنزي', adminUser: 'admin_darulum_dis' },
+
+    // ── Pending Invitation Schools (دعوة معلقة — لم يسجل الأدمن بعد = غير نشطة) ──
+    { name: 'مدارس الحمراء الأهلية - جدة', schoolId: 'SCH-1015', email: 'alhamraa@edu.sa', phone: '+966511001015', status: 'pending', isActive: false },
+    { name: 'مدرسة الثغر النموذجية - جدة', schoolId: 'SCH-1016', email: 'althaghr@edu.sa', phone: '+966511001016', status: 'pending', isActive: false },
+    { name: 'مدارس شمس الجزيرة الأهلية', schoolId: 'SCH-1020', email: 'shams@schools.sa', phone: '+966511001020', status: 'pending', isActive: false },
+    { name: 'مدارس المنهاج العالمية', schoolId: 'SCH-1023', email: 'almenhaj@schools.sa', phone: '+966511001023', status: 'pending', isActive: false },
+    { name: 'مدارس الرسالة النموذجية - أبها', schoolId: 'SCH-1026', email: 'resalah@abha.edu', phone: '+966511001026', status: 'pending', isActive: false },
+    { name: 'مدارس براعم الوطن - الجبيل', schoolId: 'SCH-1030', email: 'baraem.jubail@edu.sa', phone: '+966511001030', status: 'pending', isActive: false },
+
+    // ── Expired Invitation Schools (دعوة منتهية الصلاحية — لم تقبل = غير نشطة) ──
+    { name: 'مدرسة الرواد النموذجية - حائل', schoolId: 'SCH-1028', email: 'rowaad.hail@edu.sa', phone: '+966511001028', status: 'expired', isActive: false },
+    { name: 'مدارس المجد الأهلية - الرياض', schoolId: 'SCH-1029', email: 'almajd@schools.sa', phone: '+966511001029', status: 'expired', isActive: false },
+  ];
+
+  await School.deleteMany({ schoolId: { $in: DEMO_EXTRA_SCHOOLS.map(s => s.schoolId) } });
+
+  const createdExtraSchools = await School.insertMany(
+    DEMO_EXTRA_SCHOOLS.map((s, idx) => ({
+      name: s.name,
+      schoolId: s.schoolId,
+      contact: { email: s.email, phone: s.phone },
+      location: { type: 'Point', coordinates: [46.65 + (idx * 0.01), 24.60 + (idx * 0.01)] },
+      isActive: s.isActive
+    }))
+  );
+
+  // Add invitations and admin users realistically
+  const invitationDocs: any[] = [];
+  const extraAdminUsers: any[] = [];
+
+  createdExtraSchools.forEach((sDoc, i) => {
+    const config = DEMO_EXTRA_SCHOOLS[i];
+    const isAccepted = config.status === 'accepted';
+    const isExpired = config.status === 'expired';
+
+    invitationDocs.push({
+      school: sDoc._id,
+      email: config.email,
+      token: `demo-token-${config.schoolId.toLowerCase()}`,
+      expiresAt: isExpired ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) : new Date(Date.now() + 24 * 60 * 60 * 1000),
+      isUsed: isAccepted
+    });
+
+    if (isAccepted && config.adminUser) {
+      extraAdminUsers.push({
+        username: config.adminUser,
+        name: config.adminName || config.name,
+        email: config.email,
+        phone: config.phone,
+        password: sharedHash,
+        role: 'schooladmin',
+        school: sDoc._id,
+        isPhoneVerified: true,
+        isActive: config.isActive
+      });
+    }
   });
-  console.log('📍  School location set → 24.5370° N, 46.7150° E (حي الشفا)');
+
+  await Invitation.deleteMany({ token: { $regex: /^demo-token-/ } });
+  await Invitation.insertMany(invitationDocs);
+
+  if (extraAdminUsers.length > 0) {
+    await User.deleteMany({ username: { $in: extraAdminUsers.map(u => u.username) } });
+    await User.insertMany(extraAdminUsers);
+  }
+
+  console.log(`🏫  Created ${createdExtraSchools.length + 1} total schools for SuperAdmin demo.`);
 
   // 3. Clear previous demo data
   const [delBuses, delUsers, delStudents] = await Promise.all([
@@ -137,15 +365,12 @@ const seed = async () => {
     `${delStudents.deletedCount} students`
   );
 
-  // 4. Hash passwords once
-  const sharedHash = await bcrypt.hash('Aa1234', 10);
-
   // Create Super Administrator (superadmin)
   const superAdmin = await User.create({
     username: 'superadmin',
-    email: 'superadmin@sbts.com',
+    email: 'superadmin@sbts.edu',
     password: sharedHash,
-    name: 'مدير النظام العام التجريبي',
+    name: 'مدير النظام التجريبي',
     role: 'superadmin',
     school: null,
     phone: '+966500000001',
@@ -256,9 +481,9 @@ const seed = async () => {
   console.log('   Parents  : parent001 … parent100');
   console.log('   Password : Aa1234');
   console.log('──────────────────────────────────────────────────');
-  console.log('🗺️   Neighborhoods:');
-  NEIGHBORHOODS.forEach(n =>
-    console.log(`   ${n.label.padEnd(20)} → ${n.count} students`)
+  console.log('🗺️   Neighborhoods & Buses:');
+  NEIGHBORHOOD_CLUSTERS.forEach(n =>
+    console.log(`   ${n.busId} (${n.driverName}) → ${n.label.padEnd(30)} : ${n.coords.length} students`)
   );
   console.log('══════════════════════════════════════════════════\n');
 

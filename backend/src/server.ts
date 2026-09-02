@@ -2,7 +2,7 @@ import dns from 'node:dns';
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config(); // Reload env
 
 import express from 'express';
 import cors from 'cors';
@@ -106,4 +106,7 @@ io.on('connection', async (socket: Socket) => {
   });
 });
 
-httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+httpServer.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Mode: ${process.env.DEMO_MODE === 'true' ? '🚀 DEMO MODE ACTIVE (Isolated Demo Environment)' : '🔒 STANDARD / PROD MODE'}`);
+});

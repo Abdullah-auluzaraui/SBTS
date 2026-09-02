@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { Bus, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import LanguageSwitcher from '../components/LanguageSwitcher';
-import DemoLoginBar from '../components/DemoLoginBar';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -22,23 +21,6 @@ const Login = () => {
         setError('');
         try {
             await login(username, password);
-        } catch (err: unknown) {
-            const errObj = err as { errorCode?: string; message?: string };
-            const errorMessages: Record<string, string> = {
-                INVALID_CREDENTIALS: t('auth.errors.invalidCredentials'),
-                ACCOUNT_INACTIVE: t('auth.errors.accountInactive'),
-                NETWORK_ERROR: t('auth.errors.networkError'),
-            };
-            setError(errorMessages[errObj.errorCode || ''] || errObj.message || t('auth.errors.loginFailed'));
-        }
-    };
-
-    const handleDemoLogin = async (demoUsername: string, demoPassword: string) => {
-        setError('');
-        setUsername(demoUsername);
-        setPassword(demoPassword);
-        try {
-            await login(demoUsername, demoPassword);
         } catch (err: unknown) {
             const errObj = err as { errorCode?: string; message?: string };
             const errorMessages: Record<string, string> = {
@@ -142,8 +124,6 @@ const Login = () => {
                         </p>
                     </div>
                 </form>
-
-                <DemoLoginBar onDemoLogin={handleDemoLogin} loading={loading} />
 
                 {error && (
                     <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">

@@ -33,9 +33,11 @@ function App(): React.JSX.Element {
     document.documentElement.dir = dir;
   }, [i18n.language]);
 
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
   return (
     <>
-      <DemoRoleSwitcher />
+      {isDemoMode && <DemoRoleSwitcher />}
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Navigate to="/login" replace />} />
