@@ -5,6 +5,7 @@ import { GraduationCap, Plus, Upload, X, Loader2, AlertCircle, CheckCircle2, Use
 import UnlinkParentModal from '../../components/UnlinkParentModal';
 import RelinkParentModal from '../../components/RelinkParentModal';
 import { IApiStudent } from '../../types/api';
+import { isValidSaudiId, sanitizeSaudiId } from '../../utils/validation';
 
 interface ICsvError {
   key: string;
@@ -64,6 +65,12 @@ const StudentManagement = () => {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setSuccess('');
+
+        if (!isValidSaudiId(form.nationalId)) {
+            setError('رقم الهوية الوطنية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 (للسعوديين) أو 2 (للمقيمين).');
+            return;
+        }
+
         setFormLoading(true);
         try {
             const { data } = await api.post('/students', form);
@@ -71,8 +78,19 @@ const StudentManagement = () => {
             setForm({ name: '', nationalId: '', dob: '' });
             fetchStudents();
         } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setError(axiosErr.response?.data?.message || 'حدث خطأ');
+            const axiosErr = err as { response?: { data?: { message?: string; code?: string; details?: string } } };
+            const data = axiosErr.response?.data;
+            if (data?.message) {
+                setError(data.message);
+            } else if (data?.code === 'INVALID_NATIONAL_ID') {
+                setError('رقم الهوية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 أو 2.');
+            } else if (data?.code === 'VALIDATION_ERROR') {
+                setError('يرجى إدخال اسم ثلاثي كامل (مثال: خالد محمد العتيبي)، ورقم هوية وتاريخ ميلاد صحيحين.');
+            } else if (data?.code === 'DUPLICATE_NAME') {
+                setError('يوجد طالب مسجل بنفس هذا الاسم في المدرسة بالفعل.');
+            } else {
+                setError('حدث خطأ أثناء إضافة الطالب، يرجى المحاولة مرة أخرى.');
+            }
         } finally { setFormLoading(false); }
     };
 
@@ -97,6 +115,14 @@ const StudentManagement = () => {
     const handleEditStudent = async (e: React.FormEvent) => {
         e.preventDefault();
         setEditError('');
+
+        if (editForm.nationalId && editForm.nationalId.trim() !== '') {
+            if (!isValidSaudiId(editForm.nationalId)) {
+                setEditError('رقم الهوية الوطنية غير صحيح، يجب أن يتكون من 10 أرقام ويبدأ بـ 1 أو 2.');
+                return;
+            }
+        }
+
         setEditLoading(true);
         try {
             await api.patch(`/students/${editStudent!.id}`, {
@@ -106,8 +132,9 @@ const StudentManagement = () => {
             setEditStudent(null);
             fetchStudents();
         } catch (err: unknown) {
-            const axiosErr = err as { response?: { data?: { message?: string } } };
-            setEditError(axiosErr.response?.data?.message || t('studentManagement.errors.updateError'));
+            const axiosErr = err as { response?: { data?: { message?: string; code?: string } } };
+            const data = axiosErr.response?.data;
+            setEditError(data?.message || t('studentManagement.errors.updateError'));
         } finally { setEditLoading(false); }
     };
 
@@ -220,15 +247,28 @@ const StudentManagement = () => {
                         <p className="text-xs text-gray-400 text-center mb-6">{t('studentManagement.addStudentHint')}</p>
                         <form onSubmit={handleCreate} className="space-y-4">
                             <div className="space-y-1.5">
-                                <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.studentNameLabel')}</label>
+                                <label className="block text-gray-700 font-bold text-sm px-1">
+                                    {t('studentManagement.studentNameLabel')} <span className="text-xs font-normal text-gray-400">(اسم ثلاثي كامل)</span>
+                                </label>
                                 <input type="text" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all" placeholder="خالد محمد العتيبي" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.nationalId')}</label>
-                                    <input type="text" required value={form.nationalId} onChange={e => setForm({ ...form, nationalId: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left" dir="ltr" placeholder="10xxxxxxxx" />
+                                    <label className="block text-gray-700 font-bold text-sm px-1">
+                                        {t('studentManagement.nationalId')} <span className="text-xs font-normal text-gray-400">(10 أرقام)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        required
+                                        value={form.nationalId}
+                                        onChange={e => setForm({ ...form, nationalId: sanitizeSaudiId(e.target.value) })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-left font-mono tracking-wider"
+                                        dir="ltr"
+                                        placeholder="10xxxxxxxx"
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-gray-700 font-bold text-sm px-1">{t('studentManagement.dob')}</label>
@@ -284,15 +324,17 @@ const StudentManagement = () => {
                                 </div>
                                 <div className="relative">
                                     <input
-                                        type="text" 
+                                        type="text"
+                                        inputMode="numeric"
+                                        maxLength={10}
                                         value={editForm.nationalId}
-                                        onChange={e => setEditForm({ ...editForm, nationalId: e.target.value })}
+                                        onChange={e => setEditForm({ ...editForm, nationalId: sanitizeSaudiId(e.target.value) })}
                                         placeholder="10xxxxxxxx"
                                         disabled={editStudent.parentLinked}
                                         readOnly={editStudent.parentLinked}
                                         aria-describedby="edit-nationalid-hint"
                                         title={editStudent.parentLinked ? t('studentManagement.nationalIdLockedHint') : undefined}
-                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-start ${editStudent.parentLinked
+                                        className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all text-start font-mono ${editStudent.parentLinked
                                             ? 'bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed pe-10'
                                             : 'bg-gray-50 border-gray-200 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500'
                                         }`}

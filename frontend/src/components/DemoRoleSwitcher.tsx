@@ -13,10 +13,10 @@ import {
   Check,
   AlertCircle,
   Sparkles,
-  X,
-  Layers
+  X
 } from 'lucide-react';
 import api from '../services/apiService';
+import DemoGuideModal from './DemoGuideModal';
 
 const DEMO_USERS_MAP: Record<UserRole, { username: string; labelAr: string; labelEn: string; icon: any; color: string; descAr: string }> = {
   driver: {
@@ -41,7 +41,7 @@ const DEMO_USERS_MAP: Record<UserRole, { username: string; labelAr: string; labe
     labelEn: 'School Admin',
     icon: School,
     color: 'bg-blue-50 text-blue-800 border-blue-200',
-    descAr: 'خريطة الأسطول وسجلات الحضور'
+    descAr: 'متابعة الحافلات وسجلات الحضور'
   },
   superadmin: {
     username: 'superadmin',
@@ -130,12 +130,12 @@ export const DemoRoleSwitcher: React.FC = () => {
     <>
       {/* Toast Notification (Both Desktop & Mobile) */}
       {notification && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[99999] font-sans">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[999999] font-sans pointer-events-none">
           <div
-            className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 shadow-xl border animate-in fade-in slide-in-from-top-2 ${
+            className={`px-4 py-2 rounded-full text-xs font-bold flex items-center justify-center gap-2 shadow-2xl border animate-in fade-in slide-in-from-top-2 ${
               notification.type === 'success'
-                ? 'bg-emerald-600 text-white border-emerald-700'
-                : 'bg-rose-600 text-white border-rose-700'
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-900/20'
+                : 'bg-rose-600 text-white border-rose-700 shadow-rose-900/20'
             }`}
           >
             {notification.type === 'success' ? <Check size={14} /> : <AlertCircle size={14} />}
@@ -367,108 +367,20 @@ export const DemoRoleSwitcher: React.FC = () => {
         </div>
       )}
 
-      {/* Interactive Recruiter Demo Guide Modal */}
-      {showGuideModal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4"
-          onClick={() => setShowGuideModal(false)}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-xl p-6 sm:p-8 relative overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-150 text-right font-sans max-h-[90vh] overflow-y-auto"
-            dir={isRtl ? 'rtl' : 'ltr'}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowGuideModal(false)}
-              className="absolute top-4 left-4 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 shadow-sm shrink-0">
-                <Sparkles size={24} strokeWidth={2} />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                  {isRtl ? 'دليل تجربة النظام السريع (3 خطوات)' : 'Quick 3-Step Demo Walkthrough'}
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {isRtl ? 'سلسلة تجربة متكاملة لإبراز قدرات النظام اللحظية' : 'Experience full real-time tracking in 2 minutes'}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 my-4 text-sm">
-              {/* Step 1 */}
-              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                  1
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-amber-900 flex items-center gap-1.5 text-xs sm:text-sm">
-                    <Bus size={14} />
-                    {isRtl ? 'السائق (Driver - driver01):' : 'Driver (driver01):'}
-                  </h4>
-                  <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
-                    {isRtl
-                      ? 'اضغط "بدء الرحلة"، ثم شغّل المحاكي (Simulator) وشاهد صعود الطلاب التلقائي بـ NFC عند وصول الحافلة لباب منازلهم.'
-                      : 'Click "Start Trip", run the Simulator, and watch automatic NFC boarding when the bus reaches student houses.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                  2
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-emerald-900 flex items-center gap-1.5 text-xs sm:text-sm">
-                    <Users size={14} />
-                    {isRtl ? 'ولي الأمر (Parent - parent001):' : 'Parent (parent001):'}
-                  </h4>
-                  <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                    {isRtl
-                      ? 'انتقل لحساب ولي الأمر واضغط "تتبع الحافلة" لمشاهدة حافلة الابن تتحرك حياً على الخريطة عبر الـ WebSockets واستلام تنبيه الاقتراب.'
-                      : 'Switch to Parent, click "Track Bus", and watch live bus movement with proximity alerts via WebSockets.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200/80 flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-                  3
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-blue-900 flex items-center gap-1.5 text-xs sm:text-sm">
-                    <School size={14} />
-                    {isRtl ? 'مدير المدرسة (Admin - s_admin):' : 'School Admin (s_admin):'}
-                  </h4>
-                  <p className="text-xs text-blue-800 mt-0.5 leading-relaxed">
-                    {isRtl
-                      ? 'انتقل لحساب مدير المدرسة وافتح "خريطة الأسطول" لمتابعة الحافلات الـ 5 معاً، وتصفح "سجلات الحضور" اللحظية.'
-                      : 'Switch to School Admin, view the Fleet Map to monitor all 5 buses, and inspect real-time attendance logs.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-              <span className="text-[11px] text-gray-400">
-                {isRtl ? 'كلمة المرور: Aa1234' : 'Password: Aa1234'}
-              </span>
-              <button
-                onClick={() => setShowGuideModal(false)}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
-              >
-                {isRtl ? 'فهمت، لنبدأ' : 'Got it'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Interactive Recruiter & User Demo Guide Modal */}
+      <DemoGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onSwitchRole={handleRoleSwitch}
+        onTourComplete={() => {
+          setNotification({
+            type: 'success',
+            message: isRtl ? '🎉 أكملت جولة الدليل بنجاح! استكشف ميزات النظام بحرية' : '🎉 Tour complete! Feel free to explore the system.'
+          });
+          setTimeout(() => setNotification(null), 4000);
+        }}
+        currentRole={user?.role}
+      />
     </>
   );
 };

@@ -4,7 +4,7 @@ import User from '../models/User';
 import Student, { IStudent } from '../models/Student';
 import Invitation from '../models/Invitation';
 import OTP, { IOTP } from '../models/OTP';
-import { ISchool } from '../models/School';
+import School, { ISchool } from '../models/School';
 import { decrypt } from '../utils/crypto';
 import generateToken from '../utils/generateToken';
 import { AppError } from '../utils/AppError';
