@@ -1,16 +1,20 @@
 {
   "name": "sbts-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "SBTS - Smart School Bus Tracking System Backend API",
   "main": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "demo": "ts-node-dev --respawn --transpile-only -r dotenv/config src/server.ts -- dotenv_config_path=.env.demo",
     "build": "tsc",
-    "start": "node dist/server.js",
-    "start:demo": "node -r dotenv/config dist/server.js -- dotenv_config_path=.env.demo",
+    "start": "node dist/backend/src/server.js",
+    "start:demo": "node -r dotenv/config dist/backend/src/server.js -- dotenv_config_path=.env.demo",
     "seed": "ts-node src/seed.ts",
-    "seed-demo": "ts-node src/seed-demo.ts"
+    "seed-demo": "ts-node src/seed-demo.ts",
+    "seed-demo:prod": "node dist/backend/src/seed-demo.js"
   },
   "keywords": [],
   "author": "",
@@ -26,12 +30,10 @@
     "firebase-admin": "^13.9.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "leaflet": "^1.9.4",
     "mongoose": "^9.2.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.3",
     "puppeteer": "^24.42.0",
-    "react-leaflet": "^5.0.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

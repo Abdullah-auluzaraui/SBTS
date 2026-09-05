@@ -1,5 +1,8 @@
 import dns from 'node:dns';
-dns.setServers(['1.1.1.1', '8.8.8.8']);
+// Only override DNS when explicitly requested (in Docker, overriding DNS breaks internal container name resolution)
+if (process.env.OVERRIDE_DNS === 'true') {
+  dns.setServers(['1.1.1.1', '8.8.8.8']);
+}
 
 import dotenv from 'dotenv';
 dotenv.config(); // Reload env
@@ -16,6 +19,7 @@ import { getNodeErrorMessage } from './utils/errorUtils';
 import connectDB from './config/db';
 import * as socketUtil from './utils/socket';
 import User from './models/User';
+import bcrypt from 'bcryptjs';
 
 // TS Routers (Phase 2.1 & Phase 2.2)
 import authRoutes from './routes/authRoutes';
@@ -35,7 +39,40 @@ import demoGuard from './middleware/demoGuard';
 
 const app = express();
 
-connectDB();
+connectDB().then(async () => {
+  try {
+    if (process.env.DEMO_MODE === 'true') {
+      const userCount = await User.countDocuments();
+      if (userCount === 0) {
+        console.log('🌱 Database is empty and DEMO_MODE=true. Automatically seeding demo data...');
+        const { runSeed } = await import('./seed-demo');
+        await runSeed();
+        console.log('✅ Auto-seed completed successfully.');
+      }
+    } else {
+      // Standard/Production Mode: Ensure at least one Super Admin exists to manage the platform
+      const superAdminExists = await User.findOne({ role: 'superadmin' });
+      if (!superAdminExists) {
+        const username = process.env.SUPERADMIN_USERNAME || 'superadmin';
+        const password = process.env.SUPERADMIN_PASSWORD || 'Aa1234';
+        const email = process.env.SUPERADMIN_EMAIL || 'superadmin@sbts.com';
+        const hash = await bcrypt.hash(password, 10);
+        await User.create({
+          username,
+          email,
+          password: hash,
+          name: 'مدير النظام (Super Admin)',
+          role: 'superadmin',
+          school: null,
+          isActive: true
+        });
+        console.log(`👑 [System Bootstrap] Created default Super Admin account: "${username}"`);
+      }
+    }
+  } catch (err: any) {
+    console.warn('⚠️ Bootstrap check warning:', err.message);
+  }
+});
 
 app.use(express.json());
 app.use(cors());
@@ -56,12 +93,16 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/demo', demoRoutes);
 
-import { errorHandler } from './middleware/errorHandler';
-app.use(errorHandler);
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
 
 app.get('/', (_req, res) => {
-  res.send(' SBTS Backend Running Successfully');
+  res.send('SBTS Backend Running Successfully');
 });
+
+import { errorHandler } from './middleware/errorHandler';
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 const httpServer = http.createServer(app);

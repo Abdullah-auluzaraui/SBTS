@@ -123,11 +123,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       navigate(ROLE_ROUTES[data.user.role] ?? '/login');
       return data;
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: ApiErrorPayload } };
-      const payload: ApiErrorPayload = axiosErr.response?.data ?? {
+      const axiosErr = err as { response?: { data?: any } };
+      const raw = axiosErr.response?.data;
+      const payload: ApiErrorPayload = {
         success: false,
-        errorCode: 'NETWORK_ERROR',
-        message: 'Cannot reach the server. Please check your connection.',
+        errorCode: raw?.errorCode || raw?.code || 'NETWORK_ERROR',
+        message: raw?.message || 'Cannot reach the server. Please check your connection.',
       };
       throw payload;
     } finally {
