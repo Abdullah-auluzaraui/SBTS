@@ -1,5 +1,7 @@
 import dns from 'node:dns';
-dns.setServers(['1.1.1.1', '8.8.8.8']);
+if (process.env.OVERRIDE_DNS === 'true') {
+  dns.setServers(['1.1.1.1', '8.8.8.8']);
+}
 
 import fs from 'node:fs';
 import path from 'node:path';

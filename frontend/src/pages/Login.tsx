@@ -22,13 +22,15 @@ const Login = () => {
         try {
             await login(username, password);
         } catch (err: unknown) {
-            const errObj = err as { errorCode?: string; message?: string };
+            const errObj = err as { errorCode?: string; code?: string; message?: string };
+            const errorKey = errObj.errorCode || errObj.code || (errObj.message && ['INVALID_CREDENTIALS', 'ACCOUNT_INACTIVE', 'NETWORK_ERROR', 'USER_NOT_FOUND'].includes(errObj.message) ? errObj.message : '');
             const errorMessages: Record<string, string> = {
                 INVALID_CREDENTIALS: t('auth.errors.invalidCredentials'),
+                USER_NOT_FOUND: t('auth.errors.invalidCredentials'),
                 ACCOUNT_INACTIVE: t('auth.errors.accountInactive'),
                 NETWORK_ERROR: t('auth.errors.networkError'),
             };
-            setError(errorMessages[errObj.errorCode || ''] || errObj.message || t('auth.errors.loginFailed'));
+            setError(errorMessages[errorKey] || (errObj.message && !errorMessages[errObj.message] ? errObj.message : t('auth.errors.loginFailed')));
         }
     };
 

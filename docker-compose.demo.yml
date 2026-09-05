@@ -1,0 +1,19 @@
+# SBTS Demo Mode Docker Compose Override
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# This file activates:
+#   1. DEMO_MODE=true on the backend (enables demo accounts, auto-seeding, and /api/demo endpoints)
+#   2. Isolated Demo Database (SBTS_DEMO) so real production data is never touched
+#   3. VITE_DEMO_MODE=true on the frontend (enables top floating Demo Role Switcher bar & guide)
+
+services:
+  backend:
+    environment:
+      - DEMO_MODE=true
+      - MONGO_URI=mongodb://mongodb:27017/SBTS_DEMO
+
+  frontend:
+    build:
+      args:
+        - VITE_DEMO_MODE=true
