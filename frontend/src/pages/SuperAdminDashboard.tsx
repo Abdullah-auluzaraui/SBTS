@@ -6,7 +6,7 @@ import api from '../services/apiService';
 import {
     Shield, School, Users, Plus, X, Loader2, AlertCircle, CheckCircle2,
     ToggleLeft, ToggleRight, Copy, RefreshCw, Bus, Link2, Clock,
-    Search, ChevronLeft, ChevronRight
+    Search, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 
 
@@ -620,9 +620,16 @@ const SuperAdminDashboard: React.FC = () => {
                                         <input type="text" readOnly value={inviteSuccess.link}
                                             className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono text-gray-700" dir="ltr" />
                                         <button onClick={() => copyLink(inviteSuccess.link)}
+                                            title="نسخ الرابط"
                                             className={`p-2 rounded-lg transition-colors ${copied ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-600'}`}>
                                             {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                                         </button>
+                                        <a href={inviteSuccess.link} target="_blank" rel="noopener noreferrer"
+                                            title="فتح رابط التسجيل في تبويب جديد"
+                                            className="px-2.5 py-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-1.5 text-xs font-bold">
+                                            <ExternalLink size={14} />
+                                            <span>تجربة الرابط</span>
+                                        </a>
                                     </div>
                                 </div>
 
@@ -631,6 +638,9 @@ const SuperAdminDashboard: React.FC = () => {
                                     <span>{t('superadmin.validFor24h')}</span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">{t('superadmin.sendLinkHint', { email: inviteSuccess.email })}</p>
+                                <div className="mt-2 text-xs text-indigo-600 bg-indigo-50/70 border border-indigo-100 rounded-xl p-2 font-medium">
+                                    💡 يمكنك الضغط على <strong>«تجربة الرابط»</strong> مباشرة لاختبار رحلة تسجيل مدير المدرسة كديمو.
+                                </div>
                                 <button onClick={() => setShowInviteModal(false)} className="mt-4 px-6 py-2.5 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors">{t('common.close')}</button>
                             </div>
                         ) : (
@@ -689,9 +699,16 @@ const SuperAdminDashboard: React.FC = () => {
                                             <input type="text" readOnly value={resendResult}
                                                 className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono text-gray-700" dir="ltr" />
                                             <button onClick={() => copyLink(resendResult)}
+                                                title="نسخ الرابط"
                                                 className={`p-2 rounded-lg transition-colors ${copied ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600 hover:bg-indigo-100 hover:text-indigo-600'}`}>
                                                 {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                                             </button>
+                                            <a href={resendResult} target="_blank" rel="noopener noreferrer"
+                                                title="فتح رابط التسجيل في تبويب جديد"
+                                                className="px-2.5 py-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-1.5 text-xs font-bold">
+                                                <ExternalLink size={14} />
+                                                <span>تجربة الرابط</span>
+                                            </a>
                                         </div>
                                         <div className="flex items-center gap-2 justify-center text-xs text-amber-600 font-bold">
                                             <Clock size={14} />

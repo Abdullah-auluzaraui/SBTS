@@ -126,6 +126,7 @@ const PhoneChangeModal: React.FC<PhoneChangeModalProps> = ({ onClose, onSuccess 
   const [step, setStep] = useState<number>(1); // 1: enter new phone, 2: enter OTP
   const [newPhone, setNewPhone] = useState<string>('');
   const [otpCode, setOtpCode] = useState<string>('');
+  const [mockOtp, setMockOtp] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -137,6 +138,7 @@ const PhoneChangeModal: React.FC<PhoneChangeModalProps> = ({ onClose, onSuccess 
     try {
       const { data } = await api.post('/profile/phone/request', { newPhone });
       if (data.mockOtp) {
+        setMockOtp(data.mockOtp);
         console.log(`\n========================================`);
         console.log(`[MOCK OTP change-phone]: ${data.mockOtp}`);
         console.log(`========================================\n`);
@@ -204,6 +206,21 @@ const PhoneChangeModal: React.FC<PhoneChangeModalProps> = ({ onClose, onSuccess 
               <p className="text-gray-500 text-xs mt-1">{t('profile.sentTo')} <span dir="ltr" className="font-bold">{newPhone}</span></p>
             </div>
             <form onSubmit={handleVerifyOtp} className="space-y-4">
+              {mockOtp && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-800 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>رمز التحقق التجريبي: <strong className="font-mono text-base font-bold text-amber-900 tracking-widest">{mockOtp}</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOtpCode(mockOtp)}
+                    className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                  >
+                    تعبئة تلقائية
+                  </button>
+                </div>
+              )}
               <div className="flex justify-center">
                 <input type="text" maxLength={6} dir="ltr" placeholder="------" autoFocus
                   className="w-40 text-center text-2xl tracking-widest px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-green-500 transition-all font-mono"
