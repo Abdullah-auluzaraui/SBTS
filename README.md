@@ -402,4 +402,5 @@ Arabic-specific text processing:
 
 ## License
 
-ISC
+This project is licensed under the [MIT License](LICENSE).
+
