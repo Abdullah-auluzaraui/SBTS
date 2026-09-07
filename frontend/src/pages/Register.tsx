@@ -19,6 +19,7 @@ const Register: React.FC = () => {
     const [step, setStep] = useState<number>(1);
     const [otp, setOtp] = useState<string>('');
     const [studentId, setStudentId] = useState<string | null>(null);
+    const [mockOtp, setMockOtp] = useState<string>('');
 
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
@@ -66,6 +67,7 @@ const Register: React.FC = () => {
             setStep(2);
             
             if (data.mockOtp) {
+                setMockOtp(data.mockOtp);
                 console.log(`\n========================================`);
                 console.log(`🔑 MOCK OTP CODE: ${data.mockOtp}`);
                 console.log(`========================================\n`);
@@ -278,6 +280,22 @@ const Register: React.FC = () => {
                         </p>
 
                         <form onSubmit={handleVerifyOTP} className="space-y-6">
+                            {mockOtp && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-sm text-amber-800 flex items-center justify-between shadow-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-base">💡</span>
+                                        <span>رمز التحقق التجريبي: <strong className="font-mono text-base font-bold text-amber-900 tracking-widest">{mockOtp}</strong></span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setOtp(mockOtp)}
+                                        className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                    >
+                                        تعبئة تلقائية
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex justify-center">
                                 <input
                                     type="text"
