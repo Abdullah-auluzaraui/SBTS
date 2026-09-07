@@ -344,6 +344,15 @@ export class StudentService {
       const rawNationalId = row.nationalId;
       const rawDob = row.dob;
 
+      // Skip CSV header row if present
+      if (
+        rawName &&
+        (rawName.toLowerCase() === 'name' || rawName.trim() === 'الاسم' || rawName.trim() === 'اسم الطالب') &&
+        (rawNationalId?.toLowerCase().includes('national') || rawNationalId?.includes('هوية'))
+      ) {
+        continue;
+      }
+
       if (!rawName || rawName.trim() === '') {
         skipped++;
         errors.push({ key: 'skipNoName' });

@@ -38,20 +38,28 @@ export function bearingDelta(b1: number, b2: number): number {
 interface GPSPosition {
   lat: number;
   lng: number;
-  updatedAt: Date;
+  updatedAt: Date | string | number;
 }
 
 /**
  * Calculate speed in km/h given two positions and timestamps.
- * @param pos1 - { lat, lng, updatedAt: Date }
- * @param pos2 - { lat, lng, updatedAt: Date }
+ * Supports Date instances, ISO string timestamps, or numeric timestamps.
+ * @param pos1 - { lat, lng, updatedAt: Date | string | number }
+ * @param pos2 - { lat, lng, updatedAt: Date | string | number }
  */
 export function calculateSpeedKmH(pos1: GPSPosition, pos2: GPSPosition): number {
   if (!pos1 || !pos2 || !pos1.updatedAt || !pos2.updatedAt) return 0;
-  const timeDiffHours = Math.abs(pos2.updatedAt.getTime() - pos1.updatedAt.getTime()) / (1000 * 60 * 60);
+  
+  const t1 = new Date(pos1.updatedAt).getTime();
+  const t2 = new Date(pos2.updatedAt).getTime();
+  
+  if (isNaN(t1) || isNaN(t2)) return 0;
+  
+  const timeDiffHours = Math.abs(t2 - t1) / (1000 * 60 * 60);
   if (timeDiffHours === 0) return 0;
   
   const distanceM = haversineDistance(pos1.lat, pos1.lng, pos2.lat, pos2.lng);
   const distanceKm = distanceM / 1000;
   return distanceKm / timeDiffHours;
 }
+
