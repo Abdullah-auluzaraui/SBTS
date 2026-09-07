@@ -53,6 +53,8 @@ const DEMO_USERS_MAP: Record<UserRole, { username: string; labelAr: string; labe
   }
 };
 
+const DEMO_ROLES_ORDER: UserRole[] = ['superadmin', 'schooladmin', 'parent', 'driver'];
+
 export const DemoRoleSwitcher: React.FC = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const { i18n } = useTranslation();
@@ -159,7 +161,7 @@ export const DemoRoleSwitcher: React.FC = () => {
           {/* Quick Role Buttons */}
           {!isDesktopCollapsed && (
             <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
-              {(['driver', 'parent', 'schooladmin', 'superadmin'] as UserRole[]).map((roleKey) => {
+              {DEMO_ROLES_ORDER.map((roleKey) => {
                 const info = DEMO_USERS_MAP[roleKey];
                 const RoleIcon = info.icon;
                 const isActive = user?.role === roleKey;
@@ -288,7 +290,7 @@ export const DemoRoleSwitcher: React.FC = () => {
 
             {/* 4 Mobile Role Cards */}
             <div className="grid grid-cols-1 gap-2.5 my-3">
-              {(['driver', 'parent', 'schooladmin', 'superadmin'] as UserRole[]).map((roleKey) => {
+              {DEMO_ROLES_ORDER.map((roleKey) => {
                 const info = DEMO_USERS_MAP[roleKey];
                 const RoleIcon = info.icon;
                 const isActive = user?.role === roleKey;
