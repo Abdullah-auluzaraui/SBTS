@@ -1,3 +1,4 @@
+import dns from 'node:dns';
 import mongoose from 'mongoose';
 
 const connectDB = async (retries = 5, delayMs = 3000): Promise<void> => {
@@ -5,6 +6,14 @@ const connectDB = async (retries = 5, delayMs = 3000): Promise<void> => {
   if (!mongoUri) {
     console.error("❌ DB Error: MONGO_URI is not defined in environment variables");
     process.exit(1);
+  }
+
+  if (process.env.OVERRIDE_DNS === 'true' || mongoUri.startsWith('mongodb+srv://')) {
+    try {
+      dns.setServers(['8.8.8.8', '1.1.1.1']);
+    } catch {
+      // Ignore if not supported in environment
+    }
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
