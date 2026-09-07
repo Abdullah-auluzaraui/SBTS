@@ -6,7 +6,10 @@ import { useTranslation } from 'react-i18next';
 import io from 'socket.io-client';
 
 const getSocketUrl = () => {
-    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+        return (envUrl as string).trim().replace(/\/+$/, '').replace(/\/api$/, '');
+    }
     return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
 };
 
