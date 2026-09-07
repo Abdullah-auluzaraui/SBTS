@@ -44,6 +44,10 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+});
+
 app.get('/', (_req, res) => {
   res.send('SBTS Backend Running Successfully');
 });
