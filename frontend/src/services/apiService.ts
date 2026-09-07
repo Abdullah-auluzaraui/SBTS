@@ -3,8 +3,15 @@ import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 // Task FE-S1-7: Axios instance
 // In development, Vite proxies /api/* to http://localhost:5000 — no CORS issues.
 // In production, set VITE_API_URL to the deployed backend URL.
+const getBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  const clean = envUrl.trim().replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },

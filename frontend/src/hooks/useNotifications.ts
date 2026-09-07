@@ -31,7 +31,10 @@ interface UseNotificationsReturn {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getSocketUrl = (): string => {
-  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL as string;
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    return (envUrl as string).trim().replace(/\/+$/, '').replace(/\/api$/, '');
+  }
   return import.meta.env.DEV ? 'http://localhost:5000' : window.location.origin;
 };
 
