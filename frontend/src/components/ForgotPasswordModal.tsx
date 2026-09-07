@@ -169,17 +169,17 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ onClose }) =>
             </div>
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               {mockOtp && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-sm text-amber-800 flex items-center justify-between shadow-sm">
+                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 text-sm text-amber-900 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-1.5">
-                    <span>💡</span>
-                    <span>رمز التحقق التجريبي: <strong className="font-mono text-base font-bold text-amber-900 tracking-widest">{mockOtp}</strong></span>
+                    <ShieldCheck size={16} className="text-amber-700 shrink-0" />
+                    <span>رمز التحقق للاختبار: <strong className="font-mono text-base font-bold text-amber-950 tracking-widest">{mockOtp}</strong></span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setOtpCode(mockOtp)}
-                    className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                    className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-2.5 py-1 rounded-lg transition-colors shadow-xs cursor-pointer"
                   >
-                    تعبئة تلقائية
+                    تعبئة الرمز
                   </button>
                 </div>
               )}

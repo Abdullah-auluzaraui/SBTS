@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Sparkles,
+  BookOpen,
+  Compass,
   ShieldCheck,
   School,
   Bus,
@@ -65,17 +66,6 @@ const ROLE_STEPS: RoleStepConfig[] = [
     btnPrimary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200'
   },
   {
-    roleKey: 'driver',
-    icon: Bus,
-    themeColor: 'amber',
-    bgLight: 'bg-amber-50/70',
-    borderLight: 'border-amber-200',
-    textDark: 'text-amber-950',
-    badgeBg: 'bg-amber-100',
-    badgeText: 'text-amber-800',
-    btnPrimary: 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-200'
-  },
-  {
     roleKey: 'parent',
     icon: Users,
     themeColor: 'emerald',
@@ -85,6 +75,17 @@ const ROLE_STEPS: RoleStepConfig[] = [
     badgeBg: 'bg-emerald-100',
     badgeText: 'text-emerald-800',
     btnPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+  },
+  {
+    roleKey: 'driver',
+    icon: Bus,
+    themeColor: 'amber',
+    bgLight: 'bg-amber-50/70',
+    borderLight: 'border-amber-200',
+    textDark: 'text-amber-950',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    btnPrimary: 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-200'
   }
 ];
 
@@ -183,7 +184,7 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
           <div className="flex items-center justify-between gap-3 mb-2.5">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-primary-50 text-primary-700 border border-primary-100">
-                <Sparkles size={13} className="text-primary-600 animate-pulse" />
+                <BookOpen size={13} className="text-primary-600" />
                 <span>{t('guide.badge')}</span>
               </span>
               <span className="text-xs font-semibold text-gray-400">
@@ -216,7 +217,7 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
               }`}
               title={t('guide.welcome.title')}
             >
-              <Sparkles size={12} />
+              <Compass size={12} />
               <span className="hidden sm:inline">{t('guide.welcome.badge')}</span>
             </button>
 
@@ -244,9 +245,6 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
                 >
                   <Icon size={13} />
                   <span className="hidden sm:inline">{roleTitle}</span>
-                  {roleCfg.roleKey === 'driver' && (
-                    <span className="text-[10px] text-amber-300">★</span>
-                  )}
                 </button>
               );
             })}
@@ -274,8 +272,8 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-2xl -mr-20 -mt-20 pointer-events-none" />
                 <div className="relative z-10 space-y-2.5">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-[11px] font-bold text-white border border-white/20">
-                    <Sparkles size={12} />
-                    <span>SBTS · Smart Bus Tracking System</span>
+                    <Compass size={12} />
+                    <span>SBTS · Smart Bus Transport System</span>
                   </div>
                   <h3 className="text-lg sm:text-xl font-black leading-snug">
                     {t('guide.welcome.title')}
@@ -333,11 +331,6 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
                         <div className="space-y-0.5 flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-gray-900">
                             <span>{t(`guide.${roleCfg.roleKey}.roleName`)}</span>
-                            {roleCfg.roleKey === 'driver' && (
-                              <span className="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded-md font-extrabold">
-                                ⭐
-                              </span>
-                            )}
                           </div>
                           <p className="text-[11px] text-gray-600 line-clamp-2 leading-relaxed">
                             {t(`guide.${roleCfg.roleKey}.tagline`)}
@@ -374,9 +367,8 @@ export const DemoGuideModal: React.FC<DemoGuideModalProps> = ({
                         {t(`guide.${activeRoleConfig.roleKey}.roleName`)}
                       </h3>
                       {activeRoleConfig.roleKey === 'driver' && (
-                        <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900 flex items-center gap-1">
-                          <span>★</span>
-                          <span>{t('guide.driver.badge')}</span>
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900">
+                          {t('guide.driver.badge')}
                         </span>
                       )}
                     </div>

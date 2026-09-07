@@ -40,16 +40,13 @@ const Login = () => {
             <div className="absolute top-4 right-4 z-20">
                 <LanguageSwitcher />
             </div>
-            <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-200 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-
             <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] w-full max-w-lg relative z-10 border border-gray-100">
 
                 <div className="text-center mb-8">
                     <div className="w-20 h-20 bg-primary-50 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                         <Bus size={40} strokeWidth={1.75} className="text-primary-500" />
                     </div>
-                    <h2 className="text-3xl font-bold bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent mb-2">
+                    <h2 className="text-3xl font-extrabold text-slate-900 mb-2">
                         {t('auth.welcome')}
                     </h2>
                     <p className="text-gray-500 font-medium">{t('auth.loginSubtitle')}</p>

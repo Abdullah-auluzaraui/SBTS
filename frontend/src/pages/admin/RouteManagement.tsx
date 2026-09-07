@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Loader2, AlertCircle, Ban, Users, Route as RouteIcon, Navigation2, Check } from 'lucide-react';
+import { Loader2, AlertCircle, Ban, Users, Route as RouteIcon, Navigation2, Check, UserCheck } from 'lucide-react';
 import api from '../../services/apiService';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
@@ -391,7 +391,7 @@ const RouteManagement = () => {
                                             <span className="text-gray-500">{t('routeManagement.assignedDriver')}</span>
                                             {route.driver ? (
                                                 <span className="font-bold text-gray-700 flex items-center gap-1.5">
-                                                    <span className="text-blue-500">👨‍✈️</span> {route.driver.name}
+                                                    <UserCheck size={14} className="text-blue-600 inline shrink-0" /> {route.driver.name}
                                                 </span>
                                             ) : (
                                                 <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs font-bold border border-amber-100">
@@ -430,7 +430,7 @@ const RouteManagement = () => {
                                                 <td className="px-6 py-4 text-gray-600 text-start">
                                                     {route.driver ? (
                                                         <span className="inline-flex items-center gap-1.5 font-medium text-sm">
-                                                            <span className="text-blue-500 text-xs">👨‍✈️</span> {route.driver.name}
+                                                            <UserCheck size={14} className="text-blue-600 inline shrink-0" /> {route.driver.name}
                                                         </span>
                                                     ) : (
                                                         <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs border border-amber-100 font-bold">{t('routeManagement.unassigned')}</span>

@@ -6,7 +6,7 @@ import api from '../services/apiService';
 import {
     Shield, School, Users, Plus, X, Loader2, AlertCircle, CheckCircle2,
     ToggleLeft, ToggleRight, Copy, RefreshCw, Bus, Link2, Clock,
-    Search, ChevronLeft, ChevronRight, ExternalLink
+    Search, ChevronLeft, ChevronRight, ExternalLink, Info
 } from 'lucide-react';
 
 
@@ -150,29 +150,54 @@ const SuperAdminDashboard: React.FC = () => {
         disabled: schools.filter(s => !s.isActive && s.invitationStatus === 'accepted').length,
     };
 
-    // Filter schools based on active tab and search query
-    const filteredSchools = schools.filter(s => {
-        // Tab Status Filter
-        if (statusFilter === 'active') {
-            if (!s.isActive || s.invitationStatus !== 'accepted') return false;
-        } else if (statusFilter === 'pending') {
-            if (s.invitationStatus !== 'pending') return false;
-        } else if (statusFilter === 'expired') {
-            if (s.invitationStatus !== 'expired') return false;
-        } else if (statusFilter === 'disabled') {
-            if (s.isActive || s.invitationStatus !== 'accepted') return false;
-        }
+    // Filter and sort schools: Active schools appear first
+    const filteredSchools = schools
+        .filter(s => {
+            // Tab Status Filter
+            if (statusFilter === 'active') {
+                if (!s.isActive || s.invitationStatus !== 'accepted') return false;
+            } else if (statusFilter === 'pending') {
+                if (s.invitationStatus !== 'pending') return false;
+            } else if (statusFilter === 'expired') {
+                if (s.invitationStatus !== 'expired') return false;
+            } else if (statusFilter === 'disabled') {
+                if (s.isActive || s.invitationStatus !== 'accepted') return false;
+            }
 
-        // Search Term Filter
-        if (searchTerm.trim()) {
-            const query = searchTerm.toLowerCase();
-            const matchName = s.name.toLowerCase().includes(query);
-            const matchId = s.schoolId.toLowerCase().includes(query);
-            return matchName || matchId;
-        }
+            // Search Term Filter
+            if (searchTerm.trim()) {
+                const query = searchTerm.toLowerCase();
+                const matchName = s.name.toLowerCase().includes(query);
+                const matchId = s.schoolId.toLowerCase().includes(query);
+                return matchName || matchId;
+            }
 
-        return true;
-    });
+            return true;
+        })
+        .sort((a, b) => {
+            // Priority 1: Active accepted schools first
+            const aActive = a.isActive && a.invitationStatus === 'accepted';
+            const bActive = b.isActive && b.invitationStatus === 'accepted';
+            if (aActive && !bActive) return -1;
+            if (!aActive && bActive) return 1;
+
+            // Priority 2: Status order (pending -> disabled -> expired)
+            const statusWeight = (s: School) => {
+                if (s.isActive && s.invitationStatus === 'accepted') return 0;
+                if (s.invitationStatus === 'pending') return 1;
+                if (!s.isActive && s.invitationStatus === 'accepted') return 2;
+                if (s.invitationStatus === 'expired') return 3;
+                return 4;
+            };
+            const diff = statusWeight(a) - statusWeight(b);
+            if (diff !== 0) return diff;
+
+            // Priority 3: Student count descending
+            const countDiff = (b.studentCount || 0) - (a.studentCount || 0);
+            if (countDiff !== 0) return countDiff;
+
+            return a.schoolId.localeCompare(b.schoolId);
+        });
 
     const totalPages = Math.ceil(filteredSchools.length / itemsPerPage) || 1;
     const paginatedSchools = filteredSchools.slice(
@@ -628,7 +653,7 @@ const SuperAdminDashboard: React.FC = () => {
                                             title="فتح رابط التسجيل في تبويب جديد"
                                             className="px-2.5 py-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-1.5 text-xs font-bold">
                                             <ExternalLink size={14} />
-                                            <span>تجربة الرابط</span>
+                                            <span>فتح الرابط</span>
                                         </a>
                                     </div>
                                 </div>
@@ -638,8 +663,9 @@ const SuperAdminDashboard: React.FC = () => {
                                     <span>{t('superadmin.validFor24h')}</span>
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2">{t('superadmin.sendLinkHint', { email: inviteSuccess.email })}</p>
-                                <div className="mt-2 text-xs text-indigo-600 bg-indigo-50/70 border border-indigo-100 rounded-xl p-2 font-medium">
-                                    💡 يمكنك الضغط على <strong>«تجربة الرابط»</strong> مباشرة لاختبار رحلة تسجيل مدير المدرسة كديمو.
+                                <div className="mt-2 text-xs text-indigo-700 bg-indigo-50/80 border border-indigo-100 rounded-xl p-2.5 font-medium flex items-start gap-2 text-start">
+                                    <Info size={15} className="text-indigo-600 shrink-0 mt-0.5" />
+                                    <span>يمكنك استخدام <strong>«فتح الرابط»</strong> مباشرة لمعاينة واستكمال نموذج تسجيل وتفعيل حساب مدير المدرسة.</span>
                                 </div>
                                 <button onClick={() => setShowInviteModal(false)} className="mt-4 px-6 py-2.5 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors">{t('common.close')}</button>
                             </div>

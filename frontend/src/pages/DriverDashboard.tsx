@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
 import { useTranslation } from 'react-i18next';
-import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, PhoneCall, Phone, UserX, Home, School, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Sparkles, X } from 'lucide-react';
+import { Bus, Play, Users, AlertTriangle, Loader2, Navigation2, CheckCircle, PhoneCall, Phone, UserX, Home, School, AlertOctagon, ChevronDown, ChevronUp, CheckCircle2, Target, X } from 'lucide-react';
 import api from '../services/apiService';
 import axios from 'axios';
 import SharedBusMap from '../components/maps/SharedBusMap';
@@ -945,7 +945,7 @@ const DriverDashboard: React.FC = () => {
                             )}
                             {isActive && !suppressActive && !isApproaching && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-700 bg-white border border-primary-200 rounded-full px-2 py-0.5">
-                                    <Sparkles size={10} />
+                                    <Target size={10} />
                                     {t('driver.activeStudent')}
                                 </span>
                             )}
