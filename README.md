@@ -1,8 +1,8 @@
 # SBTS — School Bus Tracking System
 
-A full-stack, real-time web platform for managing and tracking school buses. It connects four user roles — **Super Admins**, **School Admins**, **Drivers**, and **Parents** — into one system that handles everything from route planning and live GPS tracking to digital attendance and parent notifications.
+A full-stack, real-time web platform and **production-ready MVP** for school bus fleet management and proximity tracking. It connects four user roles — **Super Admins**, **School Admins**, **Drivers**, and **Parents** — into a unified system that handles everything from OSRM street-level route optimization and live GPS tracking to NFC/manual attendance and bearing-validated proximity alerts.
 
-The entire UI is bilingual (English / Arabic) with full RTL support.
+The system is designed as a robust core platform, architected to scale and integrate seamlessly with dedicated mobile clients and automotive IoT hardware. The entire UI is bilingual (English / Arabic) with full RTL support.
 
 ---
 
@@ -20,6 +20,8 @@ The entire UI is bilingual (English / Arabic) with full RTL support.
 - [Security & Privacy](#security--privacy)
 - [Localization](#localization)
 - [Maps & Routing](#maps--routing)
+- [Roadmap & Scalability](#roadmap--scalability)
+- [License](#license)
 
 ---
 
@@ -400,7 +402,29 @@ Arabic-specific text processing:
 
 ---
 
+## Roadmap & Scalability
+
+While the current web platform and backend engine are fully functional, containerized, and tested across 11 test suites (108 tests), the system was deliberately architected with clean API contracts and decoupled services to accommodate real-world commercial evolution:
+
+- **Native Mobile Clients (React Native / Flutter)**
+  - **Driver App:** Background geolocation service with wake-lock persistence, handling continuous GPS broadcasting even when the phone screen is locked or during incoming calls.
+  - **Parent App:** System-level push notifications (FCM / APNs) with actionable lock-screen alerts as the bus crosses the 500m proximity threshold.
+  - **Offline Telemetry Buffering:** Local SQLite queue to buffer GPS breadcrumbs when crossing cellular dead zones, syncing automatically upon network reconnection.
+
+- **Automotive IoT & Hardware Telematics (OBD-II / CAN-Bus)**
+  - Direct telemetry ingestion from vehicle-mounted hardware trackers (e.g., Teltonika, Queclink) over **MQTT** or lightweight TCP protocols.
+  - Automated ignition status detection, fuel efficiency monitoring, and harsh braking alerts independent of the driver's personal smartphone.
+
+- **Physical RFID / NFC Card Readers**
+  - USB / Bluetooth NFC reader hardware integration at the bus entry door for automated student tap-in/tap-out, eliminating driver manual attendance logging.
+
+- **Dynamic Route Optimization & Multi-Vehicle Clustering**
+  - Traveling Salesperson Problem (TSP) heuristics combined with live traffic feeds to auto-balance morning pickup and afternoon drop-off routes across the school fleet.
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
 
