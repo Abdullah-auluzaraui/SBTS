@@ -11,9 +11,13 @@ export const demoGuard = async (req: Request, res: Response, next: NextFunction)
   const method = req.method.toUpperCase();
   const path = req.path.toLowerCase();
 
+  const pathParts = req.path.split('/').filter(Boolean);
+  const lastSegment = pathParts[pathParts.length - 1];
+  const possibleId = (lastSegment && /^[0-9a-fA-F]{24}$/.test(lastSegment)) ? lastSegment : null;
+
   // 1. Block DELETE requests targeting protected accounts
   if (method === 'DELETE') {
-    const targetId = req.params.id || req.body?.id;
+    const targetId = req.params.id || req.body?.id || possibleId;
     if (targetId) {
       const user = await User.findById(targetId).select('username');
       if (user && PROTECTED_USERNAMES.includes(user.username)) {
@@ -29,7 +33,7 @@ export const demoGuard = async (req: Request, res: Response, next: NextFunction)
   // 2. Block password modifications or inactivation of protected accounts
   if (method === 'PUT' || method === 'PATCH' || method === 'POST') {
     if (path.includes('password') || req.body?.password || req.body?.isActive === false) {
-      const targetId = req.params.id || (req.user as any)?._id;
+      const targetId = req.params.id || req.body?.id || (req.user as any)?._id || possibleId;
       if (targetId) {
         const user = await User.findById(targetId).select('username');
         if (user && PROTECTED_USERNAMES.includes(user.username)) {

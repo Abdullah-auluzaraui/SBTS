@@ -40,7 +40,7 @@ interface IPendingStudent {
  * @param currentPos - { lat, lng, updatedAt }
  * @param busId - String representation of bus ID
  */
-function computeHeading(prevPos: Position | null, currentPos: Position, busId: string): number | null {
+export function computeHeading(prevPos: Position | null, currentPos: Position, busId: string): number | null {
   if (!prevPos || !currentPos) return busHeadingMap.get(busId) || null;
   
   const speed = calculateSpeedKmH(prevPos, currentPos);

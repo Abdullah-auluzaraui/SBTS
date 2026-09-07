@@ -365,7 +365,7 @@ export class TripService {
 
     const attendance = await Attendance.findOneAndUpdate(filter, update, {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
       setDefaultsOnInsert: true
     });
 
