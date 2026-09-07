@@ -230,31 +230,44 @@ function studentDob(i: number): Date {
 const seed = async () => {
   await connectDB();
 
-  // 1. Ensure the primary demo school (SCH-0001) exists
-  let school = await School.findOne({ schoolId: 'SCH-0001' });
-  if (!school) {
-    console.log('🏫  Creating primary demo school (SCH-0001)...');
-    school = await School.create({
-      name: 'مدرسة الشفا النموذجية',
-      schoolId: 'SCH-0001',
-      contact: {
-        phone: '+966500000000',
-        email: 'alshifa@school.com'
-      },
-      location: { type: 'Point', coordinates: [46.6965, 24.5545] },
-      isActive: true
-    });
-  } else {
-    await School.findByIdAndUpdate(school._id, {
-      name: 'مدرسة الشفا النموذجية',
-      location: { type: 'Point', coordinates: [46.6965, 24.5545] },
-      isActive: true
-    });
-  }
-  // 4. Hash passwords once
+  // 1. Clear previous demo data FIRST before creating any new records!
+  console.log('🧹  Clearing previous demo data...');
+  const [delBuses, delUsers, delStudents] = await Promise.all([
+    Bus.deleteMany({}),
+    User.deleteMany({
+      $or: [
+        { role: { $in: ['driver', 'parent', 'superadmin', 'schooladmin'] } },
+        { username: { $in: ['s_admin', 'superadmin'] } },
+        { username: { $regex: /^(admin_|driver_|parent)/ } }
+      ]
+    }),
+    Student.deleteMany({ studentId: { $regex: /^S26/ } }),
+    Invitation.deleteMany({}),
+    School.deleteMany({})
+  ]);
+  console.log(
+    `🗑️   Cleared: ${delBuses.deletedCount} buses, ` +
+    `${delUsers.deletedCount} users, ` +
+    `${delStudents.deletedCount} students`
+  );
+
+  // 2. Hash passwords once
   const sharedHash = await bcrypt.hash('Aa1234', 10);
 
-  // 1.1 Seed 29 additional schools across major Saudi cities for realistic SuperAdmin showcase
+  // 3. Create primary demo school (SCH-0001)
+  console.log('🏫  Creating primary demo school (SCH-0001)...');
+  const school = await School.create({
+    name: 'مدرسة الشفا النموذجية',
+    schoolId: 'SCH-0001',
+    contact: {
+      phone: '+966500000000',
+      email: 'alshifa@school.com'
+    },
+    location: { type: 'Point', coordinates: [46.6965, 24.5545] },
+    isActive: true
+  });
+
+  // 4. Seed 29 additional schools across major Saudi cities for realistic SuperAdmin showcase
   const DEMO_EXTRA_SCHOOLS = [
     // ── Accepted & Active Schools (مسجلة ولديها مدير ونشطة) ──
     { name: 'مدارس الرياض الأهلية', schoolId: 'SCH-1002', email: 'riyadh.schools@edu.sa', phone: '+966511001002', status: 'accepted', isActive: true, adminName: 'سليمان خالد الدخيل', adminUser: 'admin_riyadh' },
@@ -294,8 +307,6 @@ const seed = async () => {
     { name: 'مدرسة الرواد النموذجية - حائل', schoolId: 'SCH-1028', email: 'rowaad.hail@edu.sa', phone: '+966511001028', status: 'expired', isActive: false },
     { name: 'مدارس المجد الأهلية - الرياض', schoolId: 'SCH-1029', email: 'almajd@schools.sa', phone: '+966511001029', status: 'expired', isActive: false },
   ];
-
-  await School.deleteMany({ schoolId: { $in: DEMO_EXTRA_SCHOOLS.map(s => s.schoolId) } });
 
   const createdExtraSchools = await School.insertMany(
     DEMO_EXTRA_SCHOOLS.map((s, idx) => ({
@@ -339,40 +350,13 @@ const seed = async () => {
     }
   });
 
-  await Invitation.deleteMany({ token: { $regex: /^demo-token-/ } });
   await Invitation.insertMany(invitationDocs);
 
   if (extraAdminUsers.length > 0) {
-    await User.deleteMany({ username: { $in: extraAdminUsers.map(u => u.username) } });
     await User.insertMany(extraAdminUsers);
   }
 
-  console.log(`🏫  Created ${createdExtraSchools.length + 1} total schools for SuperAdmin demo.`);
-
-  // 3. Clear previous demo data
-  const [delBuses, delUsers, delStudents] = await Promise.all([
-    Bus.deleteMany({
-      $or: [
-        { busId: { $regex: /^BUS-/ } },
-        { school: { $in: [school._id, ...createdExtraSchools.map(s => s._id)] } }
-      ]
-    }),
-    User.deleteMany({
-      $or: [
-        { role: { $in: ['driver', 'parent', 'superadmin'] } },
-        { role: 'schooladmin' },
-        { username: { $in: ['s_admin', 'superadmin'] } },
-        { username: { $regex: /^admin_/ } },
-        { username: { $regex: /^driver_/ } }
-      ]
-    }),
-    Student.deleteMany({ studentId: { $regex: /^S26/ } }),
-  ]);
-  console.log(
-    `🗑️   Cleared: ${delBuses.deletedCount} buses, ` +
-    `${delUsers.deletedCount} users (including schooladmin & superadmin), ` +
-    `${delStudents.deletedCount} students`
-  );
+  console.log(`🏫  Created ${createdExtraSchools.length + 1} total schools with admin accounts.`);
 
   // Create Super Administrator (superadmin)
   const superAdmin = await User.create({

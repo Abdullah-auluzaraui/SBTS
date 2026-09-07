@@ -52,21 +52,21 @@
     "tourComplete": "Tour completed successfully! Feel free to explore all system capabilities.",
     "tryNow": "Experience This Role Now",
     "activeHere": "You are currently in this role",
-    "capabilities": "Key Features to Explore",
-    "tryYourself": "Suggested Steps to Try",
-    "techSideNote": "Technical Overview (Optional)",
+    "capabilities": "Operational Capabilities",
+    "tryYourself": "Standard Walkthrough Steps",
+    "techSideNote": "Technical Architecture & Standards",
     "welcome": {
       "badge": "Guided Tour",
-      "title": "Welcome to Smart Bus Tracking System (SBTS)",
+      "title": "Welcome to Smart Bus Transport System (SBTS)",
       "subtitle": "An end-to-end intelligent platform for school fleet management and real-time student bus tracking, built for school admins, drivers, and parents with effortless clarity.",
       "duration": "Quick 2-minute walkthrough to discover the complete system",
       "startTour": "Start Guided Tour",
       "stats": {
-        "schools": "30+ Registered Schools",
-        "students": "100+ Seeded Students",
+        "schools": "31 Schools & Campuses",
+        "students": "880+ Students",
         "roles": "4 Dedicated Personas"
       },
-      "techStack": "Built with: React · TypeScript · Node.js · Express · MongoDB · WebSockets · OSRM"
+      "techStack": "Core Stack: React · TypeScript · Node.js · Express · MongoDB · WebSockets · OSRM"
     },
     "superadmin": {
       "roleName": "System Admin",
@@ -98,14 +98,14 @@
       "steps": [
         "Review the high-level KPI cards on the dashboard home",
         "Navigate to «Bus Tracking» via the menu to view active bus positions",
-        "Browse «Student Management» to view 100 students and their home coordinates",
+        "Browse Student Management to view enrolled students and verified home stops.",
         "Open «Attendance Records» to inspect board/drop-off audit logs"
       ],
       "tech": "Architecture: Aggregated metrics pipelines, relational integrity constraints, and geospatial mapping integration."
     },
     "driver": {
-      "roleName": "Bus Driver",
-      "badge": "Most Interactive Experience ⭐",
+      "roleName": "Driver",
+      "badge": "Field Driver Interface",
       "tagline": "Active trip navigation, live simulation, and boarding verification",
       "desc": "Field-ready driver interface providing route guidance, live trip simulation, proximity alerts, and automated stop-by-stop boarding.",
       "features": [
@@ -136,7 +136,7 @@
       "steps": [
         "Review your child's card and current transit status",
         "Click «Track Bus» to open the live tracking map",
-        "💡 Pro Tip: Open the site in two different browsers (or an incognito window) — run the Driver Simulator in one, and watch the bus move live in real-time right here!"
+        "Real-time sync: Run the bus trip simulation from the driver portal and monitor live bus movement on the interactive map."
       ],
       "tech": "Architecture: Private WebSocket rooms per parent ensuring strict data isolation, minimal payload overhead, and real-time sync."
     }
@@ -149,7 +149,7 @@
     "mode": "Simulation Mode"
   },
   "common": {
-    "appName": "School Bus Tracker",
+    "appName": "Smart Bus Transport System | SBTS",
     "logout": "Logout",
     "save": "Save Changes",
     "saving": "Saving...",
@@ -195,7 +195,7 @@
   },
   "auth": {
     "welcome": "Welcome Back",
-    "loginSubtitle": "Sign in to the Bus Tracking System",
+    "loginSubtitle": "Sign in to Smart Bus Transport System",
     "usernameLabel": "Username",
     "usernamePlaceholder": "Enter your username",
     "passwordLabel": "Password",
@@ -245,7 +245,7 @@
   },
   "onboarding": {
     "title": "School Admin Invitation",
-    "subtitle": "School Bus Tracking System",
+    "subtitle": "Smart Bus Transport System | SBTS",
     "verifying": "Verifying invitation...",
     "invitationError": "Invitation Error",
     "goToLogin": "Go to Login",
@@ -333,7 +333,7 @@
     "noEmergencyHint": "Add a number using the button above",
     "saveSuccess": "Numbers saved successfully",
     "savingContacts": "Saving...",
-    "schoolLocationSet": "School location is set on the map ✅",
+    "schoolLocationSet": "School location is set on the map",
     "schoolLocationNotSet": "School location has not been set yet",
     "schoolLocationHint": "Will be used to automatically calculate bus routes",
     "schoolLocationSetHint": "Please set it to activate smart routes",
@@ -398,7 +398,7 @@
     "phaseCheckin": "School Gate Check-in",
     "phaseCheckinSubtitle": "Mark every student before starting the route",
     "startRoute": "Start Route",
-    "morningAbsentBadge": "⚠️ Absent in Morning",
+    "morningAbsentBadge": "Absent in morning trip",
     "markDroppedOff": "Dropped Off",
     "noReceiverModalTitle": "Confirm — No Receiver",
     "noReceiverModalSubtitle": "You must attempt to contact the parent before confirming",
@@ -566,8 +566,8 @@
     "cancelBtn": "Cancel",
     "saveAssign": "Save ({{count}} students)",
     "assignedOtherBus": "Assigned to bus: {{busId}}",
-    "noParent": "⚠️ No parent linked",
-    "noLocation": "⚠️ Home location not set",
+    "noParent": "No linked guardian",
+    "noLocation": "Home address not specified",
     "autoAssignTitle": "Automatic Student Distribution",
     "autoAssignSubtitle": "Smart distribution based on geographic proximity and route direction to school",
     "calculating": "Calculating optimal distribution...",
@@ -896,7 +896,7 @@
       "body": "Your child's status on the bus has been updated."
     },
     "BUS_APPROACHING": {
-      "title": "Bus Approaching ",
+      "title": "Bus Approaching",
       "body": "The bus is approaching your location and will arrive soon."
     }
   },

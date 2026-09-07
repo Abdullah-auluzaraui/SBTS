@@ -89,9 +89,12 @@ const AdminDashboard: React.FC = () => {
                         <School size={32} strokeWidth={1.75} className="text-primary-500" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-800">
-                            <span className="bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent">{user?.name}</span>
+                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                            {user?.name}
                         </h2>
+                        <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                            لوحة إدارة المدرسة والعمليات الميدانية للنقل
+                        </p>
                     </div>
                 </div>
 

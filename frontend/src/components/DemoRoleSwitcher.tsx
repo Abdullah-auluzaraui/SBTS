@@ -12,7 +12,9 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Sparkles,
+  Layers,
+  BookOpen,
+  Compass,
   X
 } from 'lucide-react';
 import api from '../services/apiService';
@@ -153,9 +155,9 @@ export const DemoRoleSwitcher: React.FC = () => {
       >
         <div className="bg-white/95 hover:bg-white backdrop-blur-md text-gray-800 border border-gray-200/90 shadow-xl rounded-2xl p-1.5 flex items-center gap-1.5 transition-all ring-1 ring-black/5">
           {/* Demo Badge */}
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white text-xs font-extrabold shadow-sm shrink-0">
-            <Sparkles size={13} className="animate-pulse" />
-            <span>{isRtl ? 'عرض تجريبي' : 'Demo'}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-xs shrink-0">
+            <Layers size={13} className="text-primary-400" />
+            <span>{isRtl ? 'بيئة المعاينة' : 'Demo Env'}</span>
           </div>
 
           {/* Quick Role Buttons */}
@@ -201,8 +203,8 @@ export const DemoRoleSwitcher: React.FC = () => {
                 onClick={() => setShowGuideModal(true)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-blue-700 bg-blue-50/80 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
               >
-                <Sparkles size={12} className="text-blue-600" />
-                <span>{isRtl ? 'دليل التجربة' : 'Guide'}</span>
+                <BookOpen size={12} className="text-blue-600" />
+                <span>{isRtl ? 'دليل المنظومة' : 'Guide'}</span>
               </button>
 
               {/* Reset Demo Button */}
@@ -236,8 +238,8 @@ export const DemoRoleSwitcher: React.FC = () => {
           onClick={() => setIsMobileSheetOpen(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900/95 hover:bg-black text-white rounded-full shadow-2xl backdrop-blur-md border border-white/20 active:scale-95 transition-all cursor-pointer ring-2 ring-primary-500/30"
         >
-          <div className="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-white">
-            <Sparkles size={13} className="animate-pulse" />
+          <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center text-white">
+            <Layers size={13} />
           </div>
           <div className="flex flex-col text-right leading-tight">
             <span className="text-[10px] text-gray-300 font-medium">
@@ -269,7 +271,7 @@ export const DemoRoleSwitcher: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
-                  <Sparkles size={18} />
+                  <Layers size={18} />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900 text-base">
@@ -351,8 +353,8 @@ export const DemoRoleSwitcher: React.FC = () => {
                 }}
                 className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
               >
-                <Sparkles size={14} className="text-blue-600" />
-                <span>{isRtl ? 'دليل التجربة' : 'Guide'}</span>
+                <BookOpen size={14} className="text-blue-600" />
+                <span>{isRtl ? 'دليل المنظومة' : 'Guide'}</span>
               </button>
 
               <button
@@ -377,7 +379,7 @@ export const DemoRoleSwitcher: React.FC = () => {
         onTourComplete={() => {
           setNotification({
             type: 'success',
-            message: isRtl ? '🎉 أكملت جولة الدليل بنجاح! استكشف ميزات النظام بحرية' : '🎉 Tour complete! Feel free to explore the system.'
+            message: isRtl ? 'تم إكمال جولة الدليل بنجاح. يمكنك الآن استعراض المنظومة بحرية.' : 'Tour completed successfully. You can now explore the system.'
           });
           setTimeout(() => setNotification(null), 4000);
         }}

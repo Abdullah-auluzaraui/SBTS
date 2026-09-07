@@ -143,7 +143,7 @@ export async function evaluate(
           });
 
           sendPush(student.parentId, {
-            title: 'الحافلة قادمة 🚌',
+            title: 'اقتراب الحافلة المدرسية',
             body: `الحافلة على بُعد ${Math.round(distanceM)} متر من منزلك`,
             data: {
               type: 'BUS_APPROACHING',

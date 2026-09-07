@@ -28,9 +28,11 @@ function App(): React.JSX.Element {
   const { i18n } = useTranslation();
 
   useEffect(() => {
-    const dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
+    const isAr = i18n.language?.startsWith('ar');
+    const dir = isAr ? 'rtl' : 'ltr';
     document.documentElement.lang = i18n.language;
     document.documentElement.dir = dir;
+    document.title = isAr ? 'منظومة النقل المدرسي الذكي | SBTS' : 'Smart Bus Transport System | SBTS';
   }, [i18n.language]);
 
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';

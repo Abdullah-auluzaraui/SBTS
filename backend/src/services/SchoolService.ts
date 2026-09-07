@@ -83,7 +83,7 @@ export class SchoolService {
     const filter = allSchools ? {} : { isActive: true };
     const schools = await School.find(filter).sort({ createdAt: -1 }).lean();
 
-    return Promise.all(
+    const enriched = await Promise.all(
       schools.map(async (school) => {
         const [studentCount, busCount, adminUser, latestInvitation] = await Promise.all([
           Student.countDocuments({ school: school._id }),
@@ -111,6 +111,19 @@ export class SchoolService {
         };
       })
     );
+
+    // Sort: Active accepted schools first, then by studentCount descending
+    return enriched.sort((a, b) => {
+      const aActive = a.isActive && a.invitationStatus === 'accepted';
+      const bActive = b.isActive && b.invitationStatus === 'accepted';
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+
+      const countDiff = (b.studentCount || 0) - (a.studentCount || 0);
+      if (countDiff !== 0) return countDiff;
+
+      return a.schoolId.localeCompare(b.schoolId);
+    });
   }
 
   static async toggleStatus(id: string) {

@@ -1,7 +1,7 @@
 {
   "name": "sbts-backend",
   "version": "1.0.0",
-  "description": "SBTS - Smart School Bus Tracking System Backend API",
+  "description": "SBTS - Smart Bus Transport System Backend API",
   "main": "index.js",
   "engines": {
     "node": ">=20.0.0"

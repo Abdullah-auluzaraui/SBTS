@@ -40,9 +40,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onRefreshRequired }) 
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm py-4 px-6 md:px-12 flex justify-between items-center sticky top-0 z-50">
-        <h1 className="text-2xl font-bold flex items-center gap-3">
-          <Bus size={28} strokeWidth={2} className="text-primary-500" />
-          <span className="hidden sm:inline bg-gradient-to-l from-primary-600 to-primary-400 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-black flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-600 shadow-2xs">
+            <Bus size={22} strokeWidth={2.2} />
+          </div>
+          <span className="hidden sm:inline font-extrabold text-slate-900 tracking-tight text-xl">
             {t('common.appName')}
           </span>
         </h1>

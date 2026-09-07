@@ -1,5 +1,6 @@
 {
-  "name": "school-bus-tracking-frontend",
+  "name": "sbts-frontend",
+  "description": "SBTS - Smart Bus Transport System Web Application",
   "private": true,
   "version": "1.0.0",
   "type": "module",

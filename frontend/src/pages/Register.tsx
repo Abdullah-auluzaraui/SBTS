@@ -68,9 +68,7 @@ const Register: React.FC = () => {
             
             if (data.mockOtp) {
                 setMockOtp(data.mockOtp);
-                console.log(`\n========================================`);
-                console.log(`🔑 MOCK OTP CODE: ${data.mockOtp}`);
-                console.log(`========================================\n`);
+                console.log(`[Dev/Demo] OTP Code: ${data.mockOtp}`);
             }
         } catch (err: unknown) {
             const apiErr = err as { errorCode?: string; message?: string };
@@ -112,8 +110,6 @@ const Register: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative overflow-hidden py-12 px-4">
-            <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-
             <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] w-full max-w-lg relative z-10 border border-gray-100">
 
                 {step === 1 ? (
@@ -281,17 +277,17 @@ const Register: React.FC = () => {
 
                         <form onSubmit={handleVerifyOTP} className="space-y-6">
                             {mockOtp && (
-                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-sm text-amber-800 flex items-center justify-between shadow-sm">
+                                <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3.5 text-sm text-amber-900 flex items-center justify-between shadow-xs">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-base">💡</span>
-                                        <span>رمز التحقق التجريبي: <strong className="font-mono text-base font-bold text-amber-900 tracking-widest">{mockOtp}</strong></span>
+                                        <ShieldCheck size={16} className="text-amber-700 shrink-0" />
+                                        <span>رمز التحقق للاختبار: <strong className="font-mono text-base font-bold text-amber-950 tracking-widest">{mockOtp}</strong></span>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => setOtp(mockOtp)}
-                                        className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                        className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold px-3 py-1.5 rounded-lg transition-colors shadow-xs cursor-pointer"
                                     >
-                                        تعبئة تلقائية
+                                        تعبئة الرمز
                                     </button>
                                 </div>
                             )}

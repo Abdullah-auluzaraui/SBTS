@@ -1,4 +1,5 @@
-# SBTS — School Bus Tracking System
+# SBTS — Smart Bus Transport System
+### منظومة النقل المدرسي الذكي | SBTS
 
 A full-stack, real-time web platform and **production-ready MVP** for school bus fleet management and proximity tracking. It connects four user roles — **Super Admins**, **School Admins**, **Drivers**, and **Parents** — into a unified system that handles everything from OSRM street-level route optimization and live GPS tracking to NFC/manual attendance and bearing-validated proximity alerts.
 
