@@ -351,12 +351,19 @@ const seed = async () => {
 
   // 3. Clear previous demo data
   const [delBuses, delUsers, delStudents] = await Promise.all([
-    Bus.deleteMany({ busId: { $in: ['BUS-001', 'BUS-002', 'BUS-003', 'BUS-004', 'BUS-005'] } }),
+    Bus.deleteMany({
+      $or: [
+        { busId: { $regex: /^BUS-/ } },
+        { school: { $in: [school._id, ...createdExtraSchools.map(s => s._id)] } }
+      ]
+    }),
     User.deleteMany({
       $or: [
         { role: { $in: ['driver', 'parent', 'superadmin'] } },
-        { role: 'schooladmin', school: school._id },
-        { username: { $in: ['s_admin', 'superadmin'] } }
+        { role: 'schooladmin' },
+        { username: { $in: ['s_admin', 'superadmin'] } },
+        { username: { $regex: /^admin_/ } },
+        { username: { $regex: /^driver_/ } }
       ]
     }),
     Student.deleteMany({ studentId: { $regex: /^S26/ } }),
@@ -468,11 +475,119 @@ const seed = async () => {
       };
     })
   );
-  console.log(`✅  Created ${students.length} students (Assigned 20 to each bus)`);
+  console.log(`✅  Created ${students.length} students for primary demo school (Assigned 20 to each bus)`);
+
+  // 9. Populate Realistic Fleet & Students for Accepted Extra Schools
+  console.log('🚌  Populating realistic fleets and students for other accepted schools...');
+  const extraDriversDocs: any[] = [];
+  const extraBusesDocs: any[] = [];
+  const extraStudentsDocs: any[] = [];
+
+  const acceptedSchools = createdExtraSchools.filter(
+    (_, i) => DEMO_EXTRA_SCHOOLS[i].status === 'accepted'
+  );
+
+  let globalStudentCounter = 101; // Primary school used S26000001..S26000100
+
+  acceptedSchools.forEach((sDoc, schIdx) => {
+    // Determine bus count (2, 3, or 4 buses per school)
+    const busCount = (schIdx % 3) + 2;
+    const schoolCleanId = sDoc.schoolId.replace('SCH-', '');
+    const isSchoolActive = sDoc.isActive;
+
+    // Base coordinates for this school
+    const [baseLng, baseLat] = sDoc.location?.coordinates || [46.7, 24.7];
+
+    for (let b = 1; b <= busCount; b++) {
+      const busId = `BUS-${schoolCleanId}-${b}`;
+      const driverUsername = `driver_${schoolCleanId}_${b}`.toLowerCase();
+      const driverObjId = new mongoose.Types.ObjectId();
+      const busObjId = new mongoose.Types.ObjectId();
+
+      const dNameIdx = (schIdx * 4 + b) % FIRST_NAMES.length;
+      const dFamIdx = (schIdx * 3 + b) % FAMILY_NAMES.length;
+      const driverFullName = `${FIRST_NAMES[dNameIdx]} ${FATHER_NAMES[dNameIdx % FATHER_NAMES.length]} ${FAMILY_NAMES[dFamIdx]}`;
+
+      extraDriversDocs.push({
+        _id: driverObjId,
+        username: driverUsername,
+        name: driverFullName,
+        email: `${driverUsername}@sbts.demo`,
+        password: sharedHash,
+        role: 'driver',
+        school: sDoc._id,
+        phone: generateSaudiPhone(),
+        isActive: isSchoolActive,
+        isPhoneVerified: true
+      });
+
+      extraBusesDocs.push({
+        _id: busObjId,
+        busId,
+        school: sDoc._id,
+        driver: driverObjId,
+        capacity: 20,
+        isActive: isSchoolActive
+      });
+
+      // 12 students per bus
+      const studentsPerBus = 12;
+      for (let s = 1; s <= studentsPerBus; s++) {
+        const sNum = String(globalStudentCounter++).padStart(6, '0');
+        const stName = studentName(globalStudentCounter);
+        const validNationalId = `1${String(100000000 + globalStudentCounter)}`;
+
+        // Slight geographic offset around school
+        const angle = (s / studentsPerBus) * 2 * Math.PI + (b * 0.5);
+        const distance = 0.008 + (s * 0.001); // within 1-2 km
+        const stLng = baseLng + Math.cos(angle) * distance;
+        const stLat = baseLat + Math.sin(angle) * distance;
+
+        extraStudentsDocs.push({
+          name: stName,
+          studentId: `S26${sNum}`,
+          school: sDoc._id,
+          nationalId: encrypt(validNationalId),
+          dob: studentDob(globalStudentCounter),
+          normalizedName: stName.replace(/\s+/g, ' ').trim(),
+          assignedBus: busObjId,
+          location: {
+            type: 'Point',
+            coordinates: [stLng, stLat]
+          },
+          nfcTagId: generateNfcTag(),
+          isActive: isSchoolActive
+        });
+      }
+    }
+  });
+
+  if (extraDriversDocs.length > 0) {
+    await User.insertMany(extraDriversDocs);
+  }
+  if (extraBusesDocs.length > 0) {
+    await Bus.insertMany(extraBusesDocs);
+  }
+  if (extraStudentsDocs.length > 0) {
+    await Student.insertMany(extraStudentsDocs);
+  }
+
+  console.log(
+    `✅  Enriched extra schools with ${extraBusesDocs.length} buses, ` +
+    `${extraDriversDocs.length} drivers, and ${extraStudentsDocs.length} students!`
+  );
 
   // ── Summary ──────────────────────────────────────────────────────────────
+  const totalSchoolsCount = await School.countDocuments();
+  const totalBusesCount = await Bus.countDocuments();
+  const totalStudentsCount = await Student.countDocuments();
+
   console.log('\n══════════════════════════════════════════════════');
-  console.log('📋  Demo data ready!');
+  console.log('📋  Enterprise Demo Data Ready!');
+  console.log('──────────────────────────────────────────────────');
+  console.log(`   Total Schools  : ${totalSchoolsCount}`);
+  console.log(`   Total Buses    : ${totalBusesCount}`);
+  console.log(`   Total Students : ${totalStudentsCount}`);
   console.log('──────────────────────────────────────────────────');
   console.log('   Super Admin  : superadmin');
   console.log('   School Admin : s_admin');
