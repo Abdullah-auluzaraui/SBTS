@@ -34,7 +34,7 @@ const DEMO_ACCOUNTS: Record<string, { username: string; name: string; role: stri
 };
 
 const isDemoEnabled = (): boolean =>
-  process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'demo';
+  process.env.DEMO_MODE === 'true';
 
 /**
  * GET /api/demo/credentials
@@ -61,6 +61,10 @@ router.get('/credentials', (_req: Request, res: Response): void => {
  * GET /api/demo/health
  */
 router.get('/health', async (_req: Request, res: Response): Promise<void> => {
+  if (!isDemoEnabled()) {
+    res.status(403).json({ success: false, errorCode: 'DEMO_DISABLED' });
+    return;
+  }
   try {
     const [superAdmin, schoolAdmin, driver, parent, busCount, studentCount, assignedStudentCount] = await Promise.all([
       User.findOne({ username: 'superadmin', isActive: true }).lean(),

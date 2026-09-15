@@ -23,6 +23,7 @@ import Student from './models/Student';
 import Bus from './models/Bus';
 import Invitation from './models/Invitation';
 import { encrypt } from './utils/crypto';
+import { assertDemoDatabase } from './config/security';
 
 // ── Saudi Phone Number Generator ───────────────────────────────────────
 function generateSaudiPhone(): string {
@@ -228,6 +229,7 @@ function studentDob(i: number): Date {
 
 // ── Main seed function ────────────────────────────────────────────────────
 const seed = async () => {
+  assertDemoDatabase();
   await connectDB();
 
   // 1. Clear previous demo data FIRST before creating any new records!
@@ -342,6 +344,7 @@ const seed = async () => {
         email: config.email,
         phone: config.phone,
         password: sharedHash,
+        isDemoAccount: true,
         role: 'schooladmin',
         school: sDoc._id,
         isPhoneVerified: true,
@@ -363,6 +366,7 @@ const seed = async () => {
     username: 'superadmin',
     email: 'superadmin@sbts.edu',
     password: sharedHash,
+        isDemoAccount: true,
     name: 'مدير النظام التجريبي',
     role: 'superadmin',
     school: null,
@@ -384,6 +388,7 @@ const seed = async () => {
     driverRecords.map(d => ({
       ...d,
       password: sharedHash,
+        isDemoAccount: true,
       role: 'driver',
       school: school._id,
       phone: generateSaudiPhone(),
@@ -410,6 +415,7 @@ const seed = async () => {
         username: `parent${n}`,
         email: `parent${n}@sbts.com`,
         password: sharedHash,
+        isDemoAccount: true,
         name: `Parent ${n}`,
         role: 'parent',
         school: school._id,
@@ -425,6 +431,7 @@ const seed = async () => {
     username: 's_admin',
     email: 'admin@sbts.com',
     password: sharedHash,
+        isDemoAccount: true,
     name: 'صالح الغامدي',
     role: 'schooladmin',
     school: school._id,
@@ -498,6 +505,7 @@ const seed = async () => {
         name: driverFullName,
         email: `${driverUsername}@sbts.demo`,
         password: sharedHash,
+        isDemoAccount: true,
         role: 'driver',
         school: sDoc._id,
         phone: generateSaudiPhone(),

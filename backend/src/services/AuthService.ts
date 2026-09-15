@@ -1,3 +1,4 @@
+import { getJwtSecret } from '../config/security';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
@@ -54,15 +55,17 @@ export class AuthService {
     await OTP.create({ phone, otp: otpCode, studentId: student._id });
 
     // Mock SMS
-    console.log(`\n========================================`);
-    console.log(`📱 MOCK SMS: To ${phone}`);
-    console.log(`🔑 OTP Code for linking ${student.name}: ${otpCode}`);
-    console.log(`⏳ Expires in 5 minutes.`);
-    console.log(`========================================\n`);
+    if (process.env.DEMO_MODE === 'true') {
+      console.log(`\n========================================`);
+      console.log(`📱 MOCK SMS: To ${phone}`);
+      console.log(`🔑 OTP Code for linking ${student.name}: ${otpCode}`);
+      console.log(`⏳ Expires in 5 minutes.`);
+      console.log(`========================================\n`);
+    }
 
     return {
       studentId: student._id,
-      mockOtp: otpCode
+      mockOtp: process.env.DEMO_MODE === 'true' ? otpCode : undefined
     };
   }
 
@@ -148,6 +151,9 @@ export class AuthService {
     const user = await User.findOne({ username }).select('+password');
     if (!user) {
       throw new AppError(400, 'INVALID_CREDENTIALS');
+    }
+    if (user.isDemoAccount && process.env.DEMO_MODE !== 'true') {
+      throw new AppError(403, 'DEMO_DISABLED');
     }
 
     if (!user.isActive) {
@@ -255,16 +261,18 @@ export class AuthService {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     await OTP.create({ phone, otp: otpCode, purpose: 'forgot-password' });
 
-    console.log(`\n========================================`);
-    console.log(`📱 MOCK SMS [forgot-password]: To ${phone}`);
-    console.log(`🔑 OTP Code: ${otpCode}`);
-    console.log(`⏳ Expires in 5 minutes.`);
-    console.log(`========================================\n`);
+    if (process.env.DEMO_MODE === 'true') {
+      console.log(`\n========================================`);
+      console.log(`📱 MOCK SMS [forgot-password]: To ${phone}`);
+      console.log(`🔑 OTP Code: ${otpCode}`);
+      console.log(`⏳ Expires in 5 minutes.`);
+      console.log(`========================================\n`);
+    }
 
     return {
       success: true,
       message: 'تم إرسال رمز التحقق إلى جوالك',
-      mockOtp: otpCode
+      mockOtp: process.env.DEMO_MODE === 'true' ? otpCode : undefined
     };
   }
 
@@ -289,7 +297,7 @@ export class AuthService {
 
     const resetToken = jwt.sign(
       { id: user._id, purpose: 'reset-password' },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       { expiresIn: '10m' }
     );
 
@@ -307,7 +315,7 @@ export class AuthService {
 
     let payload: { id: string; purpose: string } & jwt.JwtPayload;
     try {
-      payload = jwt.verify(resetToken, process.env.JWT_SECRET || 'secret') as { id: string; purpose: string } & jwt.JwtPayload;
+      payload = jwt.verify(resetToken, getJwtSecret()) as { id: string; purpose: string } & jwt.JwtPayload;
     } catch {
       throw new AppError(401, 'INVALID_RESET_TOKEN');
     }

@@ -1,4 +1,5 @@
 export type ErrorCode =
+  | 'DEMO_DISABLED'
   // Auth & Account Errors
   | 'USER_EXISTS'
   | 'USER_NOT_FOUND'

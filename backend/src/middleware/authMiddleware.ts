@@ -1,3 +1,4 @@
+import { getJwtSecret } from '../config/security';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
@@ -9,10 +10,13 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction): 
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { id: string };
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
       return res.status(401).json({ success: false, message: 'User not found' });
+    }
+    if (user.isDemoAccount && process.env.DEMO_MODE !== 'true') {
+      return res.status(403).json({ success: false, errorCode: 'DEMO_DISABLED' });
     }
     if (!user.isActive) {
       return res.status(403).json({
