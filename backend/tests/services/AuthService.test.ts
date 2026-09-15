@@ -10,6 +10,12 @@ import { encrypt } from '../../src/utils/crypto';
 describe('AuthService (خدمة المصادقة وإدارة الحسابات)', () => {
   const schoolId = new mongoose.Types.ObjectId();
 
+  it('blocks a seeded demo account outside demo mode', async () => {
+    const user = await User.create({ username: 'demo_account', email: 'demo@example.com', password: await bcrypt.hash('Aa1234', 10), name: 'Demo', role: 'parent', school: schoolId, isDemoAccount: true });
+    delete process.env.DEMO_MODE;
+    await expect(AuthService.login({ username: user.username, password: 'Aa1234' })).rejects.toMatchObject({ code: 'DEMO_DISABLED' });
+  });
+
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test_jwt_secret_key_12345';
     await connectTestDb();
@@ -120,6 +126,7 @@ describe('AuthService (خدمة المصادقة وإدارة الحسابات)'
 
   describe('registerRequest & registerVerify (تسجيل ولي أمر وربط الطالب)', () => {
     it('ينشئ رمز OTP بنجاح لبيانات طالب مطابقة وغير مربوط', async () => {
+      process.env.DEMO_MODE = 'true';
       const nationalId = '1098765432';
       const dob = '2015-05-15';
 
@@ -145,6 +152,9 @@ describe('AuthService (خدمة المصادقة وإدارة الحسابات)'
       expect(result).toBeDefined();
       expect(result.studentId.toString()).toBe(student._id.toString());
       expect(result.mockOtp).toHaveLength(6);
+      delete process.env.DEMO_MODE;
+      const standardResult = await AuthService.registerRequest({ username: 'standard_parent', email: 'standard@example.com', name: 'Test Parent', phone: '0501112244', nationalId, dob });
+      expect(standardResult.mockOtp).toBeUndefined();
     });
 
     it('يرفض الطلب إذا كان البريد الإلكتروني أو اسم المستخدم مستخدماً مسبقاً (USER_EXISTS)', async () => {

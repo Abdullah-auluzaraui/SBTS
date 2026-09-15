@@ -1,21 +1,9 @@
+import { getEncryptionKey } from '../config/security';
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-cbc';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'defaultkey32byteslongdefaultkey32bytes';
-
-const IV_LENGTH = 16; // For AES, this is always 16
-
-// Ensure the key is exactly 32 bytes
-let keyBuffer: Buffer;
-if (ENCRYPTION_KEY.length === 64) {
-  keyBuffer = Buffer.from(ENCRYPTION_KEY, 'hex'); // 64 hex chars = 32 bytes
-} else {
-  keyBuffer = Buffer.from(ENCRYPTION_KEY); // Default utf8
-  if (keyBuffer.length !== 32) {
-    // Fallback: hash the key to ensure it is exactly 32 bytes long for AES-256
-    keyBuffer = crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
-  }
-}
+const IV_LENGTH = 16;
+const keyBuffer = getEncryptionKey();
 
 /**
  * Encrypts a text string.

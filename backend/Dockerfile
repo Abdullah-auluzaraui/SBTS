@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for SBTS Backend
 # Stage 1: Build TypeScript source code
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -8,6 +8,7 @@ WORKDIR /app
 COPY backend/package*.json ./backend/
 
 WORKDIR /app/backend
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 RUN npm ci
 
 # Copy backend source files and shared types
@@ -20,7 +21,7 @@ WORKDIR /app/backend
 RUN npm run build
 
 # Stage 2: Minimal Production Runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Install Chromium and Arabic fonts for Puppeteer PDF generation
 RUN apk add --no-cache \
@@ -33,7 +34,7 @@ RUN apk add --no-cache \
     font-noto-arabic
 
 # Configure Puppeteer to use Alpine Chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     NODE_ENV=production \
     PORT=5000
