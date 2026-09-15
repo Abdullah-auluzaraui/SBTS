@@ -27,12 +27,13 @@ function initAdmin(): boolean {
   }
 
   try {
-    const firebaseAdmin = require('firebase-admin');
+    const { initializeApp, cert } = require('firebase-admin/app');
+    const { getMessaging } = require('firebase-admin/messaging');
     const serviceAccount = JSON.parse(raw);
-    firebaseAdmin.initializeApp({
-      credential: firebaseAdmin.credential.cert(serviceAccount)
+    const firebaseApp = initializeApp({
+      credential: cert(serviceAccount)
     });
-    adminInstance = firebaseAdmin;
+    adminInstance = { messaging: () => getMessaging(firebaseApp) };
     messagingReady = true;
     console.log('[FCMService] Firebase Admin SDK initialized ✅');
     return true;
