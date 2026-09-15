@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
 import School from '../models/School';
-import puppeteer from 'puppeteer';
+import type { Browser } from 'puppeteer';
 import { AppError } from '../utils/AppError';
 
 // Bilingual label dictionary for the PDF report
@@ -295,14 +295,16 @@ export class AttendanceService {
 </body>
 </html>`;
 
-    let browser;
+    let browser: Browser | undefined;
     try {
+      const { default: puppeteer } = await import('puppeteer');
       browser = await puppeteer.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       });
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      await page.setContent(html, { waitUntil: 'load' });
+      await page.waitForNetworkIdle();
       const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '16px', bottom: '16px', left: '16px', right: '16px' } });
       return { pdfBuffer, dateLabel: dateFromParsed.toISOString().slice(0, 10) };
     } catch (pdfErr) {

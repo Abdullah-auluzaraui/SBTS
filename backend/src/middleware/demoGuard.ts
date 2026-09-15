@@ -5,7 +5,7 @@ const PROTECTED_USERNAMES = ['superadmin', 's_admin', 'driver01', 'driver02', 'p
 
 export const demoGuard = async (req: Request, res: Response, next: NextFunction): Promise<void | Response> => {
   // Active in demo mode
-  const isDemo = process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'demo';
+  const isDemo = process.env.DEMO_MODE === 'true';
   if (!isDemo) return next();
 
   const method = req.method.toUpperCase();

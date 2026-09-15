@@ -12,6 +12,7 @@ export interface IUser extends Document {
   phone?: string;
   isPhoneVerified: boolean;
   isActive: boolean;
+  isDemoAccount?: boolean;
   accountDeletionScheduledAt?: Date | null;
   fcmToken?: string | null;
   createdAt: Date;
@@ -22,6 +23,7 @@ const userSchema = new Schema<IUser>({
   username: { type: String, required: true, unique: true, trim: true },
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true, select: false },
+  isDemoAccount: { type: Boolean, default: false },
   name:     { type: String, required: true },
   role:     { type: String, enum: ['superadmin', 'schooladmin', 'driver', 'parent'], required: true },
   school:   {

@@ -17,6 +17,11 @@ import Student from './models/Student';
 import Bus from './models/Bus';
 
 const seed = async () => {
+  if (process.env.DEMO_MODE !== 'true' || process.env.NODE_ENV === 'production') {
+    throw new Error('This destructive legacy seeder is available only in local DEMO_MODE; use configured server bootstrap for production');
+  }
+  const { assertDemoDatabase } = await import('./config/security');
+  assertDemoDatabase();
   try {
     await connectDB();
     console.log('🧹 جاري تصفية قاعدة البيانات بالكامل...');
@@ -45,6 +50,7 @@ const seed = async () => {
         username: 'superadmin01',
         email: 'super@sbts.com',
         password: hashSuper,
+        isDemoAccount: true,
         name: 'System Super Admin',
         role: 'superadmin',
         school: null,
