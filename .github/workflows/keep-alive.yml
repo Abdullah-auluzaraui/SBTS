@@ -1,0 +1,26 @@
+name: Keep Render Backend Awake
+
+on:
+  schedule:
+    # Runs every 12 minutes to prevent Render free instance from spinning down (15-min inactivity limit)
+    - cron: '*/12 * * * *'
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+
+jobs:
+  keep-alive:
+    name: Ping Health Endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping SBTS Render Backend
+        run: |
+          echo "Sending keep-alive ping to Render backend..."
+          RESPONSE=$(curl -s -S -w "\nHTTP_STATUS: %{http_code}\nTIME_TOTAL: %{time_total}s\n" --max-time 90 --retry 2 "https://sbts-backend-3dfo.onrender.com/api/health")
+          echo "$RESPONSE"
+          
+          # Check if response status is 200
+          if echo "$RESPONSE" | grep -q "HTTP_STATUS: 200"; then
+            echo "✅ Backend is active and responded successfully."
+          else
+            echo "⚠️ Backend did not return 200 OK or took longer to wake up."
+          fi
+
